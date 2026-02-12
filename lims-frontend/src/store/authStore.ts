@@ -1,28 +1,41 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
-interface User {
-    id: number;
+interface UserInfo {
     username: string;
     displayName: string;
     roles: string[];
 }
 
 interface AuthState {
-    user: User | null;
     token: string | null;
+    user: UserInfo | null;
     isAuthenticated: boolean;
-    login: (user: User, token: string) => void;
+    setAuth: (token: string, user: UserInfo) => void;
     logout: () => void;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
-    user: null,
-    token: null,
-    isAuthenticated: false,
+export const useAuthStore = create<AuthState>()(
+    persist(
+        (set) => ({
+            token: null,
+            user: null,
+            isAuthenticated: false,
 
-    login: (user, token) =>
-        set({ user, token, isAuthenticated: true }),
+            setAuth: (token, user) => set({
+                token,
+                user,
+                isAuthenticated: true,
+            }),
 
-    logout: () =>
-        set({ user: null, token: null, isAuthenticated: false }),
-}));
+            logout: () => set({
+                token: null,
+                user: null,
+                isAuthenticated: false,
+            }),
+        }),
+        {
+            name: 'lims-auth',
+        }
+    )
+);

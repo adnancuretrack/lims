@@ -13,6 +13,7 @@ import {
     MenuUnfoldOutlined,
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
+import { useAuthStore } from '../../store/authStore';
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
@@ -26,21 +27,30 @@ const sideMenuItems: MenuProps['items'] = [
     { key: '/admin/users', icon: <SettingOutlined />, label: 'Admin' },
 ];
 
-const userMenuItems: MenuProps['items'] = [
-    { key: 'profile', icon: <UserOutlined />, label: 'Profile' },
-    { type: 'divider' },
-    { key: 'logout', icon: <LogoutOutlined />, label: 'Logout', danger: true },
-];
-
 export default function AppLayout() {
     const [collapsed, setCollapsed] = useState(false);
     const navigate = useNavigate();
     const location = useLocation();
     const { token } = theme.useToken();
+    const user = useAuthStore((s) => s.user);
+    const logout = useAuthStore((s) => s.logout);
 
     const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
         navigate(key);
     };
+
+    const handleUserMenu: MenuProps['onClick'] = ({ key }) => {
+        if (key === 'logout') {
+            logout();
+            navigate('/login');
+        }
+    };
+
+    const userMenuItems: MenuProps['items'] = [
+        { key: 'profile', icon: <UserOutlined />, label: user?.displayName || 'User' },
+        { type: 'divider' },
+        { key: 'logout', icon: <LogoutOutlined />, label: 'Logout', danger: true },
+    ];
 
     return (
         <Layout style={{ minHeight: '100vh' }}>
@@ -91,10 +101,10 @@ export default function AppLayout() {
                         {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
                     </div>
 
-                    <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
+                    <Dropdown menu={{ items: userMenuItems, onClick: handleUserMenu }} placement="bottomRight">
                         <Space style={{ cursor: 'pointer' }}>
                             <Avatar icon={<UserOutlined />} style={{ backgroundColor: token.colorPrimary }} />
-                            <Text>Admin</Text>
+                            <Text>{user?.displayName || 'User'}</Text>
                         </Space>
                     </Dropdown>
                 </Header>

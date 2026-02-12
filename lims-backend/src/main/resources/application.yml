@@ -58,11 +58,11 @@ spring:
       mail.smtp.auth: false
       mail.smtp.starttls.enable: false
 
-  # ---------- Security ----------
-  security:
-    user:
-      name: admin
-      password: admin
+# ---------- LIMS JWT Configuration ----------
+lims:
+  jwt:
+    secret: lims-dev-secret-key-must-be-at-least-32-characters!!
+    expiration-ms: 86400000  # 24 hours
 
 # ---------- Server ----------
 server:

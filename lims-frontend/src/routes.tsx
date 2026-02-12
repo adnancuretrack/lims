@@ -1,6 +1,7 @@
 import { lazy } from 'react';
 import type { RouteObject } from 'react-router-dom';
 import AppLayout from './components/layout/AppLayout';
+import ProtectedRoute from './components/auth/ProtectedRoute';
 
 // Lazy-loaded page modules
 const DashboardPage = lazy(() => import('./pages/dashboard/DashboardPage'));
@@ -26,7 +27,7 @@ export const routes: RouteObject[] = [
     },
     {
         path: '/',
-        element: <AppLayout />,
+        element: <ProtectedRoute><AppLayout /></ProtectedRoute>,
         children: [
             { index: true, element: <DashboardPage /> },
             // Sample lifecycle
