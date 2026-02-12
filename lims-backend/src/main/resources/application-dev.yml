@@ -1,0 +1,43 @@
+# ============================================================
+# LIMS Backend — Development Profile
+# ============================================================
+
+spring:
+  # Use H2 in-memory for quick dev if PostgreSQL isn't running
+  # Uncomment below and comment out datasource in main config:
+  # datasource:
+  #   url: jdbc:h2:mem:lims-dev
+  #   driver-class-name: org.h2.Driver
+  #   username: sa
+  #   password:
+
+  jpa:
+    properties:
+      hibernate:
+        format_sql: true
+    show-sql: true
+
+  # Disable services not needed in dev
+  rabbitmq:
+    listener:
+      simple:
+        auto-startup: false
+  data:
+    redis:
+      repositories:
+        enabled: false
+
+  flyway:
+    clean-disabled: false
+
+# ---------- Logging ----------
+logging:
+  level:
+    com.lims: DEBUG
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
+
+# ---------- Swagger always enabled in dev ----------
+springdoc:
+  swagger-ui:
+    enabled: true

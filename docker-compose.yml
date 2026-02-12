@@ -1,0 +1,72 @@
+# Docker Compose — LIMS Local Development Services
+# Usage: docker compose up -d
+
+services:
+  # ==================== PostgreSQL ====================
+  postgres:
+    image: postgres:16-alpine
+    container_name: lims-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: lims
+      POSTGRES_USER: lims
+      POSTGRES_PASSWORD: lims
+    volumes:
+      - lims-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lims"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==================== Redis ====================
+  redis:
+    image: redis:7-alpine
+    container_name: lims-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - lims-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==================== RabbitMQ ====================
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    container_name: lims-rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"   # AMQP
+      - "15672:15672" # Management UI
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    volumes:
+      - lims-rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==================== MailHog (Dev SMTP) ====================
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: lims-mailhog
+    restart: unless-stopped
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # Web UI
+    logging:
+      driver: none
+
+volumes:
+  lims-pgdata:
+  lims-redis-data:
+  lims-rabbitmq-data:

@@ -1,0 +1,20 @@
+# LIMS Backend
+target/
+*.jar
+*.war
+*.class
+!.mvn/wrapper/
+.mvn/
+mvnw
+mvnw.cmd
+
+# IDE
+.idea/
+*.iml
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
