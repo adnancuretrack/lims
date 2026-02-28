@@ -4,6 +4,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -60,6 +62,16 @@ public class GlobalExceptionHandler {
                 HttpStatus.FORBIDDEN, "You do not have permission to perform this action");
         problem.setTitle("Access Denied");
         problem.setType(URI.create("https://lims.example.com/errors/access-denied"));
+        problem.setProperty("timestamp", Instant.now());
+        return problem;
+    }
+
+    @ExceptionHandler({AuthenticationException.class, BadCredentialsException.class})
+    public ProblemDetail handleAuthentication(Exception ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.UNAUTHORIZED, "Invalid username or password");
+        problem.setTitle("Unauthorized");
+        problem.setType(URI.create("https://lims.example.com/errors/unauthorized"));
         problem.setProperty("timestamp", Instant.now());
         return problem;
     }

@@ -36,9 +36,14 @@ public class DataInitializer implements CommandLineRunner {
             return;
         }
 
+        // Create Roles
         Role adminRole = roleRepository.findByName("ADMIN")
                 .orElseGet(() -> roleRepository.save(Role.builder().name("ADMIN").description("System administrator").build()));
+        
+        Role userRole = roleRepository.findByName("USER")
+                .orElseGet(() -> roleRepository.save(Role.builder().name("USER").description("Standard user").build()));
 
+        // Create Admin User
         User admin = User.builder()
                 .username("admin")
                 .passwordHash(passwordEncoder.encode("admin123"))
@@ -51,5 +56,19 @@ public class DataInitializer implements CommandLineRunner {
 
         userRepository.save(admin);
         log.info("Created default admin user (username: admin, password: admin123)");
+
+        // Create Analyst User
+        User analyst = User.builder()
+                .username("analyst")
+                .passwordHash(passwordEncoder.encode("analyst123"))
+                .displayName("Lab Analyst")
+                .email("analyst@lab.com")
+                .authMethod("LOCAL")
+                .active(true)
+                .roles(Set.of(userRole))
+                .build();
+
+        userRepository.save(analyst);
+        log.info("Created default analyst user (username: analyst, password: analyst123)");
     }
 }

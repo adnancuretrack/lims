@@ -18,7 +18,7 @@ export default function LoginPage() {
 
     const onFinish = async (values: LoginFormValues) => {
         try {
-            const response = await apiClient.post('/api/auth/login', values);
+            const response = await apiClient.post('/auth/login', values);
             const { token, username, displayName, roles } = response.data;
             setAuth(token, { username, displayName, roles });
             message.success(`Welcome, ${displayName}!`);

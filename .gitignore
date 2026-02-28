@@ -43,3 +43,31 @@ lims-frontend/src/api/generated/
 lims-pgdata/
 lims-redis-data/
 lims-rabbitmq-data/
+
+requirements/
+playwright/
+playwright-report/
+
+
+batch3_plan.md
+implementation_plan.md
+gcp_deployment_guide.md
+oracle_deployment_guide.md
+local_tunnel_guide.md
+phase3_plan.md
+requirements_breakdown.md
+ROLES_AND_ACCESS.md
+task.md
+WORKFLOW.md
+
+# ==================== Playwright ====================
+playwright-report/
+test-results/
+playwright/.cache/
+
+# ==================== Coverage ====================
+coverage/
+
+# ==================== Misc ====================
+.DS_Store
+*.pem

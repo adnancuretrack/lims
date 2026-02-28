@@ -13,6 +13,10 @@ import org.hibernate.envers.RevisionEntity;
 @Entity
 @Table(name = "revinfo")
 @RevisionEntity(AuditRevisionListener.class)
+@AttributeOverrides({
+    @AttributeOverride(name = "id", column = @Column(name = "rev")),
+    @AttributeOverride(name = "timestamp", column = @Column(name = "revtstmp"))
+})
 @Getter
 @Setter
 public class AuditRevisionEntity extends DefaultRevisionEntity {

@@ -1,5 +1,5 @@
-# Docker Compose — LIMS Local Development Services
-# Usage: docker compose up -d
+# Docker Compose — LIMS Full Stack Deployment
+# Usage: docker compose up -d --build
 
 services:
   # ==================== PostgreSQL ====================
@@ -12,7 +12,7 @@ services:
     environment:
       POSTGRES_DB: lims
       POSTGRES_USER: lims
-      POSTGRES_PASSWORD: lims
+      POSTGRES_PASSWORD: lims_secure_password
     volumes:
       - lims-pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -42,11 +42,11 @@ services:
     container_name: lims-rabbitmq
     restart: unless-stopped
     ports:
-      - "5672:5672"   # AMQP
-      - "15672:15672" # Management UI
+      - "5672:5672"   
+      - "15672:15672" 
     environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
+      RABBITMQ_DEFAULT_USER: lims
+      RABBITMQ_DEFAULT_PASS: lims_secure_password
     volumes:
       - lims-rabbitmq-data:/var/lib/rabbitmq
     healthcheck:
@@ -55,14 +55,49 @@ services:
       timeout: 5s
       retries: 5
 
+  # ==================== Backend (Java) ====================
+  backend:
+    build: ./lims-backend
+    container_name: lims-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: jdbc:postgresql://postgres:5432/lims
+      DATABASE_USERNAME: lims
+      DATABASE_PASSWORD: lims_secure_password
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USERNAME: lims
+      RABBITMQ_PASSWORD: lims_secure_password
+      SMTP_HOST: mailhog
+      SMTP_PORT: 1025
+    ports:
+      - "8080:8080"
+
+  # ==================== Frontend (Nginx) ====================
+  frontend:
+    build: ./lims-frontend
+    container_name: lims-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
   # ==================== MailHog (Dev SMTP) ====================
   mailhog:
     image: mailhog/mailhog:latest
     container_name: lims-mailhog
     restart: unless-stopped
     ports:
-      - "1025:1025"  # SMTP
-      - "8025:8025"  # Web UI
+      - "8025:8025"  
     logging:
       driver: none
 

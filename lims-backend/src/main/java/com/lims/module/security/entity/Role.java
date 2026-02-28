@@ -2,10 +2,12 @@ package com.lims.module.security.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.envers.Audited;
 
 @Entity
 @Table(name = "roles")
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Audited
 public class Role {
 
     @Id

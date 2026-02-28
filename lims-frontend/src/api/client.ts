@@ -2,9 +2,12 @@ import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
 
 const apiClient = axios.create({
-    baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080',
+    baseURL: import.meta.env.VITE_API_BASE_URL || '',
     headers: {
         'Content-Type': 'application/json',
+        // Bypass free tunnel warning screens (Pinggy, Ngrok, LocalTunnel)
+        'ngrok-skip-browser-warning': 'true',
+        'bypass-tunnel-reminder': 'true'
     },
 });
 

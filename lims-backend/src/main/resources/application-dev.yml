@@ -3,17 +3,22 @@
 # ============================================================
 
 spring:
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration,org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
   # Use H2 in-memory for quick dev if PostgreSQL isn't running
   # Uncomment below and comment out datasource in main config:
-  # datasource:
-  #   url: jdbc:h2:mem:lims-dev
-  #   driver-class-name: org.h2.Driver
-  #   username: sa
-  #   password:
+  datasource:
+    url: jdbc:h2:mem:lims-dev;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
 
   jpa:
+    hibernate:
+      ddl-auto: create
     properties:
       hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
         format_sql: true
     show-sql: true
 
@@ -28,6 +33,7 @@ spring:
         enabled: false
 
   flyway:
+    enabled: false
     clean-disabled: false
 
 # ---------- Logging ----------

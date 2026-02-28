@@ -10,6 +10,9 @@ spring:
     hikari:
       maximum-pool-size: 30
 
+server:
+  forward-headers-strategy: framework
+
   jpa:
     show-sql: false
     properties:

@@ -8,9 +8,9 @@ spring:
 
   # ---------- Database ----------
   datasource:
-    url: jdbc:postgresql://localhost:5432/lims
+    url: jdbc:postgresql://127.0.0.1:5432/lims
     username: lims
-    password: lims
+    password: lims_secure_password
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 20
@@ -40,23 +40,23 @@ spring:
   # ---------- Redis ----------
   data:
     redis:
-      host: localhost
+      host: 127.0.0.1
       port: 6379
 
   # ---------- RabbitMQ ----------
   rabbitmq:
-    host: localhost
+    host: 127.0.0.1
     port: 5672
-    username: guest
-    password: guest
+    username: lims
+    password: lims_secure_password
 
-  # ---------- Mail ----------
-  mail:
-    host: localhost
-    port: 1025
-    properties:
-      mail.smtp.auth: false
-      mail.smtp.starttls.enable: false
+  # ---------- Mail (Disabled for E2E) ----------
+  # mail:
+  #   host: localhost
+  #   port: 1025
+  #   properties:
+  #     mail.smtp.auth: false
+  #     mail.smtp.starttls.enable: false
 
 # ---------- LIMS JWT Configuration ----------
 lims:

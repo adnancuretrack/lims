@@ -3,6 +3,7 @@ package com.lims.module.security.entity;
 import com.lims.common.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.envers.Audited;
 
 import java.time.Instant;
 import java.util.HashSet;
@@ -11,6 +12,7 @@ import java.util.Set;
 @Entity
 @Table(name = "users")
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Audited
 public class User extends BaseEntity {
 
     @Column(nullable = false, unique = true, length = 100)
