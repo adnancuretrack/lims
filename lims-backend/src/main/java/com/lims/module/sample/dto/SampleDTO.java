@@ -14,5 +14,8 @@ public class SampleDTO {
     private String status;
     private String conditionOnReceipt;
     private Instant receivedAt;
+    private Instant sampledAt;
+    private String clientName;
+    private String jobNumber;
     private String barcode;
 }

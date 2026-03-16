@@ -1,5 +1,6 @@
 package com.lims.module.notification.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lims.module.notification.dto.AuditHistoryDTO;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -8,6 +9,7 @@ import org.hibernate.envers.AuditReader;
 import org.hibernate.envers.AuditReaderFactory;
 import org.hibernate.envers.RevisionType;
 import org.hibernate.envers.query.AuditEntity;
+import com.lims.config.AuditRevisionEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +24,8 @@ public class AuditService {
     @PersistenceContext
     private final EntityManager entityManager;
 
+    private final ObjectMapper objectMapper;
+
     @Transactional(readOnly = true)
     public List<AuditHistoryDTO> getEntityHistory(Class<?> entityClass, Object id) {
         AuditReader reader = AuditReaderFactory.get(entityManager);
@@ -34,18 +38,37 @@ public class AuditService {
         List<AuditHistoryDTO> history = new ArrayList<>();
 
         for (Number rev : revisions) {
-            Object entityAtRev = reader.find(entityClass, id, rev);
-            Instant timestamp = reader.getRevisionDate(rev).toInstant();
-            
-            // Note: Default Envers doesn't store 'action' easily without complex queries.
-            // We'll estimate it or just provide the data snapshot.
-            
-            history.add(AuditHistoryDTO.builder()
-                    .revisionNumber(rev.intValue())
-                    .revisionTimestamp(timestamp)
-                    .username("System") // Fallback if custom RevisionEntity is not yet wired
-                    .entityData(entityAtRev)
-                    .build());
+            Instant timestamp = null;
+            String username = "SYSTEM";
+            try {
+                timestamp = reader.getRevisionDate(rev).toInstant();
+                AuditRevisionEntity revisionEntity = reader.findRevision(AuditRevisionEntity.class, rev);
+                if (revisionEntity != null && revisionEntity.getUsername() != null) {
+                    username = revisionEntity.getUsername();
+                }
+
+                Object entityAtRev = reader.find(entityClass, id, rev);
+                
+                // Serialize to Map inside the transactional context to avoid LazyInitializationException
+                Object data = objectMapper.convertValue(entityAtRev, Object.class);
+                
+                history.add(AuditHistoryDTO.builder()
+                        .revisionNumber(rev.intValue())
+                        .revisionTimestamp(timestamp)
+                        .username(username) 
+                        .entityData(data)
+                        .build());
+            } catch (Exception e) {
+                System.err.println("Audit retrieval failed for rev " + rev + ": " + e.getMessage());
+                e.printStackTrace();
+                history.add(AuditHistoryDTO.builder()
+                        .revisionNumber(rev.intValue())
+                        .revisionTimestamp(timestamp)
+                        .username(username)
+                        .action("Snapshot unavailable: " + e.getMessage())
+                        .entityData(new java.util.HashMap<>())
+                        .build());
+            }
         }
 
         return history;

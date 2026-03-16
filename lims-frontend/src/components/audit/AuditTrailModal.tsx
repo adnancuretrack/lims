@@ -48,7 +48,7 @@ export const AuditTrailModal: React.FC<Props> = ({ visible, onClose, entityType,
             title: 'Timestamp',
             dataIndex: 'revisionTimestamp',
             key: 'time',
-            render: (val: string) => dayjs(val).format('YYYY-MM-DD HH:mm:ss'),
+            render: (val: string) => val ? dayjs(val).format('YYYY-MM-DD HH:mm:ss') : <Text type="secondary">N/A</Text>,
         },
         {
             title: 'User',
@@ -60,12 +60,12 @@ export const AuditTrailModal: React.FC<Props> = ({ visible, onClose, entityType,
             title: 'Summary',
             dataIndex: 'entityData',
             key: 'data',
-            render: (data: any) => (
+            render: (data: any) => data && Object.keys(data).length > 0 ? (
                 <Text style={{ fontSize: 12 }}>
                     Status: <Tag>{data.status || 'N/A'}</Tag>
                     {data.numericValue !== undefined && ` | Value: ${data.numericValue}`}
                 </Text>
-            ),
+            ) : <Text type="secondary" style={{ fontSize: 12 }}>N/A</Text>,
         }
     ];
 

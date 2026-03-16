@@ -52,13 +52,20 @@ export default function SampleDetailPage() {
     };
 
     const testColumns = [
-        { title: 'Method', dataIndex: 'methodName', key: 'method' },
-        { title: 'Test Name', dataIndex: 'testName', key: 'name' },
+        { title: 'Method', dataIndex: 'testMethodCode', key: 'method' },
+        { title: 'Test Name', dataIndex: 'testMethodName', key: 'name' },
         {
             title: 'Result',
-            dataIndex: 'lastResult',
             key: 'result',
-            render: (res: any) => res ? res.displayValue : <Text type="secondary">Pending</Text>
+            render: (_: any, record: any) => {
+                if (record.numericValue !== null && record.numericValue !== undefined) {
+                    return <Text>{record.numericValue}</Text>;
+                }
+                if (record.textValue) {
+                    return <Text>{record.textValue}</Text>;
+                }
+                return <Text type="secondary">Pending</Text>;
+            }
         },
         { title: 'Units', dataIndex: 'unit', key: 'unit' },
         {

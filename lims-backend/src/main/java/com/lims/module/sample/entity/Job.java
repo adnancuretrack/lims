@@ -8,6 +8,8 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.Instant;
+import org.hibernate.annotations.NotFound;
+import org.hibernate.annotations.NotFoundAction;
 
 import org.hibernate.envers.Audited;
 
@@ -22,6 +24,7 @@ public class Job extends BaseEntity {
 
     @ManyToOne(optional = false)
     @JoinColumn(name = "client_id", nullable = false)
+    @NotFound(action = NotFoundAction.IGNORE)
     private Client client;
 
     @ManyToOne

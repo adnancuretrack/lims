@@ -4,6 +4,8 @@ import com.lims.common.entity.BaseEntity;
 import com.lims.module.security.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.NotFound;
+import org.hibernate.annotations.NotFoundAction;
 
 import java.time.Instant;
 
@@ -20,10 +22,12 @@ public class Sample extends BaseEntity {
 
     @ManyToOne(optional = false)
     @JoinColumn(name = "job_id", nullable = false)
+    @NotFound(action = NotFoundAction.IGNORE)
     private Job job;
 
     @ManyToOne(optional = false)
     @JoinColumn(name = "product_id", nullable = false)
+    @NotFound(action = NotFoundAction.IGNORE)
     private Product product;
 
     @Column(length = 500)

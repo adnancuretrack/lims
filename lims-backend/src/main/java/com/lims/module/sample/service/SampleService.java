@@ -214,6 +214,9 @@ public class SampleService {
                 .status(sample.getStatus())
                 .conditionOnReceipt(sample.getConditionOnReceipt())
                 .receivedAt(sample.getReceivedAt())
+                .sampledAt(sample.getSampledAt())
+                .clientName(sample.getJob().getClient().getName())
+                .jobNumber(sample.getJob().getJobNumber())
                 .build();
     }
 
