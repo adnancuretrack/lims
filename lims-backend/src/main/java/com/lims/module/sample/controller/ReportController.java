@@ -37,6 +37,17 @@ public class ReportController {
                 .body(pdf);
     }
 
+    @GetMapping("/trf/{sampleId}")
+    @Operation(summary = "Generate and download Test Request Form (TRF) for a sample")
+    public ResponseEntity<byte[]> downloadTrf(@PathVariable Long sampleId) throws JRException {
+        byte[] pdf = reportService.generateTrf(sampleId);
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"TRF_" + sampleId + ".pdf\"")
+                .body(pdf);
+    }
+
     @GetMapping("/tat")
     @Operation(summary = "Turnaround time summary grouped by sample status")
     public ResponseEntity<List<TatReportDTO>> getTatReport() {

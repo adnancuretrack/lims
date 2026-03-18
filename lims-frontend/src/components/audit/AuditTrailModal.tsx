@@ -39,10 +39,13 @@ export const AuditTrailModal: React.FC<Props> = ({ visible, onClose, entityType,
 
     const columns = [
         {
-            title: 'Rev #',
-            dataIndex: 'revisionNumber',
-            key: 'rev',
-            width: 80,
+            title: 'Stage',
+            key: 'stage',
+            width: 120,
+            render: (_: any, record: AuditHistoryDTO) => {
+                const status = record.entityData?.status;
+                return status ? <Tag color="geekblue">{status}</Tag> : <Text type="secondary">N/A</Text>;
+            }
         },
         {
             title: 'Timestamp',
@@ -62,8 +65,7 @@ export const AuditTrailModal: React.FC<Props> = ({ visible, onClose, entityType,
             key: 'data',
             render: (data: any) => data && Object.keys(data).length > 0 ? (
                 <Text style={{ fontSize: 12 }}>
-                    Status: <Tag>{data.status || 'N/A'}</Tag>
-                    {data.numericValue !== undefined && ` | Value: ${data.numericValue}`}
+                    {data.numericValue !== undefined ? `Value: ${data.numericValue}` : 'Updated'}
                 </Text>
             ) : <Text type="secondary" style={{ fontSize: 12 }}>N/A</Text>,
         }

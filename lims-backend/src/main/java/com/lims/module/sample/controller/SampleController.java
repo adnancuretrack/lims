@@ -46,10 +46,12 @@ public class SampleController {
     }
 
     @GetMapping
-    @Operation(summary = "List samples", description = "Paged list of samples")
+    @Operation(summary = "List samples", description = "Paged list of samples with optional search filter")
     @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'LAB_MANAGER', 'ANALYST')")
-    public Page<SampleDTO> listSamples(Pageable pageable) {
-        return sampleService.listSamples(pageable);
+    public Page<SampleDTO> listSamples(
+            @RequestParam(required = false) String search,
+            Pageable pageable) {
+        return sampleService.listSamples(search, pageable);
     }
 
     @GetMapping("/{id}")

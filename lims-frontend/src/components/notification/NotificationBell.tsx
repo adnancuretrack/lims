@@ -19,14 +19,14 @@ export const NotificationBell: React.FC = () => {
         // Initial fetch
         loadNotifications();
 
-        // Connect to WebSocket
-        socketService.connect((newNotif) => {
+        // Subscribe to personal notifications (bell icon)
+        const unsubscribe = socketService.subscribeNotifications((newNotif) => {
             setNotifications(prev => [newNotif, ...prev]);
             setUnreadCount(prev => prev + 1);
             message.info(`New Notification: ${newNotif.title}`);
         });
 
-        return () => socketService.disconnect();
+        return () => unsubscribe();
     }, []);
 
     const loadNotifications = async () => {

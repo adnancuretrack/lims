@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="coa_attachments_subreport" pageWidth="555" pageHeight="842" columnWidth="555" leftMargin="0" rightMargin="0" topMargin="0" bottomMargin="0" uuid="a1b2c3d4-e5f6-7890-abcd-ef1234567890">
+	<field name="imageData" class="byte[]"/>
+	<field name="fileName" class="java.lang.String"/>
+	<detail>
+		<band height="30" splitType="Stretch">
+			<textField>
+				<reportElement x="0" y="5" width="555" height="20" uuid="b2c3d4e5-f6a7-8901-bcde-f12345678901"/>
+				<textElement verticalAlignment="Middle">
+					<font size="9" isBold="true"/>
+					<paragraph leftIndent="5"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Attachment: " + $F{fileName}]]></textFieldExpression>
+			</textField>
+			<line>
+				<reportElement x="0" y="27" width="555" height="1" uuid="c3d4e5f6-a7b8-9012-cdef-123456789012"/>
+				<graphicElement><pen lineWidth="0.5" lineColor="#CCCCCC"/></graphicElement>
+			</line>
+		</band>
+		<band height="420" splitType="Immediate">
+			<image scaleImage="RetainShape" hAlign="Center" vAlign="Top" onErrorType="Blank">
+				<reportElement x="0" y="5" width="555" height="410" uuid="d4e5f6a7-b8c9-0123-defa-234567890123"/>
+				<box>
+					<pen lineWidth="0.5" lineColor="#CCCCCC"/>
+				</box>
+				<imageExpression><![CDATA[new java.io.ByteArrayInputStream($F{imageData})]]></imageExpression>
+			</image>
+		</band>
+	</detail>
+</jasperReport>

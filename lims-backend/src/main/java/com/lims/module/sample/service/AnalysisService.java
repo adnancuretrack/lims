@@ -13,6 +13,7 @@ import com.lims.module.sample.repository.TestResultRepository;
 import com.lims.module.security.entity.User;
 import com.lims.module.security.repository.UserRepository;
 import com.lims.module.inventory.repository.InstrumentRepository;
+import com.lims.module.notification.service.DataSyncService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -32,6 +33,7 @@ public class AnalysisService {
     private final ProductTestRepository productTestRepository;
     private final UserRepository userRepository;
     private final InstrumentRepository instrumentRepository;
+    private final DataSyncService dataSyncService;
 
     @Transactional(readOnly = true)
     public List<SampleTestDTO> getTestsForSample(Long sampleId) {
@@ -88,6 +90,9 @@ public class AnalysisService {
 
         // Update Sample status if all tests completed
         updateSampleStatusIfFinished(st.getSample());
+
+        // Broadcast global sync event for all clients
+        dataSyncService.broadcast("SAMPLE", st.getSample().getId(), "RESULT_ENTERED");
     }
 
     @Transactional

@@ -9,8 +9,12 @@ export const SampleService = {
         return response.data;
     },
 
-    list: async (page = 0, size = 10): Promise<{ content: SampleDTO[], totalElements: number }> => {
-        const response = await apiClient.get(`${BASE_URL}/samples?page=${page}&size=${size}`);
+    list: async (page = 0, size = 10, search?: string): Promise<{ content: SampleDTO[], totalElements: number }> => {
+        const params = new URLSearchParams();
+        params.append('page', page.toString());
+        params.append('size', size.toString());
+        if (search) params.append('search', search);
+        const response = await apiClient.get(`${BASE_URL}/samples?${params.toString()}`);
         return response.data;
     },
 
@@ -52,5 +56,12 @@ export const SampleService = {
     listAll: async (): Promise<SampleDTO[]> => {
         const response = await apiClient.get(`${BASE_URL}/samples`, { params: { size: 1000 } });
         return response.data.content;
+    },
+
+    downloadCoa: async (id: number): Promise<Blob> => {
+        const response = await apiClient.get(`${BASE_URL}/reports/coa/${id}`, {
+            responseType: 'blob'
+        });
+        return response.data;
     }
 };

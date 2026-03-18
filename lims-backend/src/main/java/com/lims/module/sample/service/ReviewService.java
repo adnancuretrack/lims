@@ -11,6 +11,7 @@ import com.lims.module.sample.repository.SampleTestRepository;
 import com.lims.module.sample.repository.TestResultRepository;
 import com.lims.module.security.entity.User;
 import com.lims.module.security.repository.UserRepository;
+import com.lims.module.notification.service.DataSyncService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -31,6 +32,7 @@ public class ReviewService {
     private final SampleRepository sampleRepository;
     private final UserRepository userRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final DataSyncService dataSyncService;
 
     @Transactional
     public void reviewResult(ResultReviewRequest request) {
@@ -64,6 +66,9 @@ public class ReviewService {
         
         sampleTestRepository.save(st);
         updateSampleOverallStatus(st.getSample());
+
+        // Broadcast global sync event for all clients
+        dataSyncService.broadcast("SAMPLE", st.getSample().getId(), "REVIEW_" + request.getAction());
     }
 
     private void updateSampleOverallStatus(Sample sample) {

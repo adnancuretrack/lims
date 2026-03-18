@@ -12,6 +12,7 @@ import {
 import { SampleService } from '../../api/SampleService';
 import { AttachmentManager } from '../../components/attachment/AttachmentManager';
 import { AuditTrailModal } from '../../components/audit/AuditTrailModal';
+import { message } from 'antd';
 import dayjs from 'dayjs';
 
 const { Title, Text } = Typography;
@@ -47,8 +48,27 @@ export default function SampleDetailPage() {
         }
     };
 
-    const handleDownloadCoa = () => {
-        window.open(`${window.location.origin}/api/reports/coa/${sample.id}`, '_blank');
+    const handleDownloadCoa = async () => {
+        if (!sample) return;
+        
+        const hide = message.loading('Generating COA...', 0);
+        try {
+            const blob = await SampleService.downloadCoa(sample.id);
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `COA_${sample.sampleNumber}.pdf`);
+            document.body.appendChild(link);
+            link.click();
+            link.parentNode?.removeChild(link);
+            window.URL.revokeObjectURL(url);
+            message.success('COA downloaded successfully');
+        } catch (error) {
+            console.error('Download failed:', error);
+            message.error('Failed to download COA');
+        } finally {
+            hide();
+        }
     };
 
     const testColumns = [

@@ -19,11 +19,14 @@ import com.lims.module.sample.repository.SampleRepository;
 import com.lims.module.security.entity.User;
 import com.lims.module.security.repository.UserRepository;
 import com.lims.module.notification.event.SampleReceivedEvent;
+import com.lims.module.notification.service.DataSyncService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+import jakarta.persistence.criteria.Predicate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -46,6 +49,7 @@ public class SampleService {
     private final AnalysisService analysisService;
     private final SampleTestRepository sampleTestRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final DataSyncService dataSyncService;
 
     @Transactional
     public JobDTO registerJob(SampleRegistrationRequest request, String username) {
@@ -143,8 +147,11 @@ public class SampleService {
 
         Sample saved = sampleRepository.save(sample);
 
-        // Notify job creator
+        // Notify job creator (personal notification)
         eventPublisher.publishEvent(new SampleReceivedEvent(this, saved.getJob().getCreatedBy().getId(), saved.getSampleNumber()));
+
+        // Broadcast global sync event for all clients
+        dataSyncService.broadcast("SAMPLE", saved.getId(), "RECEIVED");
 
         return mapToDTO(saved);
     }
@@ -166,8 +173,32 @@ public class SampleService {
     }
 
     @Transactional(readOnly = true)
-    public Page<SampleDTO> listSamples(Pageable pageable) {
-        return sampleRepository.findByOrderByCreatedAtDesc(pageable)
+    public Page<SampleDTO> listSamples(String search, Pageable pageable) {
+        if (search == null || search.trim().isEmpty()) {
+            return sampleRepository.findByOrderByCreatedAtDesc(pageable)
+                    .map(this::mapToDTO);
+        }
+
+        String lowercaseSearch = "%" + search.toLowerCase() + "%";
+        Specification<Sample> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            
+            // Search in Sample fields
+            predicates.add(cb.like(cb.lower(root.get("sampleNumber")), lowercaseSearch));
+            predicates.add(cb.like(cb.lower(root.get("description")), lowercaseSearch));
+            predicates.add(cb.like(cb.lower(root.get("status")), lowercaseSearch));
+            
+            // Search in related Job/Client/Project fields
+            predicates.add(cb.like(cb.lower(root.join("job").get("client").get("name")), lowercaseSearch));
+            predicates.add(cb.like(cb.lower(root.join("job").get("projectName")), lowercaseSearch));
+            
+            // Search in Product fields
+            predicates.add(cb.like(cb.lower(root.join("product").get("name")), lowercaseSearch));
+            
+            return cb.or(predicates.toArray(new Predicate[0]));
+        };
+
+        return sampleRepository.findAll(spec, pageable)
                 .map(this::mapToDTO);
     }
 
@@ -197,7 +228,12 @@ public class SampleService {
         sample.setStatus("REJECTED");
         sample.setRejectionReason(request.getReason());
 
-        return mapToDTO(sampleRepository.save(sample));
+        Sample saved = sampleRepository.save(sample);
+
+        // Broadcast global sync event for all clients
+        dataSyncService.broadcast("SAMPLE", saved.getId(), "REJECTED");
+
+        return mapToDTO(saved);
     }
 
     // Simplistic numbering for demo. Real implementation would use Redis/DB sequence.

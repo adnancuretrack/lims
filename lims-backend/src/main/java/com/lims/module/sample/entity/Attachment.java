@@ -1,5 +1,6 @@
 package com.lims.module.sample.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.lims.common.entity.BaseEntity;
 import com.lims.module.security.entity.User;
 import jakarta.persistence.*;
@@ -26,13 +27,16 @@ public class Attachment extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sample_id")
+    @JsonIgnore
     private Sample sample;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "job_id")
+    @JsonIgnore
     private Job job;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "uploaded_by")
+    @JsonIgnore
     private User uploadedBy;
 }

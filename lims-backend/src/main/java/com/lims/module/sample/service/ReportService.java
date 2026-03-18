@@ -3,22 +3,23 @@ package com.lims.module.sample.service;
 import com.lims.module.sample.dto.OverdueSampleDTO;
 import com.lims.module.sample.dto.TatReportDTO;
 import com.lims.module.sample.dto.WorkloadReportDTO;
-import com.lims.module.sample.entity.Sample;
-import com.lims.module.sample.entity.SampleTest;
+import com.lims.module.sample.entity.*;
 import com.lims.module.sample.repository.SampleRepository;
 import com.lims.module.sample.repository.SampleTestRepository;
 import lombok.RequiredArgsConstructor;
 import net.sf.jasperreports.engine.*;
 import net.sf.jasperreports.engine.data.JRBeanCollectionDataSource;
+import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -27,9 +28,18 @@ public class ReportService {
 
     private final SampleRepository sampleRepository;
     private final SampleTestRepository sampleTestRepository;
+    private final ResourceLoader resourceLoader;
+    private final AttachmentService attachmentService;
+    private final DocumentConversionService documentConversionService;
+
+    static {
+        // Disable XML validation to avoid issues with external XSDs in restricted environments
+        System.setProperty("net.sf.jasperreports.xml.validation", "false");
+    }
 
     // ==================== CoA Report ====================
 
+    @Transactional(readOnly = true)
     public byte[] generateCoa(Long sampleId) throws JRException {
         Sample sample = sampleRepository.findById(sampleId)
                 .orElseThrow(() -> new RuntimeException("Sample not found"));
@@ -40,13 +50,44 @@ public class ReportService {
 
         List<SampleTest> tests = sampleTestRepository.findBySampleIdOrderBySortOrderAscIdAsc(sampleId);
 
-        // Prepare Jasper report parameters
+        // Map Header Parameters (22 Fields)
         Map<String, Object> params = new HashMap<>();
-        params.put("sampleNumber", sample.getSampleNumber());
-        params.put("clientName", sample.getJob().getClient().getName());
-        params.put("productName", sample.getProduct().getName());
-        params.put("receivedAt", sample.getReceivedAt() != null ? sample.getReceivedAt().toString() : "N/A");
+        Job job = sample.getJob();
+        Client client = job.getClient();
+        Project project = job.getProject();
+
+        // Left Column
+        params.put("requestNo", sample.getSampleNumber());
+        params.put("client", client.getName());
+        params.put("postBox", client.getAddress() != null ? client.getAddress() : "N/A");
+        params.put("contactPerson", project != null && project.getContactPerson() != null ? project.getContactPerson() : (client.getContactPerson() != null ? client.getContactPerson() : "N/A"));
+        params.put("projectNo", project != null ? project.getProjectNumber() : "N/A");
+        params.put("projectName", project != null ? project.getName() : (job.getProjectName() != null ? job.getProjectName() : "N/A"));
+        params.put("consultant", project != null && project.getConsultant() != null ? project.getConsultant() : "N/A");
+        params.put("contractor", project != null && project.getContractor() != null ? project.getContractor() : "N/A");
+        params.put("projectLocation", project != null && project.getLocation() != null ? project.getLocation() : "N/A");
+        params.put("telephone", project != null && project.getPhone() != null ? project.getPhone() : (client.getPhone() != null ? client.getPhone() : "N/A"));
+        params.put("email", project != null && project.getEmail() != null ? project.getEmail() : (client.getEmail() != null ? client.getEmail() : "N/A"));
+
+        // Right Column
+        params.put("sampleType", sample.getProduct().getName());
+        params.put("sampleDescription", sample.getDescription() != null ? sample.getDescription() : "N/A");
+        params.put("sampleId", sample.getSampleNumber());
+        params.put("source", sample.getSamplingPoint() != null ? sample.getSamplingPoint() : "N/A");
+        params.put("sampledBy", sample.getSampledBy() != null ? sample.getSampledBy() : "N/A");
+        params.put("sampleFrom", sample.getSamplingPoint() != null ? sample.getSamplingPoint() : "N/A");
+        params.put("sampleCertNo", "N/A"); // Not in DB
+        params.put("deliveredBy", "N/A"); // Not in DB
+        params.put("sampledDateTime", sample.getSampledAt() != null ? sample.getSampledAt().toString() : "N/A");
+        params.put("dateReceived", sample.getReceivedAt() != null ? sample.getReceivedAt().toString() : "N/A");
+        params.put("quotationNo", job.getPoNumber() != null ? job.getPoNumber() : "N/A");
+
         params.put("authorizedAt", sample.getUpdatedAt() != null ? sample.getUpdatedAt().toString() : "N/A");
+        
+        // Footer Signatures
+        params.put("preparedBy", "Lab Registrar"); 
+        params.put("checkedBy", "Technical Manager");
+        params.put("approvedBy", "Lab Director");
 
         // Map tests to beans for Jasper
         List<Map<String, Object>> testData = tests.stream().map(t -> {
@@ -61,13 +102,111 @@ public class ReportService {
 
         JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(testData);
 
+        // Convert attachments to images
+        List<Attachment> attachments = attachmentService.getBySample(sampleId);
+        List<Map<String, Object>> attachmentData = new ArrayList<>();
+        for (Attachment att : attachments) {
+            try {
+                Path filePath = Paths.get(att.getFilePath());
+                List<byte[]> images = documentConversionService.convertToImages(filePath, att.getFileType());
+                for (int i = 0; i < images.size(); i++) {
+                    Map<String, Object> imgMap = new HashMap<>();
+                    imgMap.put("imageData", images.get(i));
+                    imgMap.put("fileName", att.getFileName() + (images.size() > 1 ? " (Page " + (i + 1) + ")" : ""));
+                    attachmentData.add(imgMap);
+                }
+            } catch (Exception e) {
+                // Skip files that fail conversion — don't break the whole report
+            }
+        }
+
+        if (!attachmentData.isEmpty()) {
+            params.put("attachmentImages", new JRBeanCollectionDataSource(attachmentData));
+        }
+
+        // Compile subreport and add to params
+        try (InputStream subIs = resourceLoader.getResource("classpath:reports/coa_attachments_subreport.jrxml").getInputStream()) {
+            JasperReport subreport = JasperCompileManager.compileReport(subIs);
+            params.put("ATTACHMENT_SUBREPORT", subreport);
+        } catch (IOException e) {
+            // Subreport is optional — COA still works without it
+        }
+
         // Load template
-        InputStream template = getClass().getResourceAsStream("/reports/coa_template.jrxml");
-        JasperReport jasperReport = JasperCompileManager.compileReport(template);
+        try (InputStream is = resourceLoader.getResource("classpath:reports/coa_template.jrxml").getInputStream()) {
+            JasperReport jasperReport = JasperCompileManager.compileReport(is);
+            JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, params, dataSource);
+            return JasperExportManager.exportReportToPdf(jasperPrint);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to load COA template", e);
+        }
+    }
 
-        JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, params, dataSource);
+    // ==================== TRF Report ====================
 
-        return JasperExportManager.exportReportToPdf(jasperPrint);
+    @Transactional(readOnly = true)
+    public byte[] generateTrf(Long sampleId) throws JRException {
+        Sample sample = sampleRepository.findById(sampleId)
+                .orElseThrow(() -> new RuntimeException("Sample not found"));
+
+        List<SampleTest> tests = sampleTestRepository.findBySampleIdOrderBySortOrderAscIdAsc(sampleId);
+
+        // Map Header Parameters (22 Fields)
+        Map<String, Object> params = new HashMap<>();
+        Job job = sample.getJob();
+        Client client = job.getClient();
+        Project project = job.getProject();
+
+        // Left Column
+        params.put("requestNo", sample.getSampleNumber());
+        params.put("client", client.getName());
+        params.put("postBox", client.getAddress() != null ? client.getAddress() : "N/A");
+        params.put("contactPerson", project != null && project.getContactPerson() != null ? project.getContactPerson() : (client.getContactPerson() != null ? client.getContactPerson() : "N/A"));
+        params.put("projectNo", project != null ? project.getProjectNumber() : "N/A");
+        params.put("projectName", project != null ? project.getName() : (job.getProjectName() != null ? job.getProjectName() : "N/A"));
+        params.put("consultant", project != null && project.getConsultant() != null ? project.getConsultant() : "N/A");
+        params.put("contractor", project != null && project.getContractor() != null ? project.getContractor() : "N/A");
+        params.put("projectLocation", project != null && project.getLocation() != null ? project.getLocation() : "N/A");
+        params.put("telephone", project != null && project.getPhone() != null ? project.getPhone() : (client.getPhone() != null ? client.getPhone() : "N/A"));
+        params.put("email", project != null && project.getEmail() != null ? project.getEmail() : (client.getEmail() != null ? client.getEmail() : "N/A"));
+
+        // Right Column
+        params.put("sampleType", sample.getProduct().getName());
+        params.put("sampleDescription", sample.getDescription() != null ? sample.getDescription() : "N/A");
+        params.put("sampleId", sample.getSampleNumber());
+        params.put("source", sample.getSamplingPoint() != null ? sample.getSamplingPoint() : "N/A");
+        params.put("sampledBy", sample.getSampledBy() != null ? sample.getSampledBy() : "N/A");
+        params.put("sampleFrom", sample.getSamplingPoint() != null ? sample.getSamplingPoint() : "N/A");
+        params.put("sampleCertNo", "N/A"); // Not in DB
+        params.put("deliveredBy", "N/A"); // Not in DB
+        params.put("sampledDateTime", sample.getSampledAt() != null ? sample.getSampledAt().toString() : "N/A");
+        params.put("dateReceived", sample.getReceivedAt() != null ? sample.getReceivedAt().toString() : "N/A");
+        params.put("quotationNo", job.getPoNumber() != null ? job.getPoNumber() : "N/A");
+
+        // Footer Signatures
+        params.put("preparedBy", "Lab Registrar"); 
+        params.put("checkedBy", "Technical Manager");
+        params.put("approvedBy", "Lab Director");
+
+        // Map Test List Data
+        List<Map<String, Object>> testData = tests.stream().map(t -> {
+            Map<String, Object> map = new HashMap<>();
+            map.put("param", t.getTestMethod().getName());
+            map.put("method", t.getTestMethod().getCode());
+            map.put("qty", "1");
+            return map;
+        }).collect(Collectors.toList());
+
+        JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(testData);
+
+        // Load TRF template from requirements folder
+        try (InputStream is = resourceLoader.getResource("file:d:/Workspace/LIMS/requirements/test.jrxml").getInputStream()) {
+            JasperReport jasperReport = JasperCompileManager.compileReport(is);
+            JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, params, dataSource);
+            return JasperExportManager.exportReportToPdf(jasperPrint);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to load TRF template", e);
+        }
     }
 
     // ==================== TAT Report ====================

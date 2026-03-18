@@ -80,6 +80,8 @@ services:
       SMTP_PORT: 1025
     ports:
       - "8080:8080"
+    volumes:
+      - lims-uploads:/app/uploads
 
   # ==================== Frontend (Nginx) ====================
   frontend:
@@ -105,3 +107,4 @@ volumes:
   lims-pgdata:
   lims-redis-data:
   lims-rabbitmq-data:
+  lims-uploads:

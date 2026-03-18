@@ -2,6 +2,7 @@ import { Suspense } from 'react';
 import { useRoutes } from 'react-router-dom';
 import { Spin } from 'antd';
 import { routes } from './routes';
+import { GlobalSyncProvider } from './components/GlobalSyncProvider';
 
 function App() {
   const element = useRoutes(routes);
@@ -14,6 +15,7 @@ function App() {
         </div>
       }
     >
+      <GlobalSyncProvider />
       {element}
     </Suspense>
   );

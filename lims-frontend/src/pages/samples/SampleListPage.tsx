@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Table, Tag, Button, Space, Card, Typography } from 'antd';
+import { Table, Tag, Button, Space, Card, Typography, Input } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useQuery } from '@tanstack/react-query';
 import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
@@ -8,15 +8,22 @@ import { SampleService } from '../../api/SampleService';
 import type { SampleDTO } from '../../api/types';
 
 const { Title } = Typography;
+const { Search } = Input;
 
 export default function SampleListPage() {
     const navigate = useNavigate();
     const [pagination, setPagination] = useState({ current: 1, pageSize: 10 });
+    const [searchText, setSearchText] = useState('');
 
     const { data, isLoading, refetch } = useQuery({
-        queryKey: ['samples', pagination.current, pagination.pageSize],
-        queryFn: () => SampleService.list(pagination.current - 1, pagination.pageSize),
+        queryKey: ['samples', pagination.current, pagination.pageSize, searchText],
+        queryFn: () => SampleService.list(pagination.current - 1, pagination.pageSize, searchText),
     });
+
+    const onSearch = (value: string) => {
+        setSearchText(value);
+        setPagination({ ...pagination, current: 1 }); // Reset to first page on search
+    };
 
     const columns: ColumnsType<SampleDTO> = [
         {
@@ -60,7 +67,14 @@ export default function SampleListPage() {
         <div style={{ padding: 24 }}>
             <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Title level={2} style={{ margin: 0 }}>Sample Registry</Title>
-                <Space>
+                <Space size="middle">
+                    <Search
+                        placeholder="Search samples..."
+                        onSearch={onSearch}
+                        style={{ width: 300 }}
+                        allowClear
+                        enterButton
+                    />
                     <Button
                         type="primary"
                         icon={<PlusOutlined />}
