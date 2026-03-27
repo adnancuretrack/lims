@@ -58,6 +58,27 @@ export const AttachmentManager: React.FC<Props> = ({ sampleId, jobId }) => {
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     };
 
+    const handleDownload = async (item: AttachmentDTO) => {
+        const hide = message.loading('Downloading attachment...', 0);
+        try {
+            const blob = await AttachmentService.download(item.id);
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', item.fileName);
+            document.body.appendChild(link);
+            link.click();
+            link.parentNode?.removeChild(link);
+            window.URL.revokeObjectURL(url);
+            message.success('Download started');
+        } catch (error) {
+            console.error('Download failed:', error);
+            message.error('Failed to download attachment');
+        } finally {
+            hide();
+        }
+    };
+
     return (
         <div style={{ padding: '16px 0' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
@@ -75,8 +96,7 @@ export const AttachmentManager: React.FC<Props> = ({ sampleId, jobId }) => {
                         actions={[
                             <Button
                                 icon={<DownloadOutlined />}
-                                href={AttachmentService.downloadLink(item.id)}
-                                target="_blank"
+                                onClick={() => handleDownload(item)}
                                 size="small"
                             >
                                 Download

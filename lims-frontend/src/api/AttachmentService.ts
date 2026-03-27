@@ -18,5 +18,12 @@ export const AttachmentService = {
 
     downloadLink: (id: number) => {
         return `${apiClient.defaults.baseURL}/attachments/${id}/download`;
+    },
+
+    download: async (id: number): Promise<Blob> => {
+        const response = await apiClient.get(`/attachments/${id}/download`, {
+            responseType: 'blob'
+        });
+        return response.data;
     }
 };
