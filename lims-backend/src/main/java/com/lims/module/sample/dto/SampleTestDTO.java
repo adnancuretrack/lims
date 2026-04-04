@@ -25,4 +25,5 @@ public class SampleTestDTO {
     private Long testResultId;
     private Long instrumentId;
     private String reagentLot;
+    private boolean hasWorksheet;
 }

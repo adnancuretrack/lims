@@ -109,6 +109,7 @@ export interface SampleTestDTO {
     testResultId?: number;
     instrumentId?: number;
     reagentLot?: string;
+    hasWorksheet: boolean;
 }
 
 export interface ResultEntryRequest {
@@ -233,4 +234,17 @@ export interface AttachmentDTO {
     fileSize: number;
     uploadedBy: string;
     createdAt: string;
+}
+
+export interface MethodDefinitionDTO {
+    id?: number;
+    testMethodId?: number;
+    version?: number;
+    status?: string;
+    schemaDefinition: any;
+    publishedBy?: number;
+    publishedAt?: string;
+    reportTemplatePath?: string;
+    createdAt?: string;
+    updatedAt?: string;
 }

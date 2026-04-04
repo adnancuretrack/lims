@@ -47,6 +47,13 @@ public class TestMethod extends BaseEntity {
     @Builder.Default
     private boolean active = true;
 
+    @Column(name = "has_worksheet", nullable = false)
+    @Builder.Default
+    private boolean hasWorksheet = false;
+
+    @Column(name = "active_definition_id")
+    private Long activeDefinitionId;
+
     public String getLimitsDisplay() {
         if (minLimit != null && maxLimit != null) {
             return minLimit + " - " + maxLimit;

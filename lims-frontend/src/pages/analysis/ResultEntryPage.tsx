@@ -1,7 +1,13 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Table, Card, Typography, Row, Col, Tag, Button, Empty, Form, InputNumber, Input, message, Layout, Divider, Space } from 'antd';
-import { ExperimentOutlined, CheckCircleOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { 
+  ExperimentOutlined, 
+  CheckCircleOutlined, 
+  InfoCircleOutlined,
+  FormOutlined 
+} from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
 import { AnalysisService } from '../../api/AnalysisService';
 import { SampleService } from '../../api/SampleService';
 import type { SampleDTO, SampleTestDTO, ResultEntryRequest } from '../../api/types';
@@ -13,6 +19,7 @@ const { Sider, Content } = Layout;
 export default function ResultEntryPage() {
     const [selectedSample, setSelectedSample] = useState<SampleDTO | null>(null);
     const queryClient = useQueryClient();
+    const navigate = useNavigate();
 
     // Fetch received samples (the queue)
     const { data: queue, isLoading: isLoadingQueue } = useQuery({
@@ -150,32 +157,50 @@ export default function ResultEntryPage() {
                                                 }}
                                                 onFinish={(values) => handleEnterResult(test.id, values)}
                                             >
-                                                {test.resultType === 'QUANTITATIVE' && (
-                                                    <Form.Item name="numericValue" label="Result">
-                                                        <InputNumber
-                                                            addonAfter={test.unit}
-                                                            placeholder="0.00"
-                                                            status={test.isOutOfRange ? 'error' : ''}
-                                                        />
-                                                    </Form.Item>
-                                                )}
+                                                 {test.hasWorksheet ? (
+                                                    <div style={{ padding: '8px 0', width: '100%' }}>
+                                                        <Button 
+                                                            type="primary" 
+                                                            ghost
+                                                            icon={<FormOutlined />}
+                                                            onClick={() => navigate(`/worksheets/${test.id}`)}
+                                                        >
+                                                            {test.status === 'COMPLETED' ? 'View Worksheet' : 'Open Worksheet'}
+                                                        </Button>
+                                                        <Text type="secondary" style={{ marginLeft: 16 }}>
+                                                            Runs through the Method Designer blueprint
+                                                        </Text>
+                                                    </div>
+                                                 ) : (
+                                                    <>
+                                                        {test.resultType === 'QUANTITATIVE' && (
+                                                            <Form.Item name="numericValue" label="Result">
+                                                                <InputNumber
+                                                                    addonAfter={test.unit}
+                                                                    placeholder="0.00"
+                                                                    status={test.isOutOfRange ? 'error' : ''}
+                                                                />
+                                                            </Form.Item>
+                                                        )}
 
-                                                {test.resultType === 'TEXT' && (
-                                                    <Form.Item name="textValue" label="Observed" style={{ flex: 1 }}>
-                                                        <Input placeholder="Enter observation..." />
-                                                    </Form.Item>
-                                                )}
+                                                        {test.resultType === 'TEXT' && (
+                                                            <Form.Item name="textValue" label="Observed" style={{ flex: 1 }}>
+                                                                <Input placeholder="Enter observation..." />
+                                                            </Form.Item>
+                                                        )}
 
-                                                <Form.Item>
-                                                    <Button
-                                                        type="primary"
-                                                        htmlType="submit"
-                                                        loading={enterResultMutation.isPending && enterResultMutation.variables?.sampleTestId === test.id}
-                                                        icon={<CheckCircleOutlined />}
-                                                    >
-                                                        Save
-                                                    </Button>
-                                                </Form.Item>
+                                                        <Form.Item>
+                                                            <Button
+                                                                type="primary"
+                                                                htmlType="submit"
+                                                                loading={enterResultMutation.isPending && enterResultMutation.variables?.sampleTestId === test.id}
+                                                                icon={<CheckCircleOutlined />}
+                                                            >
+                                                                Save
+                                                            </Button>
+                                                        </Form.Item>
+                                                    </>
+                                                 )}
 
                                                 {(test.minLimit !== undefined || test.maxLimit !== undefined) && (
                                                     <div style={{ marginTop: 8, width: '100%' }}>

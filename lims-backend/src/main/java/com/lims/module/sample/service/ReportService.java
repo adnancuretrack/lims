@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
@@ -31,6 +32,39 @@ public class ReportService {
     private final ResourceLoader resourceLoader;
     private final AttachmentService attachmentService;
     private final DocumentConversionService documentConversionService;
+    private final ExcelReportService excelReportService;
+    private final PdfConversionService pdfConversionService;
+    private final com.lims.module.sample.repository.WorksheetDataRepository worksheetDataRepository;
+
+    @Transactional(readOnly = true)
+    public byte[] generateWorksheetReport(Long sampleTestId) {
+        WorksheetData wd = worksheetDataRepository.findBySampleTestId(sampleTestId)
+                .orElseThrow(() -> new RuntimeException("Worksheet data not found for test: " + sampleTestId));
+
+        String templatePath = wd.getMethodDefinition().getReportTemplatePath();
+        if (templatePath == null || templatePath.isEmpty()) {
+            throw new IllegalStateException("No Excel report template configured for this method definition.");
+        }
+
+        try {
+            // 1. Inject data into Excel
+            Path excelPath = excelReportService.generateExcelReport(wd, templatePath);
+            
+            // 2. Convert to PDF
+            Path pdfPath = pdfConversionService.convertExcelToPdf(excelPath);
+            
+            // 3. Read and cleanup
+            byte[] bytes = Files.readAllBytes(pdfPath);
+            
+            // Cleanup temp files
+            Files.deleteIfExists(pdfPath);
+            Files.deleteIfExists(excelPath);
+            
+            return bytes;
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to generate worksheet report from Excel template", e);
+        }
+    }
 
     static {
         // Disable XML validation to avoid issues with external XSDs in restricted environments

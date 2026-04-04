@@ -60,4 +60,7 @@ public class SampleTest extends BaseEntity {
         }
         return results.get(results.size() - 1);
     }
+
+    @OneToOne(mappedBy = "sampleTest", cascade = CascadeType.ALL, orphanRemoval = true)
+    private WorksheetData worksheetData;
 }

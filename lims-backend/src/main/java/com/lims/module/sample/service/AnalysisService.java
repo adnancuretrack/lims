@@ -141,6 +141,7 @@ public class AnalysisService {
                 .minLimit(st.getTestMethod().getMinLimit())
                 .maxLimit(st.getTestMethod().getMaxLimit())
                 .resultType(st.getTestMethod().getResultType())
+                .hasWorksheet(st.getTestMethod().isHasWorksheet())
                 .testResultId(latest != null ? latest.getId() : null)
                 .build();
     }

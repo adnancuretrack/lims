@@ -25,6 +25,8 @@ const ProjectListPage = lazy(() => import('./pages/projects/ProjectListPage'));
 const ClientListPage = lazy(() => import('./pages/clients/ClientListPage'));
 const ProductListPage = lazy(() => import('./pages/products/ProductListPage'));
 const TestMethodListPage = lazy(() => import('./pages/methods/TestMethodListPage'));
+const MethodDesignerPage = lazy(() => import('./pages/methods/designer'));
+const WorksheetEnginePage = lazy(() => import('./pages/worksheets/engine'));
 
 // ERP
 const ErpSimulatorPage = lazy(() => import('./pages/admin/ErpSimulatorPage'));
@@ -68,6 +70,9 @@ export const routes: RouteObject[] = [
             { path: 'clients', element: <ProtectedRoute requiredRole="ADMIN"><ClientListPage /></ProtectedRoute> },
             { path: 'products', element: <ProtectedRoute requiredRole="ADMIN"><ProductListPage /></ProtectedRoute> },
             { path: 'test-methods', element: <ProtectedRoute requiredRole="ADMIN"><TestMethodListPage /></ProtectedRoute> },
+            { path: 'test-methods/new/design', element: <ProtectedRoute requiredRole="ADMIN"><MethodDesignerPage /></ProtectedRoute> },
+            { path: 'test-methods/:id/design', element: <ProtectedRoute requiredRole="ADMIN"><MethodDesignerPage /></ProtectedRoute> },
+            { path: 'worksheets/:id', element: <WorksheetEnginePage /> },
             // ERP
             { path: 'qc', element: <QcDashboardPage /> },
             // Investigations
