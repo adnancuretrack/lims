@@ -29,6 +29,7 @@ export interface FieldSchema {
   validations?: ValidationRule[];
   isFinalResult?: boolean; // If true, this field is extracted and sent to the TestResult COA API.
   originalFormula?: string; // Reference to the original Excel formula (for auditing).
+  systemMapping?: string; // e.g. "sample.sampleNumber", "job.jobNumber" for pre-filling.
 }
 
 export interface ColumnGroupSchema {

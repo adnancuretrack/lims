@@ -89,4 +89,54 @@ class WorksheetDataServiceTest {
         assertEquals(activeDef, savedWd.getMethodDefinition()); // Verify the fix
         assertEquals("DRAFT", savedWd.getStatus());
     }
+
+    @Test
+    void shouldPrefillHeaderDataFromSystemMapping() {
+        // Arrange
+        Long sampleTestId = 1L;
+        Long testMethodId = 10L;
+        
+        com.lims.module.sample.entity.Job job = new com.lims.module.sample.entity.Job();
+        job.setJobNumber("JOB-001");
+        
+        com.lims.module.sample.entity.Sample sample = new com.lims.module.sample.entity.Sample();
+        sample.setSampleNumber("SAM-001");
+        sample.setJob(job);
+        
+        TestMethod testMethod = new TestMethod();
+        testMethod.setId(testMethodId);
+        
+        SampleTest sampleTest = new SampleTest();
+        sampleTest.setId(sampleTestId);
+        sampleTest.setTestMethod(testMethod);
+        sampleTest.setSample(sample);
+        
+        MethodDefinition activeDef = new MethodDefinition();
+        activeDef.setId(100L);
+        activeDef.setSchemaDefinition(Map.of(
+            "headerFields", java.util.List.of(
+                Map.of("id", "h1", "label", "Sample ID", "systemMapping", "sample.sampleNumber"),
+                Map.of("id", "h2", "label", "Job ID", "systemMapping", "sample.job.jobNumber")
+            )
+        ));
+
+        when(sampleTestRepository.findById(sampleTestId)).thenReturn(Optional.of(sampleTest));
+        when(methodDefinitionService.getActiveDefinitionEntity(testMethodId)).thenReturn(activeDef);
+        when(worksheetDataRepository.findBySampleTestId(sampleTestId)).thenReturn(Optional.empty());
+        when(worksheetDataRepository.save(any(WorksheetData.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Act
+        worksheetDataService.getWorksheet(sampleTestId);
+
+        // Assert
+        ArgumentCaptor<WorksheetData> captor = ArgumentCaptor.forClass(WorksheetData.class);
+        verify(worksheetDataRepository).save(captor.capture());
+        
+        WorksheetData savedWd = captor.getValue();
+        Map<String, Object> data = savedWd.getData();
+        assertNotNull(data.get("header"));
+        Map<String, Object> header = (Map<String, Object>) data.get("header");
+        assertEquals("SAM-001", header.get("h1"));
+        assertEquals("JOB-001", header.get("h2"));
+    }
 }

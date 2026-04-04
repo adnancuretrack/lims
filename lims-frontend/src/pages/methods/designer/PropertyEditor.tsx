@@ -118,6 +118,25 @@ export const PropertyEditor: React.FC = () => {
           <Form.Item label="Required">
             <Switch checked={field.required} onChange={v => handleUpdate({ required: v })} />
           </Form.Item>
+          {!section && (
+            <Form.Item label="System Mapping" help="Auto-prefill with system data.">
+              <Select 
+                allowClear 
+                value={field.systemMapping} 
+                onChange={v => handleUpdate({ systemMapping: v })}
+                options={[
+                  { value: 'sample.sampleNumber', label: 'Sample Number' },
+                  { value: 'sample.job.jobNumber', label: 'Job Number' },
+                  { value: 'sample.job.client.name', label: 'Client Name' },
+                  { value: 'sample.product.name', label: 'Product Name' },
+                  { value: 'sample.job.projectName', label: 'Project Name' },
+                  { value: 'sample.job.poNumber', label: 'PO Number' },
+                  { value: 'sample.sampledAt', label: 'Sampling Date' },
+                  { value: 'sample.receivedAt', label: 'Received Date' },
+                ]}
+              />
+            </Form.Item>
+          )}
           <Divider />
           <Form.Item label="COA Final Result" help="Extract this field's value for the final report.">
             <Switch checked={field.isFinalResult} onChange={v => handleUpdate({ isFinalResult: v })} />

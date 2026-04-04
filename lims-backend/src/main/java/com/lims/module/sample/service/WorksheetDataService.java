@@ -1,10 +1,7 @@
 package com.lims.module.sample.service;
 
 import com.lims.module.sample.dto.WorksheetSubmitRequest;
-import com.lims.module.sample.entity.Sample;
-import com.lims.module.sample.entity.SampleTest;
-import com.lims.module.sample.entity.TestResult;
-import com.lims.module.sample.entity.WorksheetData;
+import com.lims.module.sample.entity.*;
 import com.lims.module.sample.repository.SampleRepository;
 import com.lims.module.sample.repository.SampleTestRepository;
 import com.lims.module.sample.repository.TestResultRepository;
@@ -19,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -52,6 +50,15 @@ public class WorksheetDataService {
                     newWd.setSampleTest(st);
                     newWd.setMethodDefinition(activeDef);
                     newWd.setStatus("DRAFT");
+                    
+                    // Pre-fill from system mapping
+                    Map<String, Object> initialData = new HashMap<>();
+                    Map<String, Object> headerData = prefillHeaderData(st, activeDef);
+                    if (!headerData.isEmpty()) {
+                        initialData.put("header", headerData);
+                    }
+                    newWd.setData(initialData);
+                    
                     return worksheetDataRepository.save(newWd);
                 });
         
@@ -164,6 +171,41 @@ public class WorksheetDataService {
         } else {
             sample.setStatus("IN_PROGRESS");
             sampleRepository.save(sample);
+        }
+    }
+
+    private Map<String, Object> prefillHeaderData(SampleTest st, MethodDefinition activeDef) {
+        Map<String, Object> headerData = new HashMap<>();
+        Map<String, Object> schema = activeDef.getSchemaDefinition();
+        if (schema != null && schema.get("headerFields") instanceof List) {
+            List<Map<String, Object>> headerFields = (List<Map<String, Object>>) schema.get("headerFields");
+            for (Map<String, Object> field : headerFields) {
+                String mapping = (String) field.get("systemMapping");
+                if (mapping != null && !mapping.isEmpty()) {
+                    Object value = resolveSystemValue(st, mapping);
+                    if (value != null) {
+                        headerData.put((String) field.get("id"), value);
+                    }
+                }
+            }
+        }
+        return headerData;
+    }
+
+    private Object resolveSystemValue(SampleTest st, String mapping) {
+        Sample s = st.getSample();
+        Job j = s.getJob();
+        
+        switch (mapping) {
+            case "sample.sampleNumber": return s.getSampleNumber();
+            case "sample.job.jobNumber": return j != null ? j.getJobNumber() : null;
+            case "sample.job.client.name": return (j != null && j.getClient() != null) ? j.getClient().getName() : null;
+            case "sample.product.name": return s.getProduct() != null ? s.getProduct().getName() : null;
+            case "sample.job.projectName": return j != null ? j.getProjectName() : null;
+            case "sample.job.poNumber": return j != null ? j.getPoNumber() : null;
+            case "sample.sampledAt": return s.getSampledAt();
+            case "sample.receivedAt": return s.getReceivedAt();
+            default: return null;
         }
     }
 }
