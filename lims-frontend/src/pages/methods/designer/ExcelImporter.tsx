@@ -34,29 +34,40 @@ export const ExcelImporter: React.FC = () => {
     return false;
   };
 
-  const translateFormula = (excelFormula: string, colMap: Record<string, string>) => {
-    let f = excelFormula.replace('=', '');
-    const cellRegex = /\$?[A-Z]+\$?[0-9]+/g;
-    return f.replace(cellRegex, (match) => {
-      const cleanMatch = match.replace(/\$/g, '');
-      return colMap[cleanMatch] ? `{${colMap[cleanMatch]}}` : match;
-    });
+  const isCellEmpty = (val: any) => {
+    if (val === undefined || val === null) return true;
+    const str = String(val).trim();
+    if (str === '') return true;
+    if (/^_+$/.test(str)) return true; // Matches "____" placeholders
+    return false;
   };
 
-  const parseCellAsField = (value: string, r: number, c: number, firstSheet: XLSX.WorkSheet) => {
-    let label = value.trim();
-    if (label.endsWith(':')) label = label.slice(0, -1).trim();
-    if (label.startsWith('{{') && label.endsWith('}}')) label = label.slice(2, -2).trim();
+  const cleanLabel = (val: string) => {
+    let label = val.trim();
+    if (label.endsWith(':') || label.endsWith('.') || label.endsWith('-')) {
+      label = label.slice(0, -1).trim();
+    }
+    if (label.startsWith('{{') && label.endsWith('}}')) {
+      label = label.slice(2, -2).trim();
+    }
+    // Remove extra whitespace
+    return label.replace(/\s+/g, ' ');
+  };
 
-    const cellRef = XLSX.utils.encode_cell({ r, c: c + 1 });
-    const cell = firstSheet[cellRef];
-    
+  const createField = (label: string, r: number, c: number, firstSheet: XLSX.WorkSheet, isTableCol = false) => {
+    const clean = cleanLabel(label) || `Field_${r}_${c}`;
+    const cellRef = XLSX.utils.encode_cell({ r, c: isTableCol ? c : c + 1 });
+    const cell = firstSheet[cellRef]; 
+    const dataCellRef = XLSX.utils.encode_cell({ r: isTableCol ? r + 1 : r, c: isTableCol ? c : c + 1 });
+    const dataCell = firstSheet[dataCellRef];
+
+    const typeCell = dataCell || cell;
+
     return {
-      id: `${label.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${Math.random().toString(36).slice(2, 5)}`,
-      label: label.charAt(0).toUpperCase() + label.slice(1).replace(/_/g, ' '),
-      inputType: cell?.f ? 'CALCULATED' : (typeof cell?.v === 'number' ? 'NUMERIC' : 'TEXT'),
-      originalFormula: cell?.f ? `=${cell.f}` : undefined,
-      value: cell?.v
+      id: `${clean.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${Math.random().toString(36).slice(2, 5)}`,
+      label: clean.charAt(0).toUpperCase() + clean.slice(1).replace(/_/g, ' '),
+      inputType: typeCell?.f ? 'CALCULATED' : (typeof typeCell?.v === 'number' ? 'NUMERIC' : 'TEXT'),
+      originalFormula: typeCell?.f ? `=${typeCell.f}` : undefined,
     } as FieldSchema;
   };
 
@@ -64,113 +75,208 @@ export const ExcelImporter: React.FC = () => {
     if (!fileData || !workbook) return;
 
     const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-    
-    // 1. Separate Metadata labels from potential Table Headers
-    const allLabels: { r: number, c: number, field: FieldSchema }[] = [];
-    const tableCandidates: number[] = [];
-
-    for (let r = 0; r < fileData.length; r++) {
-      let consecutiveDataCells = 0;
-      for (let c = 0; c < (fileData[r]?.length || 0); c++) {
-        const val = String(fileData[r][c] || '').trim();
-        if (!val) {
-           consecutiveDataCells = 0;
-           continue; 
-        }
-
-        // Is it a label?
-        if (val.endsWith(':') || (val.startsWith('{{') && val.endsWith('}}'))) {
-           allLabels.push({ r, c, field: parseCellAsField(val, r, c, firstSheet) });
-           consecutiveDataCells = 0;
-        } else {
-           consecutiveDataCells++;
-        }
-
-        // Potential Table Header
-        if (consecutiveDataCells >= 2 && !tableCandidates.includes(r)) {
-           const nextRow = fileData[r+1];
-           let nextRowCount = 0;
-           if (nextRow) {
-              for (let j = 0; j < nextRow.length; j++) if (nextRow[j] !== undefined && nextRow[j] !== '') nextRowCount++;
-           }
-           if (nextRowCount >= 2) tableCandidates.push(r);
-        }
-      }
-    }
-
-    const tableHeaderRowIdx = tableCandidates.length > 0 ? tableCandidates[0] : -1;
-    const headerFields: FieldSchema[] = [];
-    const bodyFields: FieldSchema[] = [];
-
-    allLabels.forEach(l => {
-      if (tableHeaderRowIdx === -1 || l.r < tableHeaderRowIdx) {
-        headerFields.push(l.field);
-      } else {
-        bodyFields.push(l.field);
-      }
-    });
-
+    const rows = fileData.length;
     let sections: SectionSchema[] = [];
-    const colMap: Record<string, string> = {};
+    const headerFields: FieldSchema[] = [];
+    const footerFields: FieldSchema[] = [];
 
-    if (tableHeaderRowIdx !== -1) {
-      const headers = fileData[tableHeaderRowIdx] || [];
-      const columns: FieldSchema[] = headers.filter(h => !!h).map((h, idx) => {
-        const colId = `col_${idx}`;
-        const cellRefAtData = XLSX.utils.encode_cell({ r: tableHeaderRowIdx + 1, c: idx });
-        const cell = firstSheet[cellRefAtData];
-        
-        const excelColLetter = XLSX.utils.encode_col(idx);
-        colMap[`${excelColLetter}${tableHeaderRowIdx + 2}`] = colId;
+    // Map to keep track of cells already consumed by tables
+    const cellUsed = Array(rows).fill(null).map(() => [] as boolean[]);
 
-        return {
-          id: colId,
-          label: String(h),
-          inputType: cell?.f ? 'CALCULATED' : (typeof cell?.v === 'number' ? 'NUMERIC' : 'TEXT'),
-          originalFormula: cell?.f ? `=${cell.f}` : undefined
-        } as FieldSchema;
-      });
+    // 1. Detect Horizontal Tables (ROWS_AS_RECORDS)
+    // Heuristic: A row has 3+ text cells. The row immediately below has empty cells in those same columns.
+    for (let r = 0; r < rows - 1; r++) {
+      let consecutiveTexts = 0;
+      let startCol = -1;
+      let cols: { c: number, label: string }[] = [];
 
-      columns.forEach(col => {
-        if (col.originalFormula) {
-          col.formula = translateFormula(col.originalFormula, colMap);
+      for (let c = 0; c < (fileData[r]?.length || 0); c++) {
+        if (!isCellEmpty(fileData[r][c]) && !cellUsed[r]?.[c]) {
+          if (startCol === -1) startCol = c;
+          consecutiveTexts++;
+          cols.push({ c, label: String(fileData[r][c]) });
+        } else {
+          // Break the sequence
+          if (consecutiveTexts >= 3) {
+             let emptyBelow = 0;
+             for (let i = 0; i < cols.length; i++) {
+               if (isCellEmpty(fileData[r + 1]?.[cols[i].c])) emptyBelow++;
+             }
+             if (emptyBelow >= Math.floor(cols.length / 2)) {
+                // Table found!
+                const columns = cols.map(col => createField(col.label, r, col.c, firstSheet, true));
+                sections.push({
+                   id: `table_horiz_${r}`,
+                   title: `Data Table (Row ${r+1})`,
+                   type: 'DATA_TABLE',
+                   orientation: 'ROWS_AS_RECORDS',
+                   columns
+                });
+                
+                // Mark cells as used
+                for(let i = r; i < r + 2; i++) {
+                   for(let j = startCol; j <= cols[cols.length-1].c; j++) {
+                      if (!cellUsed[i]) cellUsed[i] = [];
+                      cellUsed[i][j] = true;
+                   }
+                }
+             }
+          }
+          startCol = -1;
+          consecutiveTexts = 0;
+          cols = [];
         }
-      });
-
-      sections.push({
-        id: `table_results`,
-        title: 'Results Table',
-        type: 'DATA_TABLE',
-        orientation: 'ROWS_AS_RECORDS',
-        columns
-      });
+      }
+      
+      // End of row check
+      if (consecutiveTexts >= 3) {
+         let emptyBelow = 0;
+         for (let i = 0; i < cols.length; i++) {
+           if (isCellEmpty(fileData[r + 1]?.[cols[i].c])) emptyBelow++;
+         }
+         if (emptyBelow >= Math.floor(cols.length / 2)) {
+            const columns = cols.map(col => createField(col.label, r, col.c, firstSheet, true));
+            sections.push({
+               id: `table_horiz_${r}`,
+               title: `Data Table (Row ${r+1})`,
+               type: 'DATA_TABLE',
+               orientation: 'ROWS_AS_RECORDS',
+               columns
+            });
+            for(let i = r; i < r + 2; i++) {
+               for(let j = startCol; j <= cols[cols.length-1].c; j++) {
+                  if (!cellUsed[i]) cellUsed[i] = [];
+                  cellUsed[i][j] = true;
+               }
+            }
+         }
+      }
     }
 
-    if (bodyFields.length > 0) {
-      sections.unshift({
-        id: `parameters_body`,
-        title: 'Test Parameters',
-        type: 'SINGLE_VALUE',
-        fields: bodyFields
-      });
+    // 2. Detect Vertical Tables (COLUMNS_AS_TRIALS)
+    // Heuristic: Col 0 or 1 has 3+ vertical text cells. The column to its right has empty cells.
+    for (let c = 0; c < 2; c++) {
+      let r = 0;
+      while (r < rows) {
+        if (!isCellEmpty(fileData[r]?.[c]) && !cellUsed[r]?.[c]) {
+           let startRow = r;
+           let consecutiveVals = [];
+           while (r < rows && !isCellEmpty(fileData[r]?.[c]) && !cellUsed[r]?.[c]) {
+              // Check if right cell is empty
+              let rightCellEmpty = false;
+              for(let scanC = c + 1; scanC <= c + 3; scanC++) {
+                 if (isCellEmpty(fileData[r]?.[scanC])) {
+                    rightCellEmpty = true;
+                    break;
+                 }
+              }
+              if (rightCellEmpty) {
+                 consecutiveVals.push({ r, label: String(fileData[r][c]) });
+              } else {
+                 break;
+              }
+              r++;
+           }
+           
+           if (consecutiveVals.length >= 3) {
+              // Table found!
+              const columns = consecutiveVals.map(val => createField(val.label, val.r, c, firstSheet, false));
+              sections.push({
+                 id: `table_vert_${startRow}`,
+                 title: `Property Table (Row ${startRow+1})`,
+                 type: 'DATA_TABLE',
+                 orientation: 'COLUMNS_AS_TRIALS',
+                 trialCount: 3,
+                 columns
+              });
+              
+              // Mark used
+              for(let i = startRow; i < r; i++) {
+                 for(let j = c; j < c + 4; j++) { 
+                    if (!cellUsed[i]) cellUsed[i] = [];
+                    cellUsed[i][j] = true;
+                 }
+              }
+           }
+        }
+        r++;
+      }
+    }
+
+    // 3. Extract Single Fields (Proximity Heuristic)
+    let firstTableIdx = rows;
+    for(let r=0; r<rows; r++) {
+       if (cellUsed[r]?.some(v => v)) {
+          firstTableIdx = Math.min(firstTableIdx, r);
+       }
+    }
+
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < (fileData[r]?.length || 0); c++) {
+        if (cellUsed[r]?.[c]) continue;
+        
+        let val = fileData[r][c];
+        if (!isCellEmpty(val)) {
+           let strVal = String(val).trim();
+           // Remove extra whitespace like lines to write on
+           if (/^__+$/.test(strVal)) continue;
+
+           // Is it a label? Check right or below
+           let rightEmpty = isCellEmpty(fileData[r]?.[c+1]);
+           let belowEmpty = (r + 1 < rows) ? isCellEmpty(fileData[r+1]?.[c]) : false;
+           
+           // Added proximity heuristic
+           if (strVal.endsWith(':') || strVal.startsWith('{{') || rightEmpty || belowEmpty) {
+              const field = createField(strVal, r, c, firstSheet, false);
+              if (r < firstTableIdx || sections.length === 0) {
+                 headerFields.push(field);
+              } else {
+                 footerFields.push(field);
+              }
+              if (!cellUsed[r]) cellUsed[r] = [];
+              cellUsed[r][c] = true;
+              if (rightEmpty) cellUsed[r][c+1] = true;
+           }
+        }
+      }
+    }
+
+    // Assembly
+    const finalSections: SectionSchema[] = [];
+    if (headerFields.length > 0) {
+       finalSections.push({
+          id: `parameters_body`,
+          title: 'Test Parameters',
+          type: 'SINGLE_VALUE',
+          fields: headerFields
+       });
+    }
+    finalSections.push(...sections);
+    if (footerFields.length > 0) {
+       finalSections.push({
+          id: `footer_body`,
+          title: 'Additional Information',
+          type: 'SINGLE_VALUE',
+          fields: footerFields
+       });
     }
 
     const newSchema: WorksheetSchema = {
       id: `imported_${Date.now()}`,
       metadata: { 
         title: 'Imported Worksheet Blueprint',
-        standard: 'Deep scanned from Excel'
+        standard: 'Deep scanned from Excel (V2)'
       },
-      headerFields: headerFields.length > 0 ? headerFields : undefined,
-      sections
+      sections: finalSections
     };
 
     setSchema(newSchema);
     setIsModalOpen(false);
     setFileData(null);
     setWorkbook(null);
-    message.success('Deep scan complete! 100% of worksheet area was evaluated.');
+    message.success('Smart scan complete! Structural heuristics applied.');
   };
+
 
   return (
     <>

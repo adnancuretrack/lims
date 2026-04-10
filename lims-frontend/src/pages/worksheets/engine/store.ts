@@ -34,26 +34,29 @@ export const useEngineStore = create<EngineState>((set) => ({
 
   initialize: (schema, initialData) => {
     // Scaffold initial structure based on schema
-    const cleanData: Record<string, any> = initialData || {};
+    const cleanData: Record<string, any> = { ...(initialData || {}) };
     
-    if (!initialData) {
-      schema.sections.forEach(sec => {
+    // Ensure header object exists if there are header fields defined
+    if (schema.headerFields?.length && !cleanData['header']) {
+      cleanData['header'] = {};
+    }
+
+    schema.sections.forEach(sec => {
+      // If data for this section is missing, scaffold it
+      if (!cleanData[sec.id]) {
         if (sec.type === 'SINGLE_VALUE') {
           cleanData[sec.id] = {};
-        } else if (sec.type === 'DATA_TABLE') {
+        } else if (sec.type === 'DATA_TABLE' || sec.type === 'GROUPED_TABLE') {
           if (sec.orientation === 'ROWS_AS_RECORDS' || !sec.orientation) {
             // Pre-fill mandatory rows (e.g. minRows = 3)
             cleanData[sec.id] = Array.from({ length: sec.minRows || 1 }, () => ({}));
           } else {
             // COLUMNS_AS_TRIALS
-            // data['tableId'] = { trial_0: { mass: 1 }, trial_1: { mass: 2 } }
-            // Let's store trials as flat objects `{ "trial_0.mass": 1 }` or `Array`
-            // For columns-as-trials, the easiest is an array of trial objects
             cleanData[sec.id] = Array.from({ length: sec.trialCount || 1 }, () => ({}));
           }
         }
-      });
-    }
+      }
+    });
 
     set({ schema, data: cleanData, errors: {} });
   },

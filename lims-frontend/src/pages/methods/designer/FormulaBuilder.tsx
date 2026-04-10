@@ -44,6 +44,17 @@ export const FormulaBuilder: React.FC<FormulaBuilderProps> = ({ value, onChange,
     pushFields(sec.dataColumns);
   });
 
+  // Include Header Fields as available variables
+  if (schema.headerFields) {
+    schema.headerFields.forEach(f => {
+      availableVars.push({ 
+        id: `header.${f.id}`, 
+        label: f.label || f.id, 
+        sectionTitle: 'Worksheet Header' 
+      });
+    });
+  }
+
   const insertText = (textToInsert: string) => {
     const currentVal = value || '';
     

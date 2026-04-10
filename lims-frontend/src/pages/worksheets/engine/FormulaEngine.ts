@@ -171,6 +171,22 @@ export const recomputeAllFormulas = (schema: WorksheetSchema, data: Record<strin
   const maxPasses = 3; // Allows chained calculations up to 3 deep
   
   for (let pass = 0; pass < maxPasses; pass++) {
+    // 1. Recompute Header Fields
+    if (schema.headerFields) {
+      schema.headerFields.filter(f => f.inputType === 'CALCULATED' && f.formula).forEach(f => {
+        const val = evaluateFormula({
+          formula: f.formula!,
+          schema,
+          data: nextData,
+          currentSectionId: 'header',
+          currentRowIndex: null
+        }, f.precision);
+        
+        if (!nextData['header']) nextData['header'] = {};
+        nextData['header'][f.id] = val;
+      });
+    }
+
     schema.sections.forEach(section => {
       
       if (section.type === 'SINGLE_VALUE') {

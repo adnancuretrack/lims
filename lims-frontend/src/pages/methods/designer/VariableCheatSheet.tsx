@@ -20,7 +20,7 @@ export const VariableCheatSheet: React.FC<VariableCheatSheetProps> = ({ schema, 
   };
 
   const getPlaceholders = () => {
-    const placeholders: { tag: string; label: string; sectionName: string; type: string }[] = [];
+    const placeholders: { tag: string; label: string; sectionName: string; type: string; mapping?: string }[] = [];
 
     // Header Fields
     schema.headerFields?.forEach(f => {
@@ -28,7 +28,8 @@ export const VariableCheatSheet: React.FC<VariableCheatSheetProps> = ({ schema, 
         tag: `{header.${f.id}}`,
         label: f.label,
         sectionName: 'Worksheet Header',
-        type: 'SINGLE'
+        type: 'SINGLE',
+        mapping: f.systemMapping
       });
     });
 
@@ -128,6 +129,9 @@ export const VariableCheatSheet: React.FC<VariableCheatSheetProps> = ({ schema, 
                     {item.type === 'TABLE_ROW' && <Tag style={{ marginLeft: 8 }}>Table Row</Tag>}
                     {item.type === 'TABLE_COL' && <Tag style={{ marginLeft: 8 }}>Table Col</Tag>}
                     {item.type === 'AGGREGATE' && <Tag style={{ marginLeft: 8 }} color="blue">Aggregate</Tag>}
+                    {item.mapping && (
+                      <Tag style={{ marginLeft: 8 }} color="cyan">Mapped: {item.mapping}</Tag>
+                    )}
                   </div>
                   <div style={{ fontWeight: 500, marginBottom: 8 }}>{item.label}</div>
                   <div 
