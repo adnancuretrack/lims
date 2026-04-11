@@ -30,19 +30,15 @@ export const PropertyEditor: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { 
     schema, selectedSectionId, selectedFieldId, 
-    updateSection, updateField, updateHeaderField 
+    updateSection, updateField 
   } = useDesignerStore();
   const [grouperOpen, setGrouperOpen] = React.useState(false);
 
   const section = selectedSectionId ? schema.sections.find(s => s.id === selectedSectionId) : null;
-  const field = selectedFieldId ? (
-    section ? (
-      section.fields?.find(f => f.id === selectedFieldId) || 
-      section.columns?.find(c => c.id === selectedFieldId) || 
-      section.dataColumns?.find(d => d.id === selectedFieldId)
-    ) : (
-      schema.headerFields?.find(f => f.id === selectedFieldId)
-    )
+  const field = selectedFieldId && section ? (
+    section.fields?.find(f => f.id === selectedFieldId) || 
+    section.columns?.find(c => c.id === selectedFieldId) || 
+    section.dataColumns?.find(d => d.id === selectedFieldId)
   ) : null;
 
   // Integrated state logging - visible in browser console
@@ -55,12 +51,8 @@ export const PropertyEditor: React.FC = () => {
   }, [selectedFieldId, selectedSectionId, field, section]);
 
   const handleUpdate = (updates: Partial<FieldSchema>) => {
-    if (!selectedFieldId) return;
-    if (section) {
-      updateField(section.id, selectedFieldId, updates);
-    } else {
-      updateHeaderField(selectedFieldId, updates);
-    }
+    if (!selectedFieldId || !section) return;
+    updateField(section.id, selectedFieldId, updates);
   };
 
   const renderContent = () => {
@@ -78,7 +70,7 @@ export const PropertyEditor: React.FC = () => {
       return (
         <Form layout="vertical" key={`field-${selectedFieldId}`}>
           <div style={{ marginBottom: 16, color: '#1677ff', fontWeight: 600 }}>
-             Editing {section ? 'Section Field' : 'Header Metadata'}
+             Editing Field
           </div>
           <Form.Item label="Label">
             <Input value={field.label} onChange={e => handleUpdate({ label: e.target.value })} />
@@ -118,25 +110,23 @@ export const PropertyEditor: React.FC = () => {
           <Form.Item label="Required">
             <Switch checked={field.required} onChange={v => handleUpdate({ required: v })} />
           </Form.Item>
-          {!section && (
-            <Form.Item label="System Mapping" help="Auto-prefill with system data.">
-              <Select 
-                allowClear 
-                value={field.systemMapping} 
-                onChange={v => handleUpdate({ systemMapping: v })}
-                options={[
-                  { value: 'sample.sampleNumber', label: 'Sample Number' },
-                  { value: 'sample.job.jobNumber', label: 'Job Number' },
-                  { value: 'sample.job.client.name', label: 'Client Name' },
-                  { value: 'sample.product.name', label: 'Product Name' },
-                  { value: 'sample.job.projectName', label: 'Project Name' },
-                  { value: 'sample.job.poNumber', label: 'PO Number' },
-                  { value: 'sample.sampledAt', label: 'Sampling Date' },
-                  { value: 'sample.receivedAt', label: 'Received Date' },
-                ]}
-              />
-            </Form.Item>
-          )}
+          <Form.Item label="System Mapping" help="Auto-prefill with system data.">
+            <Select 
+              allowClear 
+              value={field.systemMapping} 
+              onChange={v => handleUpdate({ systemMapping: v })}
+              options={[
+                { value: 'sample.sampleNumber', label: 'Sample Number' },
+                { value: 'sample.job.jobNumber', label: 'Job Number' },
+                { value: 'sample.job.client.name', label: 'Client Name' },
+                { value: 'sample.product.name', label: 'Product Name' },
+                { value: 'sample.job.projectName', label: 'Project Name' },
+                { value: 'sample.job.poNumber', label: 'PO Number' },
+                { value: 'sample.sampledAt', label: 'Sampling Date' },
+                { value: 'sample.receivedAt', label: 'Received Date' },
+              ]}
+            />
+          </Form.Item>
           <Divider />
           <Form.Item label="COA Final Result" help="Extract this field's value for the final report.">
             <Switch checked={field.isFinalResult} onChange={v => handleUpdate({ isFinalResult: v })} />

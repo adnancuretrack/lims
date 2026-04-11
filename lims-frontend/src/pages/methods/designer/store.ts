@@ -16,10 +16,6 @@ interface DesignerState {
   updateField: (sectionId: string, fieldId: string, updates: Partial<FieldSchema>) => void;
   removeField: (sectionId: string, fieldId: string) => void;
   
-  addHeaderField: () => void;
-  updateHeaderField: (id: string, updates: Partial<FieldSchema>) => void;
-  removeHeaderField: (id: string) => void;
-  
   setSelectedSection: (id: string | null) => void;
   setSelectedField: (id: string | null, sectionId?: string | null) => void;
   setSchema: (schema: WorksheetSchema) => void;
@@ -146,37 +142,6 @@ export const useDesignerStore = create<DesignerState>((set) => ({
       selectedFieldId: state.selectedFieldId === fieldId ? null : state.selectedFieldId
     };
   }),
-
-  addHeaderField: () => set((state) => {
-     const newId = `header_${crypto.randomUUID().slice(0, 8)}`;
-     console.log(`[Designer] Added Header Field: ${newId}`);
-     return {
-      schema: {
-        ...state.schema,
-        headerFields: [
-          ...(state.schema.headerFields || []),
-          { id: newId, label: 'New Header Field', inputType: 'TEXT' }
-        ]
-      },
-      selectedFieldId: newId,
-      selectedSectionId: null
-    };
-  }),
-
-  updateHeaderField: (id, updates) => set((state) => ({
-    schema: {
-      ...state.schema,
-      headerFields: (state.schema.headerFields || []).map(f => f.id === id ? { ...f, ...updates } : f)
-    }
-  })),
-
-  removeHeaderField: (id) => set((state) => ({
-    schema: {
-      ...state.schema,
-      headerFields: (state.schema.headerFields || []).filter(f => f.id !== id)
-    },
-    selectedFieldId: state.selectedFieldId === id ? null : state.selectedFieldId
-  })),
 
   setSelectedSection: (id) => set({ selectedSectionId: id, selectedFieldId: null }),
   setSelectedField: (id, sectionId) => set((state) => ({ 

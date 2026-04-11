@@ -36,10 +36,6 @@ export const useEngineStore = create<EngineState>((set) => ({
     // Scaffold initial structure based on schema
     const cleanData: Record<string, any> = { ...(initialData || {}) };
     
-    // Ensure header object exists if there are header fields defined
-    if (schema.headerFields?.length && !cleanData['header']) {
-      cleanData['header'] = {};
-    }
 
     schema.sections.forEach(sec => {
       // If data for this section is missing, scaffold it

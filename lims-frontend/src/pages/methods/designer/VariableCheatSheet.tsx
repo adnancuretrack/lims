@@ -22,17 +22,6 @@ export const VariableCheatSheet: React.FC<VariableCheatSheetProps> = ({ schema, 
   const getPlaceholders = () => {
     const placeholders: { tag: string; label: string; sectionName: string; type: string; mapping?: string }[] = [];
 
-    // Header Fields
-    schema.headerFields?.forEach(f => {
-      placeholders.push({
-        tag: `{header.${f.id}}`,
-        label: f.label,
-        sectionName: 'Worksheet Header',
-        type: 'SINGLE',
-        mapping: f.systemMapping
-      });
-    });
-
     // Sections
     schema.sections.forEach(section => {
       const sectionName = section.title || section.id;

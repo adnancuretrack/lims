@@ -80,7 +80,6 @@ export interface WorksheetSchema {
   id: string;
   version?: string;
   metadata?: WorksheetMetadata;
-  headerFields?: FieldSchema[];
   sections: SectionSchema[];
   reportTemplatePath?: string;
 }

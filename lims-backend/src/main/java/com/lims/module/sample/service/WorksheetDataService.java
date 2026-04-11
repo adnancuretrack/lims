@@ -52,11 +52,7 @@ public class WorksheetDataService {
                     newWd.setStatus("DRAFT");
                     
                     // Pre-fill from system mapping
-                    Map<String, Object> initialData = new HashMap<>();
-                    Map<String, Object> headerData = prefillHeaderData(st, activeDef);
-                    if (!headerData.isEmpty()) {
-                        initialData.put("header", headerData);
-                    }
+                    Map<String, Object> initialData = prefillSystemMappedData(st, activeDef);
                     newWd.setData(initialData);
                     
                     return worksheetDataRepository.save(newWd);
@@ -174,22 +170,39 @@ public class WorksheetDataService {
         }
     }
 
-    private Map<String, Object> prefillHeaderData(SampleTest st, MethodDefinition activeDef) {
-        Map<String, Object> headerData = new HashMap<>();
+    private Map<String, Object> prefillSystemMappedData(SampleTest st, MethodDefinition activeDef) {
+        Map<String, Object> data = new HashMap<>();
         Map<String, Object> schema = activeDef.getSchemaDefinition();
-        if (schema != null && schema.get("headerFields") instanceof List) {
-            List<Map<String, Object>> headerFields = (List<Map<String, Object>>) schema.get("headerFields");
-            for (Map<String, Object> field : headerFields) {
-                String mapping = (String) field.get("systemMapping");
-                if (mapping != null && !mapping.isEmpty()) {
-                    Object value = resolveSystemValue(st, mapping);
-                    if (value != null) {
-                        headerData.put((String) field.get("id"), value);
+        if (schema != null && schema.get("sections") instanceof List) {
+            List<Map<String, Object>> sections = (List<Map<String, Object>>) schema.get("sections");
+            for (Map<String, Object> section : sections) {
+                String sectionId = (String) section.get("id");
+                Map<String, Object> sectionData = new HashMap<>();
+                
+                // Scan fields for SINGLE_VALUE
+                if (section.get("fields") instanceof List) {
+                    List<Map<String, Object>> fields = (List<Map<String, Object>>) section.get("fields");
+                    for (Map<String, Object> field : fields) {
+                        String mapping = (String) field.get("systemMapping");
+                        if (mapping != null && !mapping.isEmpty()) {
+                            Object value = resolveSystemValue(st, mapping);
+                            if (value != null) {
+                                sectionData.put((String) field.get("id"), value);
+                            }
+                        }
                     }
+                }
+                
+                // Scan columns for DATA_TABLE or GROUPED_TABLE (Only for trial/row defaults in future? 
+                // For now, mapping usually applies to SINGLE_VALUE fields)
+                // But let's handle it for consistency if they map a field in a single-row table.
+
+                if (!sectionData.isEmpty()) {
+                    data.put(sectionId, sectionData);
                 }
             }
         }
-        return headerData;
+        return data;
     }
 
     private Object resolveSystemValue(SampleTest st, String mapping) {

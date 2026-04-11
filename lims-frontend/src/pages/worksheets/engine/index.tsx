@@ -7,7 +7,6 @@ import { SectionRenderer } from './SectionRenderer';
 import { evaluateCondition, extractFinalResults } from './FormulaEngine';
 import { WorksheetService } from '../../../api/WorksheetService';
 import { WorksheetAuditDrawer } from './WorksheetAuditDrawer';
-import { HeaderRenderer } from './HeaderRenderer';
 
 const { Header, Content } = Layout;
 const { Text } = Typography;
@@ -146,7 +145,6 @@ export const WorksheetEnginePage: React.FC = () => {
       </Header>
       
       <Content style={{ padding: '24px', maxWidth: 1200, margin: '0 auto', width: '100%' }}>
-        <HeaderRenderer />
         <Space direction="vertical" size="large" style={{ width: '100%' }}>
           {schema.sections.map(section => {
             const isVisible = evaluateCondition({

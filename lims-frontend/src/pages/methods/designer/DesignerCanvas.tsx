@@ -2,7 +2,7 @@ import React from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Card, Typography, Button, Space, Divider } from 'antd';
+import { Card, Typography, Button, Space } from 'antd';
 import { DeleteOutlined, SettingOutlined, PlusOutlined, MenuOutlined } from '@ant-design/icons';
 import { useDesignerStore } from './store';
 import type { SectionSchema, FieldSchema } from './types';
@@ -119,7 +119,7 @@ const SortableSection = ({ section }: { section: SectionSchema }) => {
 };
 
 export const DesignerCanvas: React.FC = () => {
-  const { schema, selectedFieldId, setSelectedField, addHeaderField, removeHeaderField } = useDesignerStore();
+  const { schema } = useDesignerStore();
   const { setNodeRef, isOver } = useDroppable({
     id: 'canvas-droppable',
   });
@@ -137,55 +137,6 @@ export const DesignerCanvas: React.FC = () => {
       <div style={{ maxWidth: 800, margin: '0 auto' }}>
         <Title level={4} style={{ marginBottom: 24 }}>Form Worksheet</Title>
         
-        {/* Header Fields Section */}
-        <Card 
-          size="small" 
-          title="Worksheet Metadata (Header Tags)" 
-          style={{ marginBottom: 24, border: '1px solid #91caff', background: '#e6f4ff' }}
-          extra={<Button type="link" size="small" icon={<PlusOutlined />} onClick={addHeaderField}>Add Header Field</Button>}
-        >
-          {(!schema.headerFields || schema.headerFields.length === 0) ? (
-            <div style={{ padding: '12px 0', textAlign: 'center', color: '#8c8c8c', fontSize: 12 }}>
-              No header fields defined (e.g. Sample Ref, Date)
-            </div>
-          ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
-              {schema.headerFields.map(f => {
-                const isActive = selectedFieldId === f.id;
-                return (
-                  <Card 
-                    key={f.id} 
-                    size="small" 
-                    hoverable
-                    onClick={(e) => { 
-                      e.stopPropagation(); 
-                      console.log(`[Designer] Clicking Header Field: ${f.id}`);
-                      setSelectedField(f.id, null); 
-                    }}
-                    style={{ 
-                      border: isActive ? '2px solid #1677ff' : '1px solid #d9d9d9',
-                      backgroundColor: isActive ? '#e6f4ff' : '#fff',
-                      boxShadow: isActive ? '0 0 8px rgba(22,119,255,0.2)' : 'none'
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Text strong style={{ fontSize: 13, color: isActive ? '#1677ff' : 'inherit' }}>{f.label}</Text>
-                      <Button 
-                        type="text" 
-                        size="small" 
-                        danger 
-                        icon={<DeleteOutlined />} 
-                        onClick={(e) => { e.stopPropagation(); removeHeaderField(f.id); }} 
-                      />
-                    </div>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
-        </Card>
-
-        <Divider>Worksheet Body Content</Divider>
 
         {schema.sections.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '100px 0', border: '2px dashed #d9d9d9', borderRadius: 8, color: '#bfbfbf' }}>
