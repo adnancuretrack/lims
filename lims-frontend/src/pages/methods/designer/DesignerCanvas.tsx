@@ -72,7 +72,8 @@ const SortableSection = ({ section }: { section: SectionSchema }) => {
   const fields = section.fields || section.columns || section.dataColumns || [];
 
   return (
-    <div ref={setNodeRef} style={style} onClick={() => {
+    <div ref={setNodeRef} style={style} onClick={(e) => {
+        e.stopPropagation();
         console.log(`[Designer] Clicking Section: ${section.id}`);
         setSelectedSection(section.id);
     }}>
@@ -119,7 +120,7 @@ const SortableSection = ({ section }: { section: SectionSchema }) => {
 };
 
 export const DesignerCanvas: React.FC = () => {
-  const { schema } = useDesignerStore();
+    const { schema, setSelectedSection } = useDesignerStore();
   const { setNodeRef, isOver } = useDroppable({
     id: 'canvas-droppable',
   });
@@ -130,9 +131,14 @@ export const DesignerCanvas: React.FC = () => {
         flex: 1, 
         padding: 24, 
         background: isOver ? '#e6f4ff' : '#fff',
-        overflowY: 'auto'
+        overflowY: 'auto',
+        cursor: 'default'
       }}
       ref={setNodeRef}
+      onClick={() => {
+        console.log('[Designer] Clicking Canvas Background (Deselect)');
+        setSelectedSection(null);
+      }}
     >
       <div style={{ maxWidth: 800, margin: '0 auto' }}>
         <Title level={4} style={{ marginBottom: 24 }}>Form Worksheet</Title>
