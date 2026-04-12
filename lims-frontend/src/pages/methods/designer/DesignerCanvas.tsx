@@ -2,7 +2,7 @@ import React from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Card, Typography, Button, Space } from 'antd';
+import { Card, Typography, Button, Space, Input, Select, Form, Row, Col } from 'antd';
 import { DeleteOutlined, SettingOutlined, PlusOutlined, MenuOutlined } from '@ant-design/icons';
 import { useDesignerStore } from './store';
 import type { SectionSchema, FieldSchema } from './types';
@@ -120,7 +120,7 @@ const SortableSection = ({ section }: { section: SectionSchema }) => {
 };
 
 export const DesignerCanvas: React.FC = () => {
-    const { schema, setSelectedSection } = useDesignerStore();
+    const { schema, setSelectedSection, setMetadata } = useDesignerStore();
   const { setNodeRef, isOver } = useDroppable({
     id: 'canvas-droppable',
   });
@@ -142,6 +142,53 @@ export const DesignerCanvas: React.FC = () => {
     >
       <div style={{ maxWidth: 800, margin: '0 auto' }}>
         <Title level={4} style={{ marginBottom: 24 }}>Form Worksheet</Title>
+
+        <Card size="small" style={{ marginBottom: 24, padding: 12, background: '#fafafa', border: '1px solid #d9d9d9', borderRadius: 8 }}>
+          <Form layout="vertical" size="small">
+            <Row gutter={16}>
+              <Col span={8}>
+                <Form.Item label={<Typography.Text strong>Method Code (Unique)</Typography.Text>} required style={{ marginBottom: 12 }}>
+                  <Input 
+                    value={schema.metadata?.code as string || ''} 
+                    onChange={e => setMetadata({ code: e.target.value })} 
+                    placeholder="e.g. ASTM-C39" 
+                  />
+                </Form.Item>
+              </Col>
+              <Col span={16}>
+                <Form.Item label={<Typography.Text strong>Method Name</Typography.Text>} required style={{ marginBottom: 12 }}>
+                  <Input 
+                    value={schema.metadata?.name as string || schema.metadata?.title || ''} 
+                    onChange={e => setMetadata({ title: e.target.value, name: e.target.value })} 
+                    placeholder="e.g. Compressive Strength" 
+                  />
+                </Form.Item>
+              </Col>
+            </Row>
+            <Row gutter={16}>
+              <Col span={16}>
+                <Form.Item label={<Typography.Text strong>Standard Reference</Typography.Text>} style={{ marginBottom: 0 }}>
+                  <Input 
+                    value={schema.metadata?.standardRef as string || schema.metadata?.standard || ''} 
+                    onChange={e => setMetadata({ standardRef: e.target.value, standard: e.target.value })} 
+                    placeholder="e.g. ASTM C39 / C39M" 
+                  />
+                </Form.Item>
+              </Col>
+              <Col span={8}>
+                <Form.Item label={<Typography.Text strong>Result Type</Typography.Text>} style={{ marginBottom: 0 }}>
+                  <Select 
+                    value={(schema.metadata as any)?.resultType || 'QUANTITATIVE'} 
+                    onChange={v => setMetadata({ resultType: v } as any)}
+                  >
+                    <Select.Option value="QUANTITATIVE">Quantitative</Select.Option>
+                    <Select.Option value="PASS_FAIL">Pass / Fail</Select.Option>
+                  </Select>
+                </Form.Item>
+              </Col>
+            </Row>
+          </Form>
+        </Card>
         
 
         {schema.sections.length === 0 ? (

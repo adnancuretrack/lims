@@ -37,8 +37,20 @@ public class MethodDefinitionService {
 
     @Transactional
     public MethodDefinitionDTO uploadTemplate(Long testMethodId, MultipartFile file) {
-        MethodDefinition draft = methodDefinitionRepository.findByTestMethodIdAndStatus(testMethodId, "DRAFT")
-                .orElseThrow(() -> new IllegalArgumentException("No DRAFT definition available to upload template to"));
+        MethodDefinition def;
+        var draftOpt = methodDefinitionRepository.findByTestMethodIdAndStatus(testMethodId, "DRAFT");
+        if (draftOpt.isPresent()) {
+            def = draftOpt.get();
+        } else {
+            TestMethod tm = testMethodRepository.findById(testMethodId)
+                    .orElseThrow(() -> new IllegalArgumentException("Test method not found"));
+            if (tm.getActiveDefinitionId() != null) {
+                def = methodDefinitionRepository.findById(tm.getActiveDefinitionId())
+                        .orElseThrow(() -> new IllegalArgumentException("Active definition not found"));
+            } else {
+                throw new IllegalArgumentException("No DRAFT or active definition available to upload template to");
+            }
+        }
 
         try {
             Path root = Paths.get(uploadDir, "templates");
@@ -50,8 +62,8 @@ public class MethodDefinitionService {
             Path filePath = root.resolve(fileName);
             Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
 
-            draft.setReportTemplatePath(filePath.toString());
-            return toDto(methodDefinitionRepository.save(draft));
+            def.setReportTemplatePath(filePath.toString());
+            return toDto(methodDefinitionRepository.save(def));
         } catch (IOException e) {
             throw new RuntimeException("Failed to store template file", e);
         }

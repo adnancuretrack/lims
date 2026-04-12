@@ -12,7 +12,7 @@ export const ExcelImporter: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [fileData, setFileData] = useState<any[][] | null>(null);
   const [workbook, setWorkbook] = useState<XLSX.WorkBook | null>(null);
-  const { setSchema } = useDesignerStore();
+  const { schema, setSchema } = useDesignerStore();
 
   const handleFileUpload = (file: File) => {
     const reader = new FileReader();
@@ -262,11 +262,7 @@ export const ExcelImporter: React.FC = () => {
     }
 
     const newSchema: WorksheetSchema = {
-      id: `imported_${Date.now()}`,
-      metadata: { 
-        title: 'Imported Worksheet Blueprint',
-        standard: 'Deep scanned from Excel (V2)'
-      },
+      ...schema,
       sections: finalSections
     };
 

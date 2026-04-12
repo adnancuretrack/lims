@@ -10,8 +10,8 @@ import {
 } from '@dnd-kit/core';
 import type { DragStartEvent, DragEndEvent } from '@dnd-kit/core';
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
-import { Layout, Button, Space, message, Modal, Tag, Form, Input, Select } from 'antd';
-import { SaveOutlined, ArrowLeftOutlined, RocketOutlined } from '@ant-design/icons';
+import { Layout, Button, Space, message, Modal, Tag, Typography, Upload } from 'antd';
+import { SaveOutlined, ArrowLeftOutlined, RocketOutlined, UploadOutlined } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import { useDesignerStore } from './store';
@@ -23,29 +23,30 @@ import { VariableCheatSheet } from './VariableCheatSheet';
 import type { SectionType } from './types';
 import { LookupService } from '../../../api/LookupService';
 import { MethodDefinitionService } from '../../../api/MethodDefinitionService';
+import { useAuthStore } from '../../../store/authStore';
 
 const { Header, Content } = Layout;
-const { Option } = Select;
 
 export const MethodDesignerPage: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const isNew = id === 'new' || !id;
   
-  const { addSection, reorderSections, schema, setSchema, setMetadata, reset } = useDesignerStore();
+  const { addSection, reorderSections, schema, setSchema, reset } = useDesignerStore();
   
   const [activeId, setActiveId] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [cheatSheetOpen, setCheatSheetOpen] = useState(false);
-  const [metaModalOpen, setMetaModalOpen] = useState(isNew);
   const [isPublishing, setIsPublishing] = useState(false);
-  const [form] = Form.useForm();
+
+  const [postPublishModalOpen, setPostPublishModalOpen] = useState(false);
+  const [targetPublishId, setTargetPublishId] = useState<string | null>(null);
+  const [isUploadingTemplate, setIsUploadingTemplate] = useState(false);
 
   // Reset store on mount if it's a new method
   useEffect(() => {
     if (isNew) {
       reset();
-      setMetaModalOpen(true);
     } else if (id) {
       loadExistingMethod(id);
     }
@@ -62,16 +63,6 @@ export const MethodDesignerPage: React.FC = () => {
     }
   };
 
-  const handleMetaSubmit = (values: any) => {
-    setMetadata({
-      title: values.name,
-      standard: values.standardRef
-    });
-    // We store the extra fields in the store metadata as well
-    setMetadata(values);
-    setMetaModalOpen(false);
-    message.info('Method configuration updated.');
-  };
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -110,8 +101,7 @@ export const MethodDesignerPage: React.FC = () => {
 
   const publishSchema = () => {
     if (isNew && (!schema.metadata?.name || !schema.metadata?.code)) {
-      setMetaModalOpen(true);
-      message.warning('Please provide Method Code and Name before publishing.');
+      message.warning('Please provide Method Code and Name at the top of the canvas before publishing.');
       return;
     }
 
@@ -151,7 +141,12 @@ export const MethodDesignerPage: React.FC = () => {
           await MethodDefinitionService.publish(targetId!, 1);
 
           message.success('Method Published Successfully!');
-          navigate('/test-methods');
+          if (isNew) {
+            setTargetPublishId(targetId!);
+            setPostPublishModalOpen(true);
+          } else {
+            navigate('/test-methods');
+          }
         } catch (err) {
           console.error('Publishing failed', err);
           message.error('Failed to publish method. Check server logs.');
@@ -200,30 +195,38 @@ export const MethodDesignerPage: React.FC = () => {
       </Content>
 
       <Modal
-        title="Test Method Configuration"
-        open={metaModalOpen}
-        onOk={() => form.submit()}
-        onCancel={() => !isNew && setMetaModalOpen(false)}
-        closable={!isNew}
-        maskClosable={!isNew}
+        title="Next Step: Upload COA Template"
+        open={postPublishModalOpen}
+        footer={[
+           <Button key="skip" onClick={() => navigate('/test-methods')}>Skip for now</Button>,
+           <Button key="complete" type="primary" onClick={() => navigate('/test-methods')}>Complete</Button>
+        ]}
+        closable={false}
+        maskClosable={false}
       >
-        <Form form={form} layout="vertical" onFinish={handleMetaSubmit} initialValues={{ resultType: 'QUANTITATIVE', decimalPlaces: 2 }}>
-          <Form.Item name="code" label="Method Code (Unique)" rules={[{ required: true }]}>
-            <Input placeholder="e.g. ASTM-C39" />
-          </Form.Item>
-          <Form.Item name="name" label="Method Name" rules={[{ required: true }]}>
-            <Input placeholder="e.g. Compressive Strength" />
-          </Form.Item>
-          <Form.Item name="standardRef" label="Standard Reference">
-            <Input placeholder="e.g. ASTM C39 / C39M" />
-          </Form.Item>
-          <Form.Item name="resultType" label="Result Type">
-            <Select>
-              <Option value="QUANTITATIVE">Quantitative</Option>
-              <Option value="PASS_FAIL">Pass / Fail</Option>
-            </Select>
-          </Form.Item>
-        </Form>
+        <Typography.Paragraph>
+          Method Published successfully! As a final step, please upload your COA Excel Template.
+        </Typography.Paragraph>
+        <Upload 
+            name="file" 
+            action={`/api/v1/test-methods/${targetPublishId}/definitions/template`}
+            headers={{ Authorization: `Bearer ${useAuthStore.getState().token}` }}
+            showUploadList={false}
+            onChange={(info) => {
+                if (info.file.status === 'uploading') {
+                    setIsUploadingTemplate(true);
+                } else if (info.file.status === 'done') {
+                    setIsUploadingTemplate(false);
+                    message.success('COA Template uploaded successfully. You can complete the setup.');
+                } else if (info.file.status === 'error') {
+                    setIsUploadingTemplate(false);
+                    const errMsg = info.file.response?.message || 'Server error';
+                    message.error(`Upload failed: ${errMsg}`);
+                }
+            }}
+        >
+            <Button icon={<UploadOutlined />} block loading={isUploadingTemplate}>Upload Template</Button>
+        </Upload>
       </Modal>
 
       <WorksheetPreview 

@@ -8,6 +8,7 @@ import { ColumnGroupEditor } from './ColumnGroupEditor';
 import { FormulaBuilder } from './FormulaBuilder';
 import { ConditionBuilder } from './ConditionBuilder';
 import axios from 'axios';
+import { useAuthStore } from '../../../store/authStore';
 
 const { Title, Text: AntText } = Typography;
 
@@ -33,6 +34,7 @@ export const PropertyEditor: React.FC = () => {
     updateSection, updateField 
   } = useDesignerStore();
   const [grouperOpen, setGrouperOpen] = React.useState(false);
+  const [isUploading, setIsUploading] = React.useState(false);
 
   const section = selectedSectionId ? schema.sections.find(s => s.id === selectedSectionId) : null;
   const field = selectedFieldId && section ? (
@@ -189,19 +191,45 @@ export const PropertyEditor: React.FC = () => {
     }
 
     // 3. DEFAULT: Method Settings (Excel Upload)
+    const isNew = id === 'new' || !id;
+
     return (
       <div key="method-settings">
         <Title level={5}>Method Settings</Title>
         <Divider />
         <Form layout="vertical">
-             <Form.Item label="COA Excel Template" help="Upload .xlsx with {tags}.">
-                <Upload 
-                    name="file" action={`/api/v1/test-methods/${id}/definitions/template`}
-                    onChange={(info) => info.file.status === 'done' ? message.success('Uploaded') : null}
-                    showUploadList={false}
-                >
-                    <Button icon={<UploadOutlined />} block>Upload Template</Button>
-                </Upload>
+             <Form.Item label="COA Excel Template">
+                {isNew ? (
+                    <div style={{ padding: '12px', backgroundColor: '#fffbe6', borderRadius: '4px', border: '1px solid #ffe58f' }}>
+                        <AntText type="secondary" style={{ fontSize: 13, color: '#d46b08' }}>
+                           COA Template upload will be available after you publish this new method.
+                        </AntText>
+                    </div>
+                ) : (
+                    <>
+                        <Upload 
+                            name="file" 
+                            action={`/api/v1/test-methods/${id}/definitions/template`}
+                            headers={{ Authorization: `Bearer ${useAuthStore.getState().token}` }}
+                            showUploadList={false}
+                            onChange={(info) => {
+                                if (info.file.status === 'uploading') {
+                                    setIsUploading(true);
+                                } else if (info.file.status === 'done') {
+                                    setIsUploading(false);
+                                    message.success('COA Template uploaded successfully');
+                                } else if (info.file.status === 'error') {
+                                    setIsUploading(false);
+                                    const errMsg = info.file.response?.message || 'Server error';
+                                    message.error(`Upload failed: ${errMsg}`);
+                                }
+                            }}
+                        >
+                            <Button icon={<UploadOutlined />} block loading={isUploading}>Upload Template</Button>
+                        </Upload>
+                        <div style={{ marginTop: '8px', color: '#8c8c8c', fontSize: 12 }}>Upload .xlsx with {`{tags}`}.</div>
+                    </>
+                )}
             </Form.Item>
             <div style={{ padding: '12px', backgroundColor: '#e6f4ff', borderRadius: '4px', border: '1px solid #91caff' }}>
                 <AntText type="secondary" style={{ fontSize: 12 }}>Use the **Cheat Sheet** to map your Excel cells.</AntText>
