@@ -1,7 +1,7 @@
 import React from 'react';
 import { useParams } from 'react-router-dom';
-import { Form, Input, Select, InputNumber, Switch, Typography, Divider, Button, Upload, message, Space } from 'antd';
-import { UploadOutlined, BookOutlined, FileExcelOutlined, CloseOutlined } from '@ant-design/icons';
+import { Form, Input, Select, InputNumber, Switch, Typography, Divider, Button, Upload, message, Space, Card } from 'antd';
+import { UploadOutlined, BookOutlined, FileExcelOutlined, CloseOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { useDesignerStore } from './store';
 import type { InputType, TableOrientation, FieldSchema } from './types';
 import { ColumnGroupEditor } from './ColumnGroupEditor';
@@ -31,7 +31,8 @@ export const PropertyEditor: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { 
     schema, selectedSectionId, selectedFieldId, 
-    updateSection, updateField, setReportTemplatePath
+    updateSection, updateField, removeField, setReportTemplatePath,
+    addRowHeader, updateRowHeader, removeRowHeader
   } = useDesignerStore();
   const [grouperOpen, setGrouperOpen] = React.useState(false);
   const [isUploading, setIsUploading] = React.useState(false);
@@ -112,23 +113,25 @@ export const PropertyEditor: React.FC = () => {
           <Form.Item label="Required">
             <Switch checked={field.required} onChange={v => handleUpdate({ required: v })} />
           </Form.Item>
-          <Form.Item label="System Mapping" help="Auto-prefill with system data.">
-            <Select 
-              allowClear 
-              value={field.systemMapping} 
-              onChange={v => handleUpdate({ systemMapping: v })}
-              options={[
-                { value: 'sample.sampleNumber', label: 'Sample Number' },
-                { value: 'sample.job.jobNumber', label: 'Job Number' },
-                { value: 'sample.job.client.name', label: 'Client Name' },
-                { value: 'sample.product.name', label: 'Product Name' },
-                { value: 'sample.job.projectName', label: 'Project Name' },
-                { value: 'sample.job.poNumber', label: 'PO Number' },
-                { value: 'sample.sampledAt', label: 'Sampling Date' },
-                { value: 'sample.receivedAt', label: 'Received Date' },
-              ]}
-            />
-          </Form.Item>
+          {section?.type !== 'MATRIX_TABLE' && (
+            <Form.Item label="System Mapping" help="Auto-prefill with system data.">
+              <Select 
+                allowClear 
+                value={field.systemMapping} 
+                onChange={v => handleUpdate({ systemMapping: v })}
+                options={[
+                  { value: 'sample.sampleNumber', label: 'Sample Number' },
+                  { value: 'sample.job.jobNumber', label: 'Job Number' },
+                  { value: 'sample.job.client.name', label: 'Client Name' },
+                  { value: 'sample.product.name', label: 'Product Name' },
+                  { value: 'sample.job.projectName', label: 'Project Name' },
+                  { value: 'sample.job.poNumber', label: 'PO Number' },
+                  { value: 'sample.sampledAt', label: 'Sampling Date' },
+                  { value: 'sample.receivedAt', label: 'Received Date' },
+                ]}
+              />
+            </Form.Item>
+          )}
           <Divider />
           <Form.Item label="COA Final Result" help="Extract this field's value for the final report.">
             <Switch checked={field.isFinalResult} onChange={v => handleUpdate({ isFinalResult: v })} />
@@ -168,6 +171,80 @@ export const PropertyEditor: React.FC = () => {
               <Form.Item label={section.orientation === 'COLUMNS_AS_TRIALS' ? "Max Columns" : "Max Rows"}>
                 <InputNumber min={1} value={section.maxRows} onChange={v => updateSection(section.id, { maxRows: v || undefined })} style={{ width: '100%' }} />
               </Form.Item>
+              <Form.Item>
+                <Button type="default" block onClick={() => setGrouperOpen(true)}>Configure Merged Headers</Button>
+                {grouperOpen && <ColumnGroupEditor sectionId={section.id} isOpen={grouperOpen} onClose={() => setGrouperOpen(false)} />}
+              </Form.Item>
+            </>
+          )}
+
+          {section.type === 'MATRIX_TABLE' && (
+            <>
+              <Divider>Matrix Settings</Divider>
+              <Divider>Matrix Columns</Divider>
+              {(section.columns || []).map((col, index) => (
+                <Card size="small" style={{ marginBottom: 12, border: '1px solid #d9d9d9' }} key={col.id}>
+                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <AntText strong style={{ fontSize: 12 }}>Column {index + 1}</AntText>
+                      <Button 
+                        type="text" 
+                        danger 
+                        size="small" 
+                        icon={<DeleteOutlined />} 
+                        onClick={() => removeField(section.id, col.id)} 
+                      />
+                   </div>
+                   <div style={{ marginTop: 8 }}>
+                      <Input 
+                        size="small"
+                        placeholder="Column Label" 
+                        value={col.label} 
+                        onChange={e => updateField(section.id, col.id, { label: e.target.value })} 
+                      />
+                   </div>
+                </Card>
+              ))}
+              <Button 
+                type="dashed" 
+                block 
+                icon={<PlusOutlined />} 
+                onClick={() => useDesignerStore.getState().addField(section.id)}
+              >
+                Add Column
+              </Button>
+              
+              <Divider>Row Definitions</Divider>
+              {(section.rowHeaders || []).map((rh, index) => (
+                <Card size="small" style={{ marginBottom: 12, backgroundColor: '#f9f9f9' }} key={rh.id}>
+                  <Space direction="vertical" style={{ width: '100%' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <AntText strong>Row {index + 1}</AntText>
+                      <Button 
+                        type="text" 
+                        danger 
+                        size="small" 
+                        icon={<DeleteOutlined />} 
+                        onClick={() => removeRowHeader(section.id, rh.id)} 
+                      />
+                    </div>
+                    <Input 
+                      placeholder="Row Label (e.g. Tested by)" 
+                      value={rh.label} 
+                      onChange={e => updateRowHeader(section.id, rh.id, { label: e.target.value })} 
+                    />
+                  </Space>
+                </Card>
+              ))}
+              <Button 
+                type="dashed" 
+                block 
+                icon={<PlusOutlined />} 
+                onClick={() => addRowHeader(section.id)}
+              >
+                Add Row Header
+              </Button>
+
+              <Divider>Header Configuration</Divider>
               <Form.Item>
                 <Button type="default" block onClick={() => setGrouperOpen(true)}>Configure Merged Headers</Button>
                 {grouperOpen && <ColumnGroupEditor sectionId={section.id} isOpen={grouperOpen} onClose={() => setGrouperOpen(false)} />}

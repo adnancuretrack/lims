@@ -5,7 +5,8 @@ export type InputType =
 
 export type SectionType = 
   | 'SINGLE_VALUE' | 'GROUPED_TABLE' | 'DATA_TABLE'
-  | 'EQUIPMENT' | 'SIGNATURE' | 'NOTES' | 'REFERENCE_TABLE' | 'CHART';
+  | 'EQUIPMENT' | 'SIGNATURE' | 'NOTES' | 'REFERENCE_TABLE' | 'CHART'
+  | 'MATRIX_TABLE';
 
 export type TableOrientation = 'COLUMNS_AS_TRIALS' | 'ROWS_AS_RECORDS';
 
@@ -39,6 +40,12 @@ export interface ColumnGroupSchema {
   subGroups?: ColumnGroupSchema[];
 }
 
+export interface RowHeaderSchema {
+  id: string;
+  label: string;
+  systemMapping?: string;
+}
+
 export interface SectionSchema {
   id: string;
   type: SectionType;
@@ -56,6 +63,7 @@ export interface SectionSchema {
   totalRowLabel?: string;
   totalColumns?: string[];
   columnGroups?: ColumnGroupSchema[];
+  rowHeaders?: RowHeaderSchema[];
   visibilityCondition?: string;
 
   // Charting Configuration

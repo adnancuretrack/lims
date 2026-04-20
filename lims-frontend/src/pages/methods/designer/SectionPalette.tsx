@@ -12,7 +12,8 @@ import {
   BarChartOutlined,
   UnorderedListOutlined,
   BookOutlined,
-  PlusOutlined
+  PlusOutlined,
+  BorderOutlined
 } from '@ant-design/icons';
 import { ExcelImporter } from './ExcelImporter';
 import type { SectionType } from './types';
@@ -29,6 +30,7 @@ const SECTION_TYPES: { type: SectionType, label: string, icon: React.ReactNode, 
   { type: 'NOTES', label: 'Notes', icon: <FileTextOutlined />, description: 'Read-only business rules or legends' },
   { type: 'REFERENCE_TABLE', label: 'Reference Table', icon: <UnorderedListOutlined />, description: 'Read-only threshold and spec tables' },
   { type: 'CHART', label: 'Chart', icon: <BarChartOutlined />, description: 'Visual data representation' },
+  { type: 'MATRIX_TABLE', label: 'Matrix Table', icon: <BorderOutlined />, description: 'Fixed row and column headers (e.g., Approval Blocks)' },
 ];
 
 // ... (DraggableSectionItem stays below)

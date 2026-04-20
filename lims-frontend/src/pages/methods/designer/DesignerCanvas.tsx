@@ -2,14 +2,15 @@ import React from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Card, Typography, Button, Space, Input, Select, Form, Row, Col } from 'antd';
+import { Card, Typography, Button, Space, Input, Select, Form, Row, Col, Tag } from 'antd';
 import { DeleteOutlined, SettingOutlined, PlusOutlined, MenuOutlined } from '@ant-design/icons';
 import { useDesignerStore } from './store';
 import type { SectionSchema, FieldSchema } from './types';
+import { horizontalListSortingStrategy } from '@dnd-kit/sortable';
 
 const { Title, Text } = Typography;
 
-const SortableField = ({ sectionId, field }: { sectionId: string, field: FieldSchema }) => {
+const SortableField = ({ sectionId, field, isCompact }: { sectionId: string, field: FieldSchema, isCompact?: boolean }) => {
   const { setSelectedField, removeField, selectedFieldId } = useDesignerStore();
   const isActive = selectedFieldId === field.id;
 
@@ -28,13 +29,32 @@ const SortableField = ({ sectionId, field }: { sectionId: string, field: FieldSc
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.4 : 1,
-    marginBottom: 8,
+    marginBottom: isCompact ? 0 : 8,
     cursor: 'pointer',
     border: isActive ? '2px solid #1677ff' : '1px solid #d9d9d9',
     backgroundColor: isActive ? '#e6f4ff' : '#fff',
     boxShadow: isActive ? '0 0 8px rgba(22,119,255,0.2)' : 'none',
-    zIndex: isDragging ? 10 : 1
+    zIndex: isDragging ? 10 : 1,
+    padding: isCompact ? '4px 8px' : 0,
+    borderRadius: isCompact ? 4 : 8
   };
+
+  if (isCompact) {
+    return (
+        <div ref={setNodeRef} style={style} onClick={(e) => { 
+            e.stopPropagation(); 
+            setSelectedField(field.id, sectionId); 
+        }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', maxWidth: 'calc(100% - 20px)' }}>
+                   <MenuOutlined {...attributes} {...listeners} style={{ cursor: 'grab', marginRight: 4, color: '#bfbfbf', fontSize: 10 }} />
+                   <Text strong ellipsis style={{ fontSize: 12, color: isActive ? '#1677ff' : 'inherit' }}>{field.label || 'Field'}</Text>
+                </div>
+                {field.systemMapping && <Text style={{ fontSize: 10 }}>⚡</Text>}
+            </div>
+        </div>
+    );
+  }
 
   return (
     <div ref={setNodeRef} style={style} onClick={(e) => { 
@@ -116,26 +136,84 @@ const SortableSection = ({ section }: { section: SectionSchema }) => {
         }
       >
         <div style={{ minHeight: 40, padding: 8, background: '#fafafa', borderRadius: 4, border: '1px dashed #d9d9d9' }}>
-          <SortableContext items={fields.map(f => f.id)} strategy={verticalListSortingStrategy}>
-            {fields.length === 0 ? (
-              <div style={{ textAlign: 'center', color: '#bfbfbf', padding: '16px 0' }}>
-                No fields added
-              </div>
-            ) : (
-              fields.map(f => (
-                <SortableField key={f.id} sectionId={section.id} field={f} />
-              ))
-            )}
-          </SortableContext>
-          <Button 
-            type="dashed" 
-            block 
-            icon={<PlusOutlined />} 
-            onClick={(e) => { e.stopPropagation(); addField(section.id); }}
-            style={{ marginTop: 8 }}
-          >
-            Add Field
-          </Button>
+          {section.type === 'MATRIX_TABLE' ? (
+            <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 8, tableLayout: 'fixed' }}>
+                <thead>
+                    <tr>
+                    <th style={{ border: '1px solid #d9d9d9', padding: '4px 8px', background: '#f5f5f5', width: 120, fontSize: 11, textAlign: 'left' }}>
+                        Row \ Column
+                    </th>
+                    <SortableContext items={fields.map(f => f.id)} strategy={horizontalListSortingStrategy}>
+                        {fields.map(f => (
+                            <th key={f.id} style={{ border: '1px solid #d9d9d9', padding: 4, minWidth: 100, backgroundColor: '#fff' }}>
+                                <SortableField sectionId={section.id} field={f} isCompact />
+                            </th>
+                        ))}
+                    </SortableContext>
+                    </tr>
+                </thead>
+                <tbody>
+                    {(section.rowHeaders && section.rowHeaders.length > 0 ? section.rowHeaders : [{ id: 'p1', label: 'New Row' }]).map((rh) => (
+                    <tr key={rh.id}>
+                        <td style={{ border: '1px solid #d9d9d9', padding: '6px 8px', fontSize: 12, fontWeight: 500, backgroundColor: '#fff' }}>
+                            {rh.label}
+                            {rh.systemMapping && <span style={{ marginLeft: 4, fontSize: 10 }}>⚡</span>}
+                        </td>
+                        {fields.map(f => (
+                        <td key={f.id} style={{ border: '1px solid #d9d9d9', padding: '6px 8px', textAlign: 'center', backgroundColor: '#fdfdfd' }}>
+                            <Tag style={{ fontSize: 9, margin: 0 }}>{f.inputType}</Tag>
+                        </td>
+                        ))}
+                    </tr>
+                    ))}
+                </tbody>
+                </table>
+                <div style={{ display: 'flex', gap: 8 }}>
+                    <Button 
+                        type="dashed" 
+                        size="small"
+                        icon={<PlusOutlined />} 
+                        onClick={(e) => { e.stopPropagation(); addField(section.id); }}
+                        style={{ flex: 1 }}
+                    >
+                        Add Column
+                    </Button>
+                    <Button 
+                        type="dashed" 
+                        size="small"
+                        icon={<PlusOutlined />} 
+                        onClick={(e) => { e.stopPropagation(); useDesignerStore.getState().addRowHeader(section.id); }}
+                        style={{ flex: 1 }}
+                    >
+                        Add Row
+                    </Button>
+                </div>
+            </div>
+          ) : (
+            <>
+                <SortableContext items={fields.map(f => f.id)} strategy={verticalListSortingStrategy}>
+                    {fields.length === 0 ? (
+                    <div style={{ textAlign: 'center', color: '#bfbfbf', padding: '16px 0' }}>
+                        No fields added
+                    </div>
+                    ) : (
+                    fields.map(f => (
+                        <SortableField key={f.id} sectionId={section.id} field={f} />
+                    ))
+                    )}
+                </SortableContext>
+                <Button 
+                    type="dashed" 
+                    block 
+                    icon={<PlusOutlined />} 
+                    onClick={(e) => { e.stopPropagation(); addField(section.id); }}
+                    style={{ marginTop: 8 }}
+                >
+                    Add Field
+                </Button>
+            </>
+          )}
         </div>
       </Card>
     </div>

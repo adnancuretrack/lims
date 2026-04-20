@@ -17,6 +17,11 @@ interface DesignerState {
   removeField: (sectionId: string, fieldId: string) => void;
   moveField: (activeFieldId: string, overId: string, activeSectionId: string, overSectionId: string) => void;
   
+  addRowHeader: (sectionId: string) => void;
+  updateRowHeader: (sectionId: string, rowHeaderId: string, updates: Partial<import('./types').RowHeaderSchema>) => void;
+  removeRowHeader: (sectionId: string, rowHeaderId: string) => void;
+  reorderRowHeaders: (sectionId: string, oldIndex: number, newIndex: number) => void;
+  
   setSelectedSection: (id: string | null) => void;
   setSelectedField: (id: string | null, sectionId?: string | null) => void;
   setSchema: (schema: WorksheetSchema) => void;
@@ -87,7 +92,7 @@ export const useDesignerStore = create<DesignerState>((set) => ({
           inputType: 'TEXT'
         };
         
-        if (s.type === 'DATA_TABLE') {
+        if (s.type === 'DATA_TABLE' || s.type === 'MATRIX_TABLE') {
           return { ...s, columns: [...(s.columns || []), newField] };
         } else if (s.type === 'GROUPED_TABLE') {
           return { ...s, dataColumns: [...(s.dataColumns || []), newField] };
@@ -110,7 +115,7 @@ export const useDesignerStore = create<DesignerState>((set) => ({
         sections: state.schema.sections.map(s => {
           if (s.id !== sectionId) return s;
           
-          if (s.type === 'DATA_TABLE') {
+          if (s.type === 'DATA_TABLE' || s.type === 'MATRIX_TABLE') {
             return { ...s, columns: mapFields(s.columns) };
           } else if (s.type === 'GROUPED_TABLE') {
             return { ...s, dataColumns: mapFields(s.dataColumns) };
@@ -132,7 +137,7 @@ export const useDesignerStore = create<DesignerState>((set) => ({
         sections: state.schema.sections.map(s => {
           if (s.id !== sectionId) return s;
           
-          if (s.type === 'DATA_TABLE') {
+          if (s.type === 'DATA_TABLE' || s.type === 'MATRIX_TABLE') {
             return { ...s, columns: filterFields(s.columns) };
           } else if (s.type === 'GROUPED_TABLE') {
             return { ...s, dataColumns: filterFields(s.dataColumns) };
@@ -161,7 +166,7 @@ export const useDesignerStore = create<DesignerState>((set) => ({
 
     // Helper to get field array property name
     const getFieldProp = (s: SectionSchema) => {
-      if (s.type === 'DATA_TABLE') return 'columns';
+      if (s.type === 'DATA_TABLE' || s.type === 'MATRIX_TABLE') return 'columns';
       if (s.type === 'GROUPED_TABLE') return 'dataColumns';
       return 'fields';
     };
@@ -197,6 +202,61 @@ export const useDesignerStore = create<DesignerState>((set) => ({
       selectedFieldId: activeFieldId, 
       selectedSectionId: overSectionId 
     };
+  }),
+
+  addRowHeader: (sectionId) => set((state) => ({
+    schema: {
+      ...state.schema,
+      sections: state.schema.sections.map(s => {
+        if (s.id !== sectionId) return s;
+        const newRow: import('./types').RowHeaderSchema = {
+          id: `row_${crypto.randomUUID().slice(0, 8)}`,
+          label: 'New Row'
+        };
+        return { ...s, rowHeaders: [...(s.rowHeaders || []), newRow] };
+      })
+    }
+  })),
+
+  updateRowHeader: (sectionId, rowHeaderId, updates) => set((state) => ({
+    schema: {
+      ...state.schema,
+      sections: state.schema.sections.map(s => {
+        if (s.id !== sectionId) return s;
+        return {
+          ...s,
+          rowHeaders: (s.rowHeaders || []).map(rh => 
+            rh.id === rowHeaderId ? { ...rh, ...updates } : rh
+          )
+        };
+      })
+    }
+  })),
+
+  removeRowHeader: (sectionId, rowHeaderId) => set((state) => ({
+    schema: {
+      ...state.schema,
+      sections: state.schema.sections.map(s => {
+        if (s.id !== sectionId) return s;
+        return {
+          ...s,
+          rowHeaders: (s.rowHeaders || []).filter(rh => rh.id !== rowHeaderId)
+        };
+      })
+    }
+  })),
+
+  reorderRowHeaders: (sectionId, oldIndex, newIndex) => set((state) => {
+    const sections = [...state.schema.sections];
+    const sectionIndex = sections.findIndex(s => s.id === sectionId);
+    if (sectionIndex === -1) return state;
+
+    const rowHeaders = [...(sections[sectionIndex].rowHeaders || [])];
+    const [moved] = rowHeaders.splice(oldIndex, 1);
+    rowHeaders.splice(newIndex, 0, moved);
+
+    sections[sectionIndex] = { ...sections[sectionIndex], rowHeaders };
+    return { schema: { ...state.schema, sections } };
   }),
 
   setSelectedSection: (id) => set({ selectedSectionId: id, selectedFieldId: null }),
