@@ -46,6 +46,53 @@ const renderSection = (section: SectionSchema) => {
   }
 
   if (section.type === 'DATA_TABLE') {
+    const buildCol = (c: FieldSchema) => ({
+      title: c.label + (c.unit ? ` (${c.unit})` : ''),
+      dataIndex: c.id,
+      key: c.id,
+      render: () => renderFieldInput(c)
+    });
+
+    const getGroupedColumns = (fields: FieldSchema[], groups?: any[]) => {
+      if (!groups || groups.length === 0) return fields.map(buildCol);
+
+      const result: any[] = [];
+      const columnMap = new Map(fields.map(f => [f.id, f]));
+      const processedGroups = new Set<string>();
+      const processedFieldIds = new Set<string>();
+
+      fields.forEach(f => {
+        if (processedFieldIds.has(f.id)) return;
+
+        const group = groups.find(g => (g.span || []).includes(f.id));
+        
+        if (group) {
+          const groupId = group.id || group.label;
+          if (!processedGroups.has(groupId)) {
+            result.push({
+              title: group.label,
+              align: 'center',
+              children: (group.span || [])
+                .map((id: string) => {
+                  processedFieldIds.add(id);
+                  return columnMap.get(id);
+                })
+                .filter(Boolean)
+                .map((col: any) => buildCol(col))
+            });
+            processedGroups.add(groupId);
+          }
+        } else {
+          result.push(buildCol(f));
+          processedFieldIds.add(f.id);
+        }
+      });
+
+      return result;
+    };
+
+    const baseFields = section.columns || section.dataColumns || section.fields || [];
+
     if (section.orientation === 'COLUMNS_AS_TRIALS') {
       const trialLen = section.minRows || 3;
       const trials = Array.from({ length: trialLen }, (_, i) => `Trial ${i + 1}`);
@@ -69,7 +116,7 @@ const renderSection = (section: SectionSchema) => {
         }
       ];
       
-      const dataSource = (section.columns || []).map(f => ({
+      const dataSource = baseFields.map(f => ({
         key: f.id,
         label: (f.label || f.id) + (f.unit ? ` (${f.unit})` : ''),
       }));
@@ -77,16 +124,10 @@ const renderSection = (section: SectionSchema) => {
       return <Table columns={columns} dataSource={dataSource} pagination={false} size="small" scroll={{ x: 'max-content' }} />;
     } else {
       // ROWS_AS_RECORDS
-      const columns = (section.columns || []).map(c => ({
-        title: c.label + (c.unit ? ` (${c.unit})` : ''),
-        dataIndex: c.id,
-        key: c.id,
-        render: () => renderFieldInput(c)
-      }));
-
+      const columns = getGroupedColumns(baseFields, section.columnGroups);
       const dataSource = Array.from({ length: section.minRows || 3 }, (_, i) => ({ key: i }));
 
-      return <Table columns={columns} dataSource={dataSource} pagination={false} size="small" scroll={{ x: 'max-content' }} />;
+      return <Table columns={columns} dataSource={dataSource} pagination={false} size="small" bordered scroll={{ x: 'max-content' }} />;
     }
   }
 
