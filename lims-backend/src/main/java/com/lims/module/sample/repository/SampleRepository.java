@@ -16,8 +16,8 @@ import java.util.Optional;
 @Repository
 public interface SampleRepository extends JpaRepository<Sample, Long>, JpaSpecificationExecutor<Sample> {
     Optional<Sample> findBySampleNumber(String sampleNumber);
-    Optional<Sample> findByBarcode(String barcode);
     List<Sample> findByJobId(Long jobId);
+    long countByJobId(Long jobId);
 
     // Status-based counts for dashboard
     long countByStatus(String status);

@@ -1,7 +1,7 @@
-import { Table, Button, Card, Typography, Tag, Space } from 'antd';
-import { PlusOutlined, CodeOutlined } from '@ant-design/icons';
+import { Table, Button, Card, Typography, Tag, Space, Popconfirm, message } from 'antd';
+import { PlusOutlined, CodeOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { LookupService } from '../../api/LookupService';
 import type { TestMethodDTO } from '../../api/types';
 
@@ -9,10 +9,23 @@ const { Title } = Typography;
 
 export default function TestMethodListPage() {
     const navigate = useNavigate();
+    const queryClient = useQueryClient();
 
     const { data: testMethods, isLoading } = useQuery({
         queryKey: ['testMethods'],
         queryFn: LookupService.getAllTestMethods,
+    });
+
+    const deleteMutation = useMutation({
+        mutationFn: LookupService.deleteTestMethod,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['testMethods'] });
+            message.success('Test method deleted successfully');
+        },
+        onError: (error: any) => {
+            const errMsg = error.response?.data?.message || 'Cannot delete this test method because it is already in use by products or samples.';
+            message.error(errMsg);
+        }
     });
 
     const columns = [
@@ -60,6 +73,23 @@ export default function TestMethodListPage() {
                     >
                         Design
                     </Button>
+                    <Popconfirm
+                        title="Delete Test Method"
+                        description={`Are you sure you want to delete ${record.code}?`}
+                        onConfirm={() => deleteMutation.mutate(record.id!)}
+                        okText="Yes"
+                        cancelText="No"
+                        okButtonProps={{ loading: deleteMutation.isPending }}
+                    >
+                        <Button 
+                            danger 
+                            size="small" 
+                            icon={<DeleteOutlined />}
+                            title="Delete Method"
+                        >
+                            Delete
+                        </Button>
+                    </Popconfirm>
                 </Space>
             ),
         },

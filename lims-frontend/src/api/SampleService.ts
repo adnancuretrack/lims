@@ -63,5 +63,13 @@ export const SampleService = {
             responseType: 'blob'
         });
         return response.data;
+    },
+
+    deleteSample: async (id: number): Promise<void> => {
+        await apiClient.delete(`${BASE_URL}/samples/${id}`);
+    },
+
+    wipeSamples: async (): Promise<void> => {
+        await apiClient.post(`${BASE_URL}/dev/wipe-samples`);
     }
 };

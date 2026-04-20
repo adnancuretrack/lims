@@ -32,7 +32,7 @@ export const MethodDesignerPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const isNew = id === 'new' || !id;
   
-  const { addSection, reorderSections, schema, setSchema, reset } = useDesignerStore();
+  const { addSection, reorderSections, schema, setSchema, setReportTemplatePath, reset } = useDesignerStore();
   
   const [activeId, setActiveId] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -56,7 +56,11 @@ export const MethodDesignerPage: React.FC = () => {
     try {
       const activeDef = await MethodDefinitionService.getActiveDefinition(methodId);
       if (activeDef && activeDef.schemaDefinition) {
-        setSchema(activeDef.schemaDefinition as any);
+        const fullSchema = {
+          ...(activeDef.schemaDefinition as any),
+          reportTemplatePath: activeDef.reportTemplatePath
+        };
+        setSchema(fullSchema);
       }
     } catch (err) {
       console.error('Failed to load existing method definition', err);
@@ -217,6 +221,8 @@ export const MethodDesignerPage: React.FC = () => {
                     setIsUploadingTemplate(true);
                 } else if (info.file.status === 'done') {
                     setIsUploadingTemplate(false);
+                    const uploadedPath = info.file.response?.reportTemplatePath || info.file.response?.data?.reportTemplatePath;
+                    setReportTemplatePath(uploadedPath);
                     message.success('COA Template uploaded successfully. You can complete the setup.');
                 } else if (info.file.status === 'error') {
                     setIsUploadingTemplate(false);

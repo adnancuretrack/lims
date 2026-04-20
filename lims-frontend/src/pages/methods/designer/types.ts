@@ -49,9 +49,9 @@ export interface SectionSchema {
   columns?: FieldSchema[];       // For DATA_TABLE
   dataColumns?: FieldSchema[];   // For GROUPED_TABLE
   orientation?: TableOrientation;
-  minRows?: number;
-  maxRows?: number;
-  trialCount?: number;
+  minRows?: number;         // Used as 'Min Rows' for Dynamic Rows, or 'Min Columns/Trials' for Dynamic Columns
+  maxRows?: number;         // Used as 'Max Rows' for Dynamic Rows, or 'Max Columns/Trials' for Dynamic Columns
+  trialCount?: number;      // Deprecated: Use minRows instead for dynamic columns
   showTotalRow?: boolean;
   totalRowLabel?: string;
   totalColumns?: string[];

@@ -73,11 +73,31 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section }) => 
     const tableData = data[section.id] || [];
 
     if (section.orientation === 'COLUMNS_AS_TRIALS') {
-      const trials = Array.from({ length: section.trialCount || 1 }, (_, i) => `Trial ${i + 1}`);
+      const trialLen = tableData.length;
+      const minRows = section.minRows || 1;
+      const maxRows = section.maxRows || Infinity;
+      const trials = Array.from({ length: trialLen }, (_, i) => `Trial ${i + 1}`);
+
       const columns = [
         { title: 'Field', dataIndex: 'label', key: 'label', fixed: 'left' as const, width: 200 },
         ...trials.map((t, i) => ({
-          title: t,
+          title: (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+               <span>{t}</span>
+               {trialLen > minRows && (
+                 <Button 
+                    type="text" 
+                    size="small" 
+                    danger 
+                    icon={<DeleteOutlined style={{ fontSize: 12 }} />} 
+                    onClick={(e) => {
+                       e.stopPropagation();
+                       removeRow(section.id, i);
+                    }}
+                 />
+               )}
+            </div>
+          ),
           dataIndex: `trial_${i}`,
           key: `trial_${i}`,
           render: (_: any, record: any) => {
@@ -93,7 +113,22 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section }) => 
                </Form.Item>
              );
           }
-        }))
+        })),
+        ...(trialLen < maxRows ? [{
+          title: (
+            <Button 
+              type="dashed" 
+              size="small" 
+              icon={<PlusOutlined />} 
+              onClick={() => addRow(section.id)}
+              style={{ width: '100%', fontSize: 11 }}
+            >
+              Add Column
+            </Button>
+          ),
+          key: 'add_col',
+          width: 120,
+        }] : [])
       ];
       
       const dataSource = (section.columns || section.dataColumns || []).map(f => ({

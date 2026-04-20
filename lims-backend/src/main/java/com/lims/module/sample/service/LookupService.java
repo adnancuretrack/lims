@@ -9,10 +9,13 @@ import com.lims.module.sample.repository.ClientRepository;
 import com.lims.module.sample.repository.ProductRepository;
 import com.lims.module.sample.repository.ProductTestRepository;
 import com.lims.module.sample.repository.TestMethodRepository;
+import com.lims.module.sample.repository.MethodDefinitionRepository;
+import com.lims.module.sample.entity.MethodDefinition;
 import com.lims.module.sample.dto.ProductTestDTO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import jakarta.persistence.EntityManager;
 
 import java.util.List;
 
@@ -24,6 +27,8 @@ public class LookupService {
     private final ProductRepository productRepository;
     private final TestMethodRepository testMethodRepository;
     private final ProductTestRepository productTestRepository;
+    private final MethodDefinitionRepository methodDefinitionRepository;
+    private final EntityManager entityManager;
 
     @Transactional(readOnly = true)
     public List<Client> getActiveClients() {
@@ -103,6 +108,30 @@ public class LookupService {
 
 
         return testMethodRepository.save(existing);
+    }
+
+    @Transactional
+    public void deleteTestMethod(Long id) {
+        // 1. Verify existence
+        TestMethod tm = testMethodRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Test Method not found"));
+
+        // 2. Break circular link using Native SQL
+        // This avoids Hibernate trying to manage the TestMethod state during the cleanup
+        entityManager.createNativeQuery("UPDATE test_methods SET active_definition_id = NULL WHERE id = :id")
+                .setParameter("id", id)
+                .executeUpdate();
+
+        // 3. Delete dependent Worksheet Definitions using Native SQL
+        // This bypasses entity lifecycle/cascades that were causing the TransientObjectException
+        // Note: If a Sample is using a definition, the DB will still block this (CORRECT BEHAVIOR)
+        entityManager.createNativeQuery("DELETE FROM method_definitions WHERE test_method_id = :id")
+                .setParameter("id", id)
+                .executeUpdate();
+
+        // 4. Finally, delete the TestMethod itself
+        // We use the repository here so that Hibernate Envers can correctly record the 'DELETE' revision
+        testMethodRepository.delete(tm);
     }
 
     @Transactional(readOnly = true)

@@ -186,7 +186,7 @@ export const ExcelImporter: React.FC = () => {
                  title: `Property Table (Row ${startRow+1})`,
                  type: 'DATA_TABLE',
                  orientation: 'COLUMNS_AS_TRIALS',
-                 trialCount: 3,
+                 minRows: 3,
                  columns
               });
               

@@ -102,10 +102,17 @@ public class MethodDefinitionService {
                     int nextVersion = methodDefinitionRepository.findByTestMethodIdOrderByVersionDesc(testMethodId)
                             .stream().findFirst().map(MethodDefinition::getVersion).orElse(0) + 1;
                     
+                    String templatePath = null;
+                    if (tm.getActiveDefinitionId() != null) {
+                        templatePath = methodDefinitionRepository.findById(tm.getActiveDefinitionId())
+                                .map(MethodDefinition::getReportTemplatePath).orElse(null);
+                    }
+
                     return MethodDefinition.builder()
                             .testMethod(tm)
                             .version(nextVersion)
                             .status("DRAFT")
+                            .reportTemplatePath(templatePath)
                             .build();
                 });
 

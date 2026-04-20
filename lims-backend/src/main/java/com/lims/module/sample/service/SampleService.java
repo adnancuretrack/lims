@@ -16,12 +16,15 @@ import com.lims.module.sample.repository.SampleTestRepository;
 import com.lims.module.sample.repository.ProductRepository;
 import com.lims.module.sample.repository.ProjectRepository;
 import com.lims.module.sample.repository.SampleRepository;
+import com.lims.module.sample.repository.AttachmentRepository;
+import com.lims.module.sample.entity.Attachment;
 import com.lims.module.security.entity.User;
 import com.lims.module.security.repository.UserRepository;
 import com.lims.module.notification.event.SampleReceivedEvent;
 import com.lims.module.notification.service.DataSyncService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -30,6 +33,9 @@ import jakarta.persistence.criteria.Predicate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.time.Instant;
 import java.time.Year;
 import java.util.ArrayList;
@@ -38,6 +44,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class SampleService {
 
     private final JobRepository jobRepository;
@@ -48,6 +55,7 @@ public class SampleService {
     private final UserRepository userRepository;
     private final AnalysisService analysisService;
     private final SampleTestRepository sampleTestRepository;
+    private final AttachmentRepository attachmentRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final DataSyncService dataSyncService;
 
@@ -234,6 +242,35 @@ public class SampleService {
         dataSyncService.broadcast("SAMPLE", saved.getId(), "REJECTED");
 
         return mapToDTO(saved);
+    }
+
+    @Transactional
+    public void deleteSample(Long id) {
+        Sample sample = sampleRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Sample not found"));
+
+        // 1. Cleanup physical files
+        List<Attachment> attachments = attachmentRepository.findBySampleIdOrderByCreatedAtDesc(id);
+        for (Attachment attachment : attachments) {
+            if (attachment.getFilePath() != null) {
+                try {
+                    Files.deleteIfExists(Paths.get(attachment.getFilePath()));
+                    log.info("Deleted physical file for sample deletion: {}", attachment.getFilePath());
+                } catch (IOException e) {
+                    log.error("Failed to delete sample file: {}", attachment.getFilePath(), e);
+                }
+            }
+        }
+
+        Job job = sample.getJob();
+        sampleRepository.delete(sample);
+
+        // 2. Check if job should be deleted (if it was the last sample)
+        long remainingSamples = sampleRepository.countByJobId(job.getId());
+        if (remainingSamples == 0) { // All samples in job deleted
+             jobRepository.delete(job);
+             log.info("Deleted empty JOB after sample deletion: {}", job.getJobNumber());
+        }
     }
 
     // Simplistic numbering for demo. Real implementation would use Redis/DB sequence.

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Modal, Form, Input, Table, Checkbox, Radio, Typography, Card, Space, Empty } from 'antd';
+import { PlusOutlined, CloseOutlined } from '@ant-design/icons';
 import type { WorksheetSchema, SectionSchema, FieldSchema } from './types';
 
 const { Title, Text } = Typography;
@@ -46,15 +47,26 @@ const renderSection = (section: SectionSchema) => {
 
   if (section.type === 'DATA_TABLE') {
     if (section.orientation === 'COLUMNS_AS_TRIALS') {
-      const trials = Array.from({ length: section.trialCount || 1 }, (_, i) => `Trial ${i + 1}`);
+      const trialLen = section.minRows || 3;
+      const trials = Array.from({ length: trialLen }, (_, i) => `Trial ${i + 1}`);
       const columns = [
         { title: 'Field', dataIndex: 'label', key: 'label', fixed: 'left' as const, width: 200 },
         ...trials.map((t, i) => ({
-          title: t,
+          title: (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>{t}</span>
+              <CloseOutlined style={{ fontSize: 10, color: '#ff4d4f', cursor: 'pointer' }} />
+            </div>
+          ),
           dataIndex: `trial_${i}`,
           key: `trial_${i}`,
           render: () => <Input disabled size="small" />
-        }))
+        })),
+        {
+          title: <PlusOutlined style={{ color: '#1677ff', cursor: 'pointer' }} />,
+          key: 'add_col',
+          width: 50,
+        }
       ];
       
       const dataSource = (section.columns || []).map(f => ({

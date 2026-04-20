@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Table, Tag, Button, Space, Card, Typography, Input } from 'antd';
+import { Table, Tag, Button, Space, Card, Typography, Input, Popconfirm, message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { useQuery } from '@tanstack/react-query';
-import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { PlusOutlined, ReloadOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { SampleService } from '../../api/SampleService';
 import type { SampleDTO } from '../../api/types';
@@ -12,12 +12,24 @@ const { Search } = Input;
 
 export default function SampleListPage() {
     const navigate = useNavigate();
+    const queryClient = useQueryClient();
     const [pagination, setPagination] = useState({ current: 1, pageSize: 10 });
     const [searchText, setSearchText] = useState('');
 
     const { data, isLoading, refetch } = useQuery({
         queryKey: ['samples', pagination.current, pagination.pageSize, searchText],
         queryFn: () => SampleService.list(pagination.current - 1, pagination.pageSize, searchText),
+    });
+
+    const deleteMutation = useMutation({
+        mutationFn: (id: number) => SampleService.deleteSample(id),
+        onSuccess: () => {
+            message.success('Sample deleted successfully');
+            queryClient.invalidateQueries({ queryKey: ['samples'] });
+        },
+        onError: (error: any) => {
+            message.error('Failed to delete sample: ' + (error.response?.data?.message || error.message));
+        }
     });
 
     const onSearch = (value: string) => {
@@ -60,6 +72,30 @@ export default function SampleListPage() {
             dataIndex: 'receivedAt',
             key: 'receivedAt',
             render: (date) => date ? new Date(date).toLocaleString() : '-',
+        },
+        {
+            title: 'Actions',
+            key: 'actions',
+            width: 100,
+            render: (_, record) => (
+                <Space size="middle">
+                    <Popconfirm
+                        title="Delete Sample"
+                        description="Are you sure you want to delete this sample? This will also delete all associated test results."
+                        onConfirm={() => deleteMutation.mutate(record.id!)}
+                        okText="Yes"
+                        cancelText="No"
+                        okButtonProps={{ danger: true, loading: deleteMutation.isPending }}
+                    >
+                        <Button
+                            type="text"
+                            danger
+                            icon={<DeleteOutlined />}
+                            title="Delete Sample"
+                        />
+                    </Popconfirm>
+                </Space>
+            ),
         },
     ];
 

@@ -20,6 +20,7 @@ interface DesignerState {
   setSelectedField: (id: string | null, sectionId?: string | null) => void;
   setSchema: (schema: WorksheetSchema) => void;
   setMetadata: (updates: Partial<WorksheetSchema['metadata']>) => void;
+  setReportTemplatePath: (path: string | undefined) => void;
   reset: () => void;
 }
 
@@ -153,6 +154,9 @@ export const useDesignerStore = create<DesignerState>((set) => ({
       ...state.schema,
       metadata: { ...(state.schema.metadata || {}), ...updates }
     }
+  })),
+  setReportTemplatePath: (path) => set((state) => ({
+    schema: { ...state.schema, reportTemplatePath: path }
   })),
   reset: () => set({ 
     schema: { id: `draft_${Date.now()}`, sections: [], metadata: { title: 'New Test Method', standard: '' } }, 

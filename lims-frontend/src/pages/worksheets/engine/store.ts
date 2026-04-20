@@ -48,7 +48,7 @@ export const useEngineStore = create<EngineState>((set) => ({
             cleanData[sec.id] = Array.from({ length: sec.minRows || 1 }, () => ({}));
           } else {
             // COLUMNS_AS_TRIALS
-            cleanData[sec.id] = Array.from({ length: sec.trialCount || 1 }, () => ({}));
+            cleanData[sec.id] = Array.from({ length: sec.minRows || 1 }, () => ({}));
           }
         }
       }

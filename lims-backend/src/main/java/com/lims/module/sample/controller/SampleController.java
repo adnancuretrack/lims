@@ -87,4 +87,12 @@ public class SampleController {
         SampleDTO sample = sampleService.rejectSample(id, request, authentication.getName());
         return ResponseEntity.ok(sample);
     }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Delete sample")
+    public ResponseEntity<Void> deleteSample(@PathVariable Long id) {
+        sampleService.deleteSample(id);
+        return ResponseEntity.noContent().build();
+    }
 }

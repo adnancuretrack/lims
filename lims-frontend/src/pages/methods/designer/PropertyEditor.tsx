@@ -1,7 +1,7 @@
 import React from 'react';
 import { useParams } from 'react-router-dom';
-import { Form, Input, Select, InputNumber, Switch, Typography, Divider, Button, Upload, message } from 'antd';
-import { UploadOutlined, BookOutlined } from '@ant-design/icons';
+import { Form, Input, Select, InputNumber, Switch, Typography, Divider, Button, Upload, message, Space } from 'antd';
+import { UploadOutlined, BookOutlined, FileExcelOutlined, CloseOutlined } from '@ant-design/icons';
 import { useDesignerStore } from './store';
 import type { InputType, TableOrientation, FieldSchema } from './types';
 import { ColumnGroupEditor } from './ColumnGroupEditor';
@@ -31,7 +31,7 @@ export const PropertyEditor: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { 
     schema, selectedSectionId, selectedFieldId, 
-    updateSection, updateField 
+    updateSection, updateField, setReportTemplatePath
   } = useDesignerStore();
   const [grouperOpen, setGrouperOpen] = React.useState(false);
   const [isUploading, setIsUploading] = React.useState(false);
@@ -159,11 +159,14 @@ export const PropertyEditor: React.FC = () => {
                 <Select<TableOrientation>
                   value={section.orientation || 'ROWS_AS_RECORDS'}
                   onChange={v => updateSection(section.id, { orientation: v })}
-                  options={[{ value: 'ROWS_AS_RECORDS', label: 'Dynamic Rows' }, { value: 'COLUMNS_AS_TRIALS', label: 'Fixed Columns' }]}
+                  options={[{ value: 'ROWS_AS_RECORDS', label: 'Dynamic Rows' }, { value: 'COLUMNS_AS_TRIALS', label: 'Dynamic Columns' }]}
                 />
               </Form.Item>
-              <Form.Item label="Min Rows">
-                <InputNumber min={1} value={section.minRows} onChange={v => updateSection(section.id, { minRows: v || undefined })} />
+              <Form.Item label={section.orientation === 'COLUMNS_AS_TRIALS' ? "Min Columns" : "Min Rows"}>
+                <InputNumber min={1} value={section.minRows} onChange={v => updateSection(section.id, { minRows: v || undefined })} style={{ width: '100%' }} />
+              </Form.Item>
+              <Form.Item label={section.orientation === 'COLUMNS_AS_TRIALS' ? "Max Columns" : "Max Rows"}>
+                <InputNumber min={1} value={section.maxRows} onChange={v => updateSection(section.id, { maxRows: v || undefined })} style={{ width: '100%' }} />
               </Form.Item>
               <Form.Item>
                 <Button type="default" block onClick={() => setGrouperOpen(true)}>Configure Merged Headers</Button>
@@ -205,6 +208,32 @@ export const PropertyEditor: React.FC = () => {
                            COA Template upload will be available after you publish this new method.
                         </AntText>
                     </div>
+                ) : schema.reportTemplatePath ? (
+                    <div style={{ 
+                        padding: '12px', 
+                        backgroundColor: '#f6ffed', 
+                        borderRadius: '4px', 
+                        border: '1px solid #b7eb8f',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between'
+                    }}>
+                        <Space>
+                            <FileExcelOutlined style={{ fontSize: 20, color: '#52c41a' }} />
+                            <div>
+                                <div style={{ fontSize: 13, fontWeight: 600, color: '#389e0d' }}>Template Linked</div>
+                                <div style={{ fontSize: 11, color: '#73d13d' }}>
+                                    {schema.reportTemplatePath.split(/[/\\]/).pop()}
+                                </div>
+                            </div>
+                        </Space>
+                        <Button 
+                            type="text" 
+                            size="small" 
+                            icon={<CloseOutlined style={{ fontSize: 10 }} />} 
+                            onClick={() => setReportTemplatePath(undefined)}
+                        />
+                    </div>
                 ) : (
                     <>
                         <Upload 
@@ -217,6 +246,8 @@ export const PropertyEditor: React.FC = () => {
                                     setIsUploading(true);
                                 } else if (info.file.status === 'done') {
                                     setIsUploading(false);
+                                    const uploadedPath = info.file.response?.reportTemplatePath || info.file.response?.data?.reportTemplatePath;
+                                    setReportTemplatePath(uploadedPath);
                                     message.success('COA Template uploaded successfully');
                                 } else if (info.file.status === 'error') {
                                     setIsUploading(false);

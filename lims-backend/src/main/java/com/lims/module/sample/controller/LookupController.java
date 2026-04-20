@@ -81,6 +81,13 @@ public class LookupController {
         return lookupService.updateTestMethod(id, testMethod);
     }
 
+    @DeleteMapping("/test-methods/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Delete test method (Admin only)")
+    public void deleteTestMethod(@PathVariable Long id) {
+        lookupService.deleteTestMethod(id);
+    }
+
     @GetMapping("/products/{id}/tests")
     @Operation(summary = "Get tests assigned to a product")
     public List<ProductTestDTO> getProductTests(@PathVariable Long id) {

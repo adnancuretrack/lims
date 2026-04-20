@@ -60,5 +60,9 @@ export const LookupService = {
     updateTestMethod: async (id: number, testMethod: Partial<TestMethodDTO>): Promise<TestMethodDTO> => {
         const response = await apiClient.put(`${BASE_URL}/test-methods/${id}`, testMethod);
         return response.data;
+    },
+    
+    deleteTestMethod: async (id: number): Promise<void> => {
+        await apiClient.delete(`${BASE_URL}/test-methods/${id}`);
     }
 };
