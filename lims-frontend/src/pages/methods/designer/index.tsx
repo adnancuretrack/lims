@@ -32,7 +32,15 @@ export const MethodDesignerPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const isNew = id === 'new' || !id;
   
-  const { addSection, reorderSections, schema, setSchema, setReportTemplatePath, reset } = useDesignerStore();
+  const { 
+    addSection, 
+    reorderSections, 
+    moveField,
+    schema, 
+    setSchema, 
+    setReportTemplatePath, 
+    reset 
+  } = useDesignerStore();
   
   const [activeId, setActiveId] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -79,26 +87,54 @@ export const MethodDesignerPage: React.FC = () => {
     setActiveId(event.active.id as string);
   };
 
+  const handleDragOver = (event: any) => {
+    const { active, over } = event;
+    if (!over) return;
+
+    const activeType = active.data.current?.type;
+    const overType = over.data.current?.type;
+
+    // Field over another container/field logic
+    if (activeType === 'field') {
+      const activeSectionId = active.data.current?.sectionId;
+      const overSectionId = overType === 'section' ? over.id : over.data.current?.sectionId;
+
+      if (activeSectionId && overSectionId && activeSectionId !== overSectionId) {
+        moveField(String(active.id), String(over.id), String(activeSectionId), String(overSectionId));
+      }
+    }
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveId(null);
 
     if (!over) return;
 
-    const isNewBlock = active.data.current?.isNew;
-    const paletteType = active.data.current?.paletteType;
+    const activeType = active.data.current?.type;
+    const overType = over.data.current?.type;
 
-    if (isNewBlock) {
-      if (paletteType === 'block') {
-        const sectionType = active.data.current?.type as SectionType;
-        addSection(sectionType);
+    if (active.data.current?.isNew) {
+      if (active.data.current?.paletteType === 'block') {
+        addSection(active.data.current?.type as SectionType);
       }
-    } else if (active.id !== over.id) {
-      const oldIndex = schema.sections.findIndex(s => s.id === active.id);
-      const newIndex = schema.sections.findIndex(s => s.id === over.id);
+      return;
+    }
+
+    if (activeType === 'section' && overType === 'section') {
+      if (active.id !== over.id) {
+        const oldIndex = schema.sections.findIndex(s => s.id === active.id);
+        const newIndex = schema.sections.findIndex(s => s.id === over.id);
+        if (oldIndex !== -1 && newIndex !== -1) {
+          reorderSections(oldIndex, newIndex);
+        }
+      }
+    } else if (activeType === 'field') {
+      const activeSectionId = active.data.current?.sectionId;
+      const overSectionId = overType === 'section' ? over.id : over.data.current?.sectionId;
       
-      if (oldIndex !== -1 && newIndex !== -1) {
-        reorderSections(oldIndex, newIndex);
+      if (activeSectionId && overSectionId && (active.id !== over.id || activeSectionId !== overSectionId)) {
+        moveField(String(active.id), String(over.id), String(activeSectionId), String(overSectionId));
       }
     }
   };
@@ -183,6 +219,7 @@ export const MethodDesignerPage: React.FC = () => {
           sensors={sensors}
           collisionDetection={closestCenter}
           onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
         >
           <SectionPalette />
@@ -190,8 +227,20 @@ export const MethodDesignerPage: React.FC = () => {
           <PropertyEditor />
           <DragOverlay>
             {activeId ? (
-              <div style={{ padding: '8px 16px', background: '#fff', border: '1px solid #d9d9d9', borderRadius: 4, boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
-                Dragging Block...
+              <div 
+                style={{ 
+                  padding: '12px 20px', 
+                  background: '#fff', 
+                  border: '1px solid #1677ff', 
+                  borderRadius: 6, 
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                  cursor: 'grabbing',
+                  minWidth: 200
+                }}
+              >
+                <Typography.Text strong color="primary">
+                    {schema.sections.find(s => s.id === activeId)?.title || 'Moving Item...'}
+                </Typography.Text>
               </div>
             ) : null}
           </DragOverlay>

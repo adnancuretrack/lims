@@ -13,46 +13,68 @@ const SortableField = ({ sectionId, field }: { sectionId: string, field: FieldSc
   const { setSelectedField, removeField, selectedFieldId } = useDesignerStore();
   const isActive = selectedFieldId === field.id;
 
+  const {
+    attributes, listeners, setNodeRef, transform, transition, isDragging
+  } = useSortable({ 
+    id: field.id,
+    data: {
+      type: 'field',
+      sectionId,
+      field
+    }
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+    marginBottom: 8,
+    cursor: 'pointer',
+    border: isActive ? '2px solid #1677ff' : '1px solid #d9d9d9',
+    backgroundColor: isActive ? '#e6f4ff' : '#fff',
+    boxShadow: isActive ? '0 0 8px rgba(22,119,255,0.2)' : 'none',
+    zIndex: isDragging ? 10 : 1
+  };
+
   return (
-    <Card 
-      size="small" 
-      onClick={(e) => { 
+    <div ref={setNodeRef} style={style} onClick={(e) => { 
         e.stopPropagation(); 
-        console.log(`[Designer] Clicking Field: ${field.id}`);
         setSelectedField(field.id, sectionId); 
-      }}
-      style={{ 
-        marginBottom: 8, 
-        cursor: 'pointer', 
-        border: isActive ? '2px solid #1677ff' : '1px solid #d9d9d9',
-        backgroundColor: isActive ? '#e6f4ff' : '#fff',
-        boxShadow: isActive ? '0 0 8px rgba(22,119,255,0.2)' : 'none'
-      }}
-      hoverable
-    >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <Text strong style={{ color: isActive ? '#1677ff' : 'inherit' }}>{field.label || 'Unnamed Field'}</Text>
-          <Text type="secondary" style={{ marginLeft: 8, fontSize: 12 }}>
-            [{field.inputType}] {field.formula && `(= ${field.formula})`}
-          </Text>
+    }}>
+      <Card size="small" bodyStyle={{ padding: '8px 12px' }} hoverable>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <MenuOutlined {...attributes} {...listeners} style={{ cursor: 'grab', marginRight: 12, color: '#bfbfbf' }} />
+            <div>
+              <Text strong style={{ color: isActive ? '#1677ff' : 'inherit' }}>{field.label || 'Unnamed Field'}</Text>
+              <Text type="secondary" style={{ marginLeft: 8, fontSize: 12, display: 'block' }}>
+                [{field.inputType}] {field.formula && `(= ${field.formula})`}
+              </Text>
+            </div>
+          </div>
+          <Button 
+            type="text" 
+            danger 
+            size="small"
+            icon={<DeleteOutlined />} 
+            onClick={(e) => { e.stopPropagation(); removeField(sectionId, field.id); }} 
+          />
         </div>
-        <Button 
-          type="text" 
-          danger 
-          size="small"
-          icon={<DeleteOutlined />} 
-          onClick={(e) => { e.stopPropagation(); removeField(sectionId, field.id); }} 
-        />
-      </div>
-    </Card>
+      </Card>
+    </div>
   );
 };
 
 const SortableSection = ({ section }: { section: SectionSchema }) => {
   const { 
     attributes, listeners, setNodeRef, transform, transition, isDragging 
-  } = useSortable({ id: section.id });
+  } = useSortable({ 
+    id: section.id,
+    data: {
+        type: 'section',
+        section
+    }
+  });
   
   const { setSelectedSection, removeSection, addField, selectedSectionId, selectedFieldId } = useDesignerStore();
 
@@ -74,7 +96,6 @@ const SortableSection = ({ section }: { section: SectionSchema }) => {
   return (
     <div ref={setNodeRef} style={style} onClick={(e) => {
         e.stopPropagation();
-        console.log(`[Designer] Clicking Section: ${section.id}`);
         setSelectedSection(section.id);
     }}>
       <Card 
@@ -95,15 +116,17 @@ const SortableSection = ({ section }: { section: SectionSchema }) => {
         }
       >
         <div style={{ minHeight: 40, padding: 8, background: '#fafafa', borderRadius: 4, border: '1px dashed #d9d9d9' }}>
-          {fields.length === 0 ? (
-            <div style={{ textAlign: 'center', color: '#bfbfbf', padding: '16px 0' }}>
-              No fields added
-            </div>
-          ) : (
-            fields.map(f => (
-              <SortableField key={f.id} sectionId={section.id} field={f} />
-            ))
-          )}
+          <SortableContext items={fields.map(f => f.id)} strategy={verticalListSortingStrategy}>
+            {fields.length === 0 ? (
+              <div style={{ textAlign: 'center', color: '#bfbfbf', padding: '16px 0' }}>
+                No fields added
+              </div>
+            ) : (
+              fields.map(f => (
+                <SortableField key={f.id} sectionId={section.id} field={f} />
+              ))
+            )}
+          </SortableContext>
           <Button 
             type="dashed" 
             block 
@@ -136,7 +159,6 @@ export const DesignerCanvas: React.FC = () => {
       }}
       ref={setNodeRef}
       onClick={() => {
-        console.log('[Designer] Clicking Canvas Background (Deselect)');
         setSelectedSection(null);
       }}
     >

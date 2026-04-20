@@ -15,6 +15,7 @@ interface DesignerState {
   addField: (sectionId: string) => void;
   updateField: (sectionId: string, fieldId: string, updates: Partial<FieldSchema>) => void;
   removeField: (sectionId: string, fieldId: string) => void;
+  moveField: (activeFieldId: string, overId: string, activeSectionId: string, overSectionId: string) => void;
   
   setSelectedSection: (id: string | null) => void;
   setSelectedField: (id: string | null, sectionId?: string | null) => void;
@@ -141,6 +142,60 @@ export const useDesignerStore = create<DesignerState>((set) => ({
         })
       },
       selectedFieldId: state.selectedFieldId === fieldId ? null : state.selectedFieldId
+    };
+  }),
+
+  moveField: (activeFieldId, overId, activeSectionId, overSectionId) => set((state) => {
+    const newSchema = { ...state.schema, sections: [...state.schema.sections] };
+    
+    // 1. Find source and target sections
+    const sourceSectionIndex = newSchema.sections.findIndex(s => s.id === activeSectionId);
+    const targetSectionIndex = newSchema.sections.findIndex(s => s.id === overSectionId);
+    
+    if (sourceSectionIndex === -1 || targetSectionIndex === -1) return state;
+    
+    const sourceSection = { ...newSchema.sections[sourceSectionIndex] };
+    const targetSection = sourceSectionIndex === targetSectionIndex 
+      ? sourceSection 
+      : { ...newSchema.sections[targetSectionIndex] };
+
+    // Helper to get field array property name
+    const getFieldProp = (s: SectionSchema) => {
+      if (s.type === 'DATA_TABLE') return 'columns';
+      if (s.type === 'GROUPED_TABLE') return 'dataColumns';
+      return 'fields';
+    };
+
+    const sourceProp = getFieldProp(sourceSection);
+    const targetProp = getFieldProp(targetSection);
+
+    const sourceFields = [...((sourceSection as any)[sourceProp] || [])];
+    const itemIndex = sourceFields.findIndex(f => f.id === activeFieldId);
+    
+    if (itemIndex === -1) return state;
+    
+    const [movedItem] = sourceFields.splice(itemIndex, 1);
+    (sourceSection as any)[sourceProp] = sourceFields;
+
+    const targetFields = sourceSectionIndex === targetSectionIndex 
+      ? sourceFields 
+      : [...((targetSection as any)[targetProp] || [])];
+      
+    let overIndex = targetFields.findIndex(f => f.id === overId);
+    if (overIndex === -1) overIndex = targetFields.length; // Drop at end if not over a specific item
+
+    targetFields.splice(overIndex, 0, movedItem);
+    (targetSection as any)[targetProp] = targetFields;
+
+    newSchema.sections[sourceSectionIndex] = sourceSection;
+    if (sourceSectionIndex !== targetSectionIndex) {
+        newSchema.sections[targetSectionIndex] = targetSection;
+    }
+
+    return { 
+      schema: newSchema, 
+      selectedFieldId: activeFieldId, 
+      selectedSectionId: overSectionId 
     };
   }),
 
