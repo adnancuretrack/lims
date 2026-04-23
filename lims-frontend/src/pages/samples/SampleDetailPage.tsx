@@ -12,6 +12,8 @@ import {
 import { SampleService } from '../../api/SampleService';
 import { AttachmentManager } from '../../components/attachment/AttachmentManager';
 import { AuditTrailModal } from '../../components/audit/AuditTrailModal';
+import { WorksheetReviewPanel } from '../../components/worksheet/WorksheetReviewPanel';
+import { WorksheetService } from '../../api/WorksheetService';
 import { message } from 'antd';
 import dayjs from 'dayjs';
 
@@ -71,29 +73,51 @@ export default function SampleDetailPage() {
         }
     };
 
+    const handleDownloadTestCoa = async (testId: number, testName: string) => {
+        const hide = message.loading(`Generating COA for ${testName}...`, 0);
+        try {
+            const blob = await WorksheetService.downloadWorksheetReport(testId);
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `COA_${testName}_${testId}.pdf`);
+            document.body.appendChild(link);
+            link.click();
+            link.parentNode?.removeChild(link);
+            window.URL.revokeObjectURL(url);
+            message.success('COA downloaded successfully');
+        } catch (error) {
+            console.error('Download failed:', error);
+            message.error('Failed to download COA');
+        } finally {
+            hide();
+        }
+    };
+
     const testColumns = [
         { title: 'Method', dataIndex: 'testMethodCode', key: 'method' },
         { title: 'Test Name', dataIndex: 'testMethodName', key: 'name' },
-        {
-            title: 'Result',
-            key: 'result',
-            render: (_: any, record: any) => {
-                if (record.numericValue !== null && record.numericValue !== undefined) {
-                    return <Text>{record.numericValue}</Text>;
-                }
-                if (record.textValue) {
-                    return <Text>{record.textValue}</Text>;
-                }
-                return <Text type="secondary">Pending</Text>;
-            }
-        },
-        { title: 'Units', dataIndex: 'unit', key: 'unit' },
         {
             title: 'Status',
             dataIndex: 'status',
             key: 'status',
             render: (s: string) => <Tag color={getStatusColor(s)}>{s}</Tag>
         },
+        {
+            title: 'Action',
+            key: 'action',
+            render: (_: any, record: any) => (
+                <Button
+                    type="link"
+                    size="small"
+                    icon={<FilePdfOutlined />}
+                    disabled={!record.hasWorksheet}
+                    onClick={() => handleDownloadTestCoa(record.id, record.testMethodName)}
+                >
+                    Download COA
+                </Button>
+            )
+        }
     ];
 
     const tabItems = [
@@ -107,6 +131,14 @@ export default function SampleDetailPage() {
                     rowKey="id"
                     pagination={false}
                     locale={{ emptyText: <Empty description="No tests assigned" /> }}
+                    expandable={{
+                        rowExpandable: (record) => record.hasWorksheet,
+                        expandedRowRender: (record) => (
+                            <div style={{ padding: '16px', background: '#fafafa', borderRadius: 8 }}>
+                                <WorksheetReviewPanel sampleTestId={record.id} />
+                            </div>
+                        ),
+                    }}
                 />
             )
         },
@@ -143,14 +175,16 @@ export default function SampleDetailPage() {
                     >
                         History
                     </Button>
-                    <Button
-                        type="primary"
-                        icon={<FilePdfOutlined />}
-                        disabled={sample.status !== 'AUTHORIZED'}
-                        onClick={handleDownloadCoa}
-                    >
-                        Download COA
-                    </Button>
+                    <div style={{ display: 'none' }}>
+                        <Button
+                            type="primary"
+                            icon={<FilePdfOutlined />}
+                            disabled={sample.status !== 'AUTHORIZED'}
+                            onClick={handleDownloadCoa}
+                        >
+                            Download COA
+                        </Button>
+                    </div>
                 </Space>
             </div>
 

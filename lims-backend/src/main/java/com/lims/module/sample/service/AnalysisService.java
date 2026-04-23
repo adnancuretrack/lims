@@ -58,8 +58,6 @@ public class AnalysisService {
         // Update or Create Result
         TestResult result = st.getResults().isEmpty() ? new TestResult() : st.getResults().get(0);
         result.setSampleTest(st);
-        result.setNumericValue(request.getNumericValue());
-        result.setTextValue(request.getTextValue());
         result.setEnteredBy(currentUser);
         result.setReagentLot(request.getReagentLot());
 
@@ -69,19 +67,6 @@ public class AnalysisService {
             result.setInstrument(null);
         }
         
-        // Flag OOS for Quantitative
-        if (request.getNumericValue() != null && st.getTestMethod().getMinLimit() != null && st.getTestMethod().getMaxLimit() != null) {
-            BigDecimal val = request.getNumericValue();
-            BigDecimal min = st.getTestMethod().getMinLimit();
-            BigDecimal max = st.getTestMethod().getMaxLimit();
-            boolean oos = val.compareTo(min) < 0 || val.compareTo(max) > 0;
-            result.setOutOfRange(oos);
-            result.setFlagColor(oos ? "RED" : "GREEN");
-        } else {
-            result.setOutOfRange(false);
-            result.setFlagColor("GREEN");
-        }
-
         testResultRepository.save(result);
         
         // Update SampleTest status
@@ -130,17 +115,8 @@ public class AnalysisService {
                 .testMethodCode(st.getTestMethod().getCode())
                 .status(st.getStatus())
                 .sortOrder(st.getSortOrder())
-                .sortOrder(st.getSortOrder())
-                .numericValue(latest != null ? latest.getNumericValue() : null)
-                .textValue(latest != null ? latest.getTextValue() : null)
-                .isOutOfRange(latest != null && latest.isOutOfRange())
                 .instrumentId(latest != null && latest.getInstrument() != null ? latest.getInstrument().getId() : null)
                 .reagentLot(latest != null ? latest.getReagentLot() : null)
-                .flagColor(latest != null ? latest.getFlagColor() : null)
-                .unit(st.getTestMethod().getUnit())
-                .minLimit(st.getTestMethod().getMinLimit())
-                .maxLimit(st.getTestMethod().getMaxLimit())
-                .resultType(st.getTestMethod().getResultType())
                 .hasWorksheet(st.getTestMethod().isHasWorksheet())
                 .testResultId(latest != null ? latest.getId() : null)
                 .build();

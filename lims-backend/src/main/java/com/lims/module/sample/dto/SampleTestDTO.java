@@ -14,14 +14,6 @@ public class SampleTestDTO {
     private String testMethodCode;
     private String status;
     private Integer sortOrder;
-    private BigDecimal numericValue;
-    private String textValue;
-    private boolean isOutOfRange;
-    private String flagColor;
-    private String unit;
-    private BigDecimal minLimit;
-    private BigDecimal maxLimit;
-    private String resultType;
     private Long testResultId;
     private Long instrumentId;
     private String reagentLot;

@@ -1,10 +1,8 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Table, Card, Typography, Row, Col, Tag, Button, Empty, Form, InputNumber, Input, message, Layout, Divider, Space } from 'antd';
+import { Table, Card, Typography, Row, Col, Tag, Button, Empty, Form, message, Layout, Divider, Space, Alert } from 'antd';
 import { 
   ExperimentOutlined, 
-  CheckCircleOutlined, 
-  InfoCircleOutlined,
   FormOutlined 
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
@@ -51,8 +49,6 @@ export default function ResultEntryPage() {
     const handleEnterResult = (testId: number, values: any) => {
         const request: ResultEntryRequest = {
             sampleTestId: testId,
-            numericValue: values.numericValue,
-            textValue: values.textValue,
             instrumentId: values.instrumentId,
             reagentLot: values.reagentLot
         };
@@ -145,13 +141,10 @@ export default function ResultEntryPage() {
                                                 </Space>
                                             }
                                             extra={<Tag color={test.status === 'COMPLETED' ? 'green' : 'gold'}>{test.status}</Tag>}
-                                            className={test.isOutOfRange ? 'oos-card' : ''}
                                         >
                                             <Form
                                                 layout="inline"
                                                 initialValues={{
-                                                    numericValue: test.numericValue,
-                                                    textValue: test.textValue,
                                                     instrumentId: test.instrumentId,
                                                     reagentLot: test.reagentLot
                                                 }}
@@ -165,53 +158,19 @@ export default function ResultEntryPage() {
                                                             icon={<FormOutlined />}
                                                             onClick={() => navigate(`/worksheets/${test.id}`)}
                                                         >
-                                                            {test.status === 'COMPLETED' ? 'View Worksheet' : 'Open Worksheet'}
+                                                            {test.status === 'COMPLETED' || test.status === 'AUTHORIZED' ? 'View Worksheet' : 'Open Worksheet'}
                                                         </Button>
                                                         <Text type="secondary" style={{ marginLeft: 16 }}>
                                                             Runs through the Method Designer blueprint
                                                         </Text>
                                                     </div>
                                                  ) : (
-                                                    <>
-                                                        {test.resultType === 'QUANTITATIVE' && (
-                                                            <Form.Item name="numericValue" label="Result">
-                                                                <InputNumber
-                                                                    addonAfter={test.unit}
-                                                                    placeholder="0.00"
-                                                                    status={test.isOutOfRange ? 'error' : ''}
-                                                                />
-                                                            </Form.Item>
-                                                        )}
-
-                                                        {test.resultType === 'TEXT' && (
-                                                            <Form.Item name="textValue" label="Observed" style={{ flex: 1 }}>
-                                                                <Input placeholder="Enter observation..." />
-                                                            </Form.Item>
-                                                        )}
-
-                                                        <Form.Item>
-                                                            <Button
-                                                                type="primary"
-                                                                htmlType="submit"
-                                                                loading={enterResultMutation.isPending && enterResultMutation.variables?.sampleTestId === test.id}
-                                                                icon={<CheckCircleOutlined />}
-                                                            >
-                                                                Save
-                                                            </Button>
-                                                        </Form.Item>
-                                                    </>
+                                                     <Alert 
+                                                        message="No worksheet template available for this method. Please configure it in the Method Designer." 
+                                                        type="warning" 
+                                                        showIcon 
+                                                     />
                                                  )}
-
-                                                {(test.minLimit !== undefined || test.maxLimit !== undefined) && (
-                                                    <div style={{ marginTop: 8, width: '100%' }}>
-                                                        <Text type="secondary">
-                                                            <InfoCircleOutlined /> Spec Limits: {test.minLimit ?? '-'} to {test.maxLimit ?? '-'} {test.unit}
-                                                        </Text>
-                                                        {test.isOutOfRange && (
-                                                            <Tag color="red" style={{ marginLeft: 8 }}>OUT OF SPEC</Tag>
-                                                        )}
-                                                    </div>
-                                                )}
                                             </Form>
                                         </Card>
                                     </Col>

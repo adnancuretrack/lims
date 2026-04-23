@@ -25,6 +25,9 @@ interface EngineState {
   // Dynamic Table row management
   addRow: (sectionId: string) => void;
   removeRow: (sectionId: string, rowIndex: number) => void;
+  
+  // Update a value in a MATRIX_TABLE
+  updateMatrixValue: (sectionId: string, rowHeaderId: string, columnId: string, value: any) => void;
 }
 
 export const useEngineStore = create<EngineState>((set) => ({
@@ -50,6 +53,11 @@ export const useEngineStore = create<EngineState>((set) => ({
             // COLUMNS_AS_TRIALS
             cleanData[sec.id] = Array.from({ length: sec.minRows || 1 }, () => ({}));
           }
+        } else if (sec.type === 'MATRIX_TABLE') {
+          cleanData[sec.id] = {};
+          sec.rowHeaders?.forEach(rh => {
+            cleanData[sec.id][rh.id] = {};
+          });
         }
       }
     });
@@ -110,6 +118,24 @@ export const useEngineStore = create<EngineState>((set) => ({
     const newData = {
       ...state.data,
       [sectionId]: list
+    };
+    
+    const nextData = recomputeAllFormulas(state.schema, newData);
+    const nextErrors = runAllValidations(state.schema, nextData);
+    return { data: nextData, errors: nextErrors };
+  }),
+
+  updateMatrixValue: (sectionId, rowHeaderId, columnId, value) => set((state) => {
+    if (!state.schema) return state;
+    const sectionData = { ...(state.data[sectionId] || {}) };
+    sectionData[rowHeaderId] = {
+      ...(sectionData[rowHeaderId] || {}),
+      [columnId]: value
+    };
+    
+    const newData = {
+      ...state.data,
+      [sectionId]: sectionData
     };
     
     const nextData = recomputeAllFormulas(state.schema, newData);

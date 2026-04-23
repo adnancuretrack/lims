@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Table, Card, Typography, Row, Col, Tag, Button, Empty, message, Layout, Divider, Space, Modal, Input } from 'antd';
+import { Table, Card, Typography, Row, Col, Tag, Button, Empty, message, Layout, Divider, Space, Modal, Input, Collapse, Alert } from 'antd';
 import { SafetyCertificateOutlined, CloseCircleOutlined, ExperimentOutlined } from '@ant-design/icons';
 import { AnalysisService } from '../../api/AnalysisService';
 import { SampleService } from '../../api/SampleService';
 import type { SampleDTO, SampleTestDTO, ResultReviewRequest } from '../../api/types';
+import { WorksheetReviewPanel } from '../../components/worksheet/WorksheetReviewPanel';
 import dayjs from 'dayjs';
 
 const { Title, Text } = Typography;
@@ -154,47 +155,35 @@ export default function ReviewQueuePage() {
                         {isLoadingTests ? (
                             <Card loading />
                         ) : tests && tests.length > 0 ? (
-                            <Row gutter={[16, 16]}>
-                                {tests.map((test: SampleTestDTO) => (
-                                    <Col span={24} key={test.id}>
-                                        <Card
-                                            size="small"
-                                            className={test.isOutOfRange ? 'oos-card' : ''}
-                                            title={
-                                                <Space>
-                                                    <ExperimentOutlined />
-                                                    {test.testMethodName}
-                                                </Space>
-                                            }
-                                        >
-                                            <Row gutter={16}>
-                                                <Col span={6}>
-                                                    <Text type="secondary" style={{ display: 'block' }}>Result</Text>
-                                                    <Text strong>
-                                                        {test.numericValue ?? test.textValue ?? '-'} {test.unit}
-                                                    </Text>
-                                                </Col>
-                                                <Col span={6}>
-                                                    <Text type="secondary" style={{ display: 'block' }}>Specification</Text>
-                                                    <Text>{test.minLimit ?? '-'} to {test.maxLimit ?? '-'} {test.unit}</Text>
-                                                </Col>
-                                                <Col span={6}>
-                                                    <Text type="secondary" style={{ display: 'block' }}>Compliance</Text>
-                                                    {test.isOutOfRange ? (
-                                                        <Tag color="red">OUT OF SPEC</Tag>
-                                                    ) : (
-                                                        <Tag color="green">PASS</Tag>
-                                                    )}
-                                                </Col>
-                                                <Col span={6}>
-                                                    <Text type="secondary" style={{ display: 'block' }}>Status</Text>
-                                                    <Tag color="blue">{test.status}</Tag>
-                                                </Col>
-                                            </Row>
-                                        </Card>
-                                    </Col>
-                                ))}
-                            </Row>
+                            <Collapse
+                                accordion
+                                items={tests.map((test: SampleTestDTO) => ({
+                                    key: test.id,
+                                    label: (
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', paddingRight: 24 }}>
+                                            <Space>
+                                                <ExperimentOutlined />
+                                                <Text strong>{test.testMethodName}</Text>
+                                                <Tag color="blue">{test.status}</Tag>
+                                            </Space>
+                                            <Space>
+                                                <Text type="secondary">Status:</Text>
+                                                <Text strong>{test.status}</Text>
+                                            </Space>
+                                        </div>
+                                    ),
+                                    children: test.hasWorksheet ? (
+                                        <WorksheetReviewPanel sampleTestId={test.id} />
+                                    ) : (
+                                        <div style={{ padding: 16 }}>
+                                            <Alert 
+                                                message="No worksheet available for this test. Technical review must be performed against the primary data source." 
+                                                type="info" 
+                                            />
+                                        </div>
+                                    )
+                                }))}
+                            />
                         ) : (
                             <Empty description="No data found" />
                         )}

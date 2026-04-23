@@ -129,8 +129,8 @@ public class ReportService {
             map.put("testName", t.getTestMethod().getName());
             map.put("methodName", t.getTestMethod().getCode());
             map.put("result", t.getLastResult() != null ? t.getLastResult().getDisplayValue() : "N/A");
-            map.put("units", t.getTestMethod().getUnit());
-            map.put("limits", t.getTestMethod().getLimitsDisplay());
+            map.put("units", "As Spec.");
+            map.put("limits", "As Spec.");
             return map;
         }).collect(Collectors.toList());
 

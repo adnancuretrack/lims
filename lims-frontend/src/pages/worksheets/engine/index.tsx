@@ -122,9 +122,6 @@ export const WorksheetEnginePage: React.FC = () => {
             <h2 style={{ margin: 0, fontSize: 18 }}>{schema.metadata?.title || 'Method Worksheet'}</h2>
             <Space size="small">
                 <Text type="secondary" style={{ fontSize: 12 }}>{schema.metadata?.standard || 'LIMS Standard'}</Text>
-                <div style={{ padding: '0 8px', borderRadius: 10, fontSize: 10, color: '#fff', background: status === 'DRAFT' ? '#1677ff' : '#52c41a', textTransform: 'uppercase' }}>
-                    {status}
-                </div>
             </Space>
           </div>
         </Space>

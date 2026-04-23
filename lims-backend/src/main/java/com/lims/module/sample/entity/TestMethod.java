@@ -22,23 +22,6 @@ public class TestMethod extends BaseEntity {
     @Column(name = "standard_ref", length = 100)
     private String standardRef;
 
-    @Column(name = "result_type", nullable = false, length = 30)
-    @Builder.Default
-    private String resultType = "QUANTITATIVE";
-
-    @Column(length = 30)
-    private String unit;
-
-    @Column(name = "decimal_places")
-    @Builder.Default
-    private Integer decimalPlaces = 2;
-
-    @Column(name = "min_limit")
-    private BigDecimal minLimit;
-
-    @Column(name = "max_limit")
-    private BigDecimal maxLimit;
-
     @Column(name = "tat_hours")
     @Builder.Default
     private Integer tatHours = 24;
@@ -53,15 +36,4 @@ public class TestMethod extends BaseEntity {
 
     @Column(name = "active_definition_id")
     private Long activeDefinitionId;
-
-    public String getLimitsDisplay() {
-        if (minLimit != null && maxLimit != null) {
-            return minLimit + " - " + maxLimit;
-        } else if (minLimit != null) {
-            return "> " + minLimit;
-        } else if (maxLimit != null) {
-            return "< " + maxLimit;
-        }
-        return "N/A";
-    }
 }

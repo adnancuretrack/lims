@@ -5,7 +5,7 @@ interface EvaluationContext {
   schema: WorksheetSchema;
   data: Record<string, any>;
   currentSectionId: string;
-  currentRowIndex: number | null;
+  currentRowIndex: number | string | null; // number for array index, string for rowHeader ID
 }
 
 export const evaluateFormula = (context: EvaluationContext, precision?: number): number | string | null => {
@@ -19,12 +19,20 @@ export const evaluateFormula = (context: EvaluationContext, precision?: number):
     // Pattern: FUNCTION({fieldId}) or FUNCTION({sectionId.fieldId})
     const aggRegex = /(SUM_RUNNING|SUM_ALL|AVG_ALL|COUNT_ALL|MIN_ALL|MAX_ALL)\(\{([^}]+)\}\)/g;
     expression = expression.replace(aggRegex, (_, funcName, fieldRef) => {
-      const { sectionId, fieldId } = parseFieldRef(fieldRef, currentSectionId);
-      const sectionData = data[sectionId];
+      const ref = parseFieldRef(fieldRef, currentSectionId);
+      const sectionData = data[ref.sectionId];
       
-      if (!Array.isArray(sectionData)) return '0'; // If not a table, aggregates don't apply
+      let values: number[] = [];
 
-      const values = sectionData.map(row => Number(row[fieldId])).filter(v => !isNaN(v));
+      if (Array.isArray(sectionData)) {
+        // Standard Table
+        values = sectionData.map(row => Number(row[ref.fieldId])).filter(v => !isNaN(v));
+      } else if (sectionData && typeof sectionData === 'object') {
+        // Matrix Table: sectionData is Record<rowId, Record<columnId, value>>
+        values = Object.values(sectionData)
+          .map((row: any) => Number(row[ref.fieldId]))
+          .filter(v => !isNaN(v));
+      }
 
       let result = 0;
       switch (funcName) {
@@ -32,10 +40,12 @@ export const evaluateFormula = (context: EvaluationContext, precision?: number):
           result = values.reduce((sum, v) => sum + v, 0);
           break;
         case 'SUM_RUNNING':
-          if (currentRowIndex !== null) {
+          if (typeof currentRowIndex === 'number') {
              const runningVals = values.slice(0, currentRowIndex + 1);
              result = runningVals.reduce((sum, v) => sum + v, 0);
           } else {
+             // For Matrix, running sum doesn't have a clear "top-to-bottom" without sorting logic
+             // Default to sum all for now
              result = values.reduce((sum, v) => sum + v, 0);
           }
           break;
@@ -55,38 +65,42 @@ export const evaluateFormula = (context: EvaluationContext, precision?: number):
       return result.toString();
     });
 
-    // 2. Resolve Simple Variables: {fieldId} or {sectionId.fieldId}
+    // 2. Resolve Variables: {fieldId}, {sectionId.fieldId}, or {sectionId.rowId.fieldId}
     const varRegex = /\{([^}]+)\}/g;
     expression = expression.replace(varRegex, (_, fieldRef) => {
-      const { sectionId, fieldId } = parseFieldRef(fieldRef, currentSectionId);
+      const ref = parseFieldRef(fieldRef, currentSectionId);
       let val: any = null;
 
-      const secSchema = schema.sections.find(s => s.id === sectionId);
+      const secSchema = schema.sections.find(s => s.id === ref.sectionId);
+      
       if (secSchema?.type === 'DATA_TABLE' || secSchema?.type === 'GROUPED_TABLE') {
-        const tableData = data[sectionId] || [];
-        if (currentRowIndex !== null && tableData[currentRowIndex]) {
-          val = tableData[currentRowIndex][fieldId];
+        const tableData = data[ref.sectionId] || [];
+        // If it's a 3-part ref {sec.rowIdx.field}, rowId is index
+        const idx = ref.rowId !== undefined ? Number(ref.rowId) : (typeof currentRowIndex === 'number' ? currentRowIndex : null);
+        if (idx !== null && tableData[idx]) {
+          val = tableData[idx][ref.fieldId];
+        }
+      } else if (secSchema?.type === 'MATRIX_TABLE') {
+        const matrixData = data[ref.sectionId] || {};
+        const rId = ref.rowId || (typeof currentRowIndex === 'string' ? currentRowIndex : null);
+        if (rId && matrixData[rId]) {
+          val = matrixData[rId][ref.fieldId];
         }
       } else {
-        val = data[sectionId]?.[fieldId];
+        val = data[ref.sectionId]?.[ref.fieldId];
       }
 
-      // If value is empty or unparseable text, return 0 or null placeholder so math doesn't result in NaN unexpectedly
+      // If value is empty or unparseable text, return 0 or null placeholder
       if (val === undefined || val === null || val === '') return '0';
       if (typeof val === 'boolean') return val ? '1' : '0';
-      
-      // If it's pure numeric string or number
       if (!isNaN(Number(val))) return String(val);
-      
-      // If resolving to text for string formulas like CONTAINS, quote it
       return `"${val}"`;
     });
 
-    // 3. Resolve Custom Scalar Functions (e.g. HOURS_BETWEEN, ABS)
+    // 3. Resolve Custom Scalar Functions
     const absRegex = /ABS\(([^)]+)\)/g;
     expression = expression.replace(absRegex, 'Math.abs($1)');
     
-    // Evaluate the final JS expression safely
     // eslint-disable-next-line no-new-func
     const result = new Function(`return (${expression})`)();
 
@@ -102,13 +116,15 @@ export const evaluateFormula = (context: EvaluationContext, precision?: number):
 
   } catch (err) {
     console.warn(`Formula evaluation failed for: ${formula}`, err);
-    return null; // Don't crash the UI on a bad formula
+    return null;
   }
 };
 
 const parseFieldRef = (ref: string, fallbackSectionId: string) => {
-  if (ref.includes('.')) {
-    const parts = ref.split('.');
+  const parts = ref.split('.');
+  if (parts.length === 3) {
+    return { sectionId: parts[0], rowId: parts[1], fieldId: parts[2] };
+  } else if (parts.length === 2) {
     return { sectionId: parts[0], fieldId: parts[1] };
   }
   return { sectionId: fallbackSectionId, fieldId: ref };
@@ -116,157 +132,148 @@ const parseFieldRef = (ref: string, fallbackSectionId: string) => {
 
 export const evaluateCondition = (context: EvaluationContext & { formula: string }): boolean => {
   const { formula, schema, data, currentSectionId, currentRowIndex } = context;
-  if (!formula || formula.trim() === '') return true; // If no condition, it is visible by default
+  if (!formula || formula.trim() === '') return true;
 
   try {
     let expression = formula;
 
-    // Resolve Variables: {fieldId} or {sectionId.fieldId}
+    // Resolve Variables
     const varRegex = /\{([^}]+)\}/g;
     expression = expression.replace(varRegex, (_, fieldRef) => {
-      const { sectionId, fieldId } = parseFieldRef(fieldRef, currentSectionId);
+      const ref = parseFieldRef(fieldRef, currentSectionId);
+      const secSchema = schema.sections.find(s => s.id === ref.sectionId);
       
-      const secSchema = schema.sections.find(s => s.id === sectionId);
       let val: any = null;
       if (secSchema?.type === 'DATA_TABLE' || secSchema?.type === 'GROUPED_TABLE') {
-        const tableData = data[sectionId] || [];
-        if (currentRowIndex !== null && tableData[currentRowIndex]) {
-          val = tableData[currentRowIndex][fieldId];
+        const tableData = data[ref.sectionId] || [];
+        const idx = ref.rowId !== undefined ? Number(ref.rowId) : (typeof currentRowIndex === 'number' ? currentRowIndex : null);
+        if (idx !== null && tableData[idx]) {
+          val = tableData[idx][ref.fieldId];
         } else {
-          // If referencing a table from outside it, maybe default to row 0 or false
-          val = tableData[0]?.[fieldId];
+          val = tableData[0]?.[ref.fieldId];
+        }
+      } else if (secSchema?.type === 'MATRIX_TABLE') {
+        const matrixData = data[ref.sectionId] || {};
+        const rId = ref.rowId || (typeof currentRowIndex === 'string' ? currentRowIndex : null);
+        if (rId && matrixData[rId]) {
+          val = matrixData[rId][ref.fieldId];
+        } else {
+          // Default to first row if no row context
+          const firstRowId = secSchema.rowHeaders?.[0]?.id;
+          if (firstRowId) val = matrixData[firstRowId]?.[ref.fieldId];
         }
       } else {
-        val = data[sectionId]?.[fieldId];
+        val = data[ref.sectionId]?.[ref.fieldId];
       }
 
       if (val === undefined || val === null) return 'null';
       if (typeof val === 'boolean') return val.toString();
       if (!isNaN(Number(val)) && val !== '') return String(val);
-      
-      // Escape inner quotes
       const safeString = String(val).replace(/'/g, "\\'");
       return `'${safeString}'`;
     });
 
-    // Contains operator helper: CONTAINS('text', 'search') => 'text'.includes('search')
     const containsRegex = /CONTAINS\(([^,]+),\s*([^)]+)\)/g;
     expression = expression.replace(containsRegex, 'String($1).includes(String($2))');
-
-    // AND / OR aliases
     expression = expression.replace(/\bAND\b/g, '&&').replace(/\bOR\b/g, '||');
 
     // eslint-disable-next-line no-new-func
     const result = new Function(`return !!(${expression})`)();
     return result === true;
   } catch (err) {
-    console.warn(`Visibility condition evaluation failed for: ${formula}`, err);
-    return true; // Default to visible if broken syntax
+    console.warn(`Condition evaluation failed for: ${formula}`, err);
+    return true;
   }
 };
 
 export const recomputeAllFormulas = (schema: WorksheetSchema, data: Record<string, any>): Record<string, any> => {
-  // We do a deep clone so we don't mutate state directly until ready
   const nextData = JSON.parse(JSON.stringify(data));
-  const maxPasses = 3; // Allows chained calculations up to 3 deep
+  const maxPasses = 3;
   
   for (let pass = 0; pass < maxPasses; pass++) {
-
     schema.sections.forEach(section => {
-      
       if (section.type === 'SINGLE_VALUE') {
-        const calcFields = (section.fields || []).filter(f => f.inputType === 'CALCULATED' && f.formula);
-        calcFields.forEach(f => {
-           const val = evaluateFormula({
+        (section.fields || []).filter(f => f.inputType === 'CALCULATED' && f.formula).forEach(f => {
+           nextData[section.id] = nextData[section.id] || {};
+           nextData[section.id][f.id] = evaluateFormula({
              formula: f.formula!,
              schema,
              data: nextData,
              currentSectionId: section.id,
              currentRowIndex: null
            }, f.precision);
-           
-           if (!nextData[section.id]) nextData[section.id] = {};
-           nextData[section.id][f.id] = val;
         });
-      }
-
-      if (section.type === 'DATA_TABLE' || section.type === 'GROUPED_TABLE') {
-        const columns = section.columns || section.dataColumns || [];
-        const calcFields = columns.filter(f => f.inputType === 'CALCULATED' && f.formula);
-        
-        const tableData: any[] = nextData[section.id] || [];
-        
-        tableData.forEach((row, rowIndex) => {
+      } else if (section.type === 'DATA_TABLE' || section.type === 'GROUPED_TABLE') {
+        const calcFields = (section.columns || section.dataColumns || []).filter(f => f.inputType === 'CALCULATED' && f.formula);
+        const tableData = nextData[section.id] || [];
+        tableData.forEach((row: any, rowIndex: number) => {
           calcFields.forEach(f => {
-            const val = evaluateFormula({
+            row[f.id] = evaluateFormula({
               formula: f.formula!,
               schema,
               data: nextData,
               currentSectionId: section.id,
               currentRowIndex: rowIndex
             }, f.precision);
-            
-            row[f.id] = val;
           });
         });
-        
         nextData[section.id] = tableData;
+      } else if (section.type === 'MATRIX_TABLE') {
+        const matrixData = nextData[section.id] || {};
+        const calcFields = (section.columns || []).filter(f => f.inputType === 'CALCULATED' && f.formula);
+        section.rowHeaders?.forEach(rh => {
+          matrixData[rh.id] = matrixData[rh.id] || {};
+          calcFields.forEach(f => {
+            matrixData[rh.id][f.id] = evaluateFormula({
+              formula: f.formula!,
+              schema,
+              data: nextData,
+              currentSectionId: section.id,
+              currentRowIndex: rh.id
+            }, f.precision);
+          });
+        });
+        nextData[section.id] = matrixData;
       }
     });
   }
-
   return nextData;
 };
 
 export const runAllValidations = (
-  schema: import('../../methods/designer/types').WorksheetSchema,
+  schema: WorksheetSchema,
   data: Record<string, any>
 ): Record<string, { message: string; severity: 'WARNING' | 'ERROR' }> => {
   const newErrors: Record<string, { message: string; severity: 'WARNING' | 'ERROR' }> = {};
 
   schema.sections.forEach(section => {
-    // 1. Scalar Fields
     if (section.type === 'SINGLE_VALUE') {
       (section.fields || []).forEach(f => {
-        if (!f.validations || f.validations.length === 0) return;
-        
-        for (const rule of f.validations) {
-          const isValid = evaluateCondition({
-            formula: rule.rule,
-            schema,
-            data,
-            currentSectionId: section.id,
-            currentRowIndex: null
-          });
-          
-          if (!isValid) {
+        (f.validations || []).forEach(rule => {
+          if (!evaluateCondition({ formula: rule.rule, schema, data, currentSectionId: section.id, currentRowIndex: null })) {
             newErrors[`${section.id}.${f.id}`] = { message: rule.message, severity: rule.severity };
-            break; // Stop at first broken rule
           }
-        }
+        });
       });
-    }
-
-    // 2. Data Table Fields (Rows)
-    if (section.type === 'DATA_TABLE' || section.type === 'GROUPED_TABLE') {
-      const columns = section.columns || section.dataColumns || [];
-      const fieldsWithRules = columns.filter(f => f.validations && f.validations.length > 0);
-      
-      const tableData: any[] = data[section.id] || [];
-      
-      tableData.forEach((_row, rowIndex) => {
+    } else if (section.type === 'DATA_TABLE' || section.type === 'GROUPED_TABLE') {
+      const fieldsWithRules = (section.columns || section.dataColumns || []).filter(f => f.validations?.length);
+      (data[section.id] || []).forEach((_row: any, rowIndex: number) => {
         fieldsWithRules.forEach(f => {
           for (const rule of f.validations!) {
-            const isValid = evaluateCondition({
-              formula: rule.rule,
-              schema,
-              data,
-              currentSectionId: section.id,
-              currentRowIndex: rowIndex
-            });
-
-            if (!isValid) {
+            if (!evaluateCondition({ formula: rule.rule, schema, data, currentSectionId: section.id, currentRowIndex: rowIndex })) {
               newErrors[`${section.id}.${rowIndex}.${f.id}`] = { message: rule.message, severity: rule.severity };
+              break;
+            }
+          }
+        });
+      });
+    } else if (section.type === 'MATRIX_TABLE') {
+      const fieldsWithRules = (section.columns || []).filter(f => f.validations?.length);
+      section.rowHeaders?.forEach(rh => {
+        fieldsWithRules.forEach(f => {
+          for (const rule of f.validations!) {
+            if (!evaluateCondition({ formula: rule.rule, schema, data, currentSectionId: section.id, currentRowIndex: rh.id })) {
+              newErrors[`${section.id}.${rh.id}.${f.id}`] = { message: rule.message, severity: rule.severity };
               break;
             }
           }
@@ -274,50 +281,41 @@ export const runAllValidations = (
       });
     }
   });
-
   return newErrors;
 };
 
 export const extractFinalResults = (
-  schema: import('../../methods/designer/types').WorksheetSchema,
+  schema: WorksheetSchema,
   data: Record<string, any>
 ): Record<string, { value: any, unit?: string, label: string }> => {
   const finalResults: Record<string, { value: any, unit?: string, label: string }> = {};
 
   schema.sections.forEach(section => {
     if (section.type === 'SINGLE_VALUE') {
-      (section.fields || []).forEach(f => {
-        if (f.isFinalResult) {
-          const val = data[section.id]?.[f.id];
-          if (val !== undefined && val !== null && val !== '') {
-            finalResults[`${section.id}.${f.id}`] = {
-              value: val,
-              unit: f.unit,
-              label: f.label
-            };
-          }
+      (section.fields || []).filter(f => f.isFinalResult).forEach(f => {
+        const val = data[section.id]?.[f.id];
+        if (val != null && val !== '') {
+          finalResults[`${section.id}.${f.id}`] = { value: val, unit: f.unit, label: f.label };
         }
       });
-    }
-
-    if (section.type === 'DATA_TABLE' || section.type === 'GROUPED_TABLE') {
-      const columns = section.columns || section.dataColumns || [];
-      columns.forEach(c => {
-        if (c.isFinalResult) {
-          const tableData: any[] = data[section.id] || [];
-          // For tables, extract an array of all trial values for the COA
-          const values = tableData.map(row => row[c.id]).filter(v => v !== undefined && v !== null && v !== '');
-          if (values.length > 0) {
-            finalResults[`${section.id}.${c.id}`] = {
-              value: values.length === 1 ? values[0] : values, // Scalar if only 1 array element natively
-              unit: c.unit,
-              label: c.label
-            };
-          }
+    } else if (section.type === 'DATA_TABLE' || section.type === 'GROUPED_TABLE') {
+      (section.columns || section.dataColumns || []).filter(c => c.isFinalResult).forEach(c => {
+        const values = (data[section.id] || []).map((row: any) => row[c.id]).filter((v: any) => v != null && v !== '');
+        if (values.length > 0) {
+          finalResults[`${section.id}.${c.id}`] = { value: values.length === 1 ? values[0] : values, unit: c.unit, label: c.label };
+        }
+      });
+    } else if (section.type === 'MATRIX_TABLE') {
+      (section.columns || []).filter(c => c.isFinalResult).forEach(c => {
+        const matrixData = data[section.id] || {};
+        const values = (section.rowHeaders || [])
+          .map(rh => matrixData[rh.id]?.[c.id])
+          .filter(v => v != null && v !== '');
+        if (values.length > 0) {
+          finalResults[`${section.id}.${c.id}`] = { value: values.length === 1 ? values[0] : values, unit: c.unit, label: c.label };
         }
       });
     }
   });
-
   return finalResults;
 };

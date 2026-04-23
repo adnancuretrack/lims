@@ -2,6 +2,7 @@ import React from 'react';
 import { Modal, Form, Input, Table, Checkbox, Radio, Typography, Card, Space, Empty, Tag } from 'antd';
 import { PlusOutlined, CloseOutlined } from '@ant-design/icons';
 import type { WorksheetSchema, SectionSchema, FieldSchema } from './types';
+import { getGroupedColumns } from './utils';
 
 const { Title, Text } = Typography;
 
@@ -28,53 +29,6 @@ const renderFieldInput = (field: FieldSchema) => {
     default:
       return <Input placeholder={field.label} disabled />;
   }
-};
-
-const getGroupedColumns = (fields: FieldSchema[], groups?: any[], buildCol?: (c: FieldSchema) => any) => {
-  const defaultBuildCol = (c: FieldSchema) => ({
-    title: c.label + (c.unit ? ` (${c.unit})` : ''),
-    dataIndex: c.id,
-    key: c.id,
-    render: () => renderFieldInput(c)
-  });
-
-  const finalBuildCol = buildCol || defaultBuildCol;
-
-  if (!groups || groups.length === 0) return fields.map(finalBuildCol);
-
-  const result: any[] = [];
-  const columnMap = new Map(fields.map(f => [f.id, f]));
-  const processedGroups = new Set<string>();
-  const processedFieldIds = new Set<string>();
-
-  fields.forEach(f => {
-    if (processedFieldIds.has(f.id)) return;
-
-    const group = groups.find(g => (g.span || []).includes(f.id));
-    
-    if (group) {
-      const groupId = group.id || group.label;
-      if (!processedGroups.has(groupId)) {
-        result.push({
-          title: group.label,
-          align: 'center',
-          children: (group.span || [])
-            .map((id: string) => {
-              processedFieldIds.add(id);
-              return columnMap.get(id);
-            })
-            .filter(Boolean)
-            .map((col: any) => finalBuildCol(col))
-        });
-        processedGroups.add(groupId);
-      }
-    } else {
-      result.push(finalBuildCol(f));
-      processedFieldIds.add(f.id);
-    }
-  });
-
-  return result;
 };
 
 const renderSection = (section: SectionSchema) => {
@@ -133,7 +87,7 @@ const renderSection = (section: SectionSchema) => {
       return <Table columns={columns} dataSource={dataSource} pagination={false} size="small" scroll={{ x: 'max-content' }} />;
     } else {
       // ROWS_AS_RECORDS
-      const columns = getGroupedColumns(baseFields, section.columnGroups, buildCol);
+      const columns = getGroupedColumns({ fields: baseFields, groups: section.columnGroups, buildCol });
       const dataSource = Array.from({ length: section.minRows || 3 }, (_, i) => ({ key: i }));
 
       return <Table columns={columns} dataSource={dataSource} pagination={false} size="small" bordered scroll={{ x: 'max-content' }} />;
@@ -170,7 +124,7 @@ const renderSection = (section: SectionSchema) => {
       render: () => renderFieldInput(c)
     });
 
-    const dataCols = getGroupedColumns(baseFields, section.columnGroups, buildCol);
+    const dataCols = getGroupedColumns({ fields: baseFields, groups: section.columnGroups, buildCol });
 
     const dataSource = (section.rowHeaders || []).map(rh => ({
       key: rh.id,

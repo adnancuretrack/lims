@@ -98,11 +98,7 @@ public class LookupService {
         existing.setName(updatedTestMethod.getName());
         existing.setCode(updatedTestMethod.getCode());
         existing.setStandardRef(updatedTestMethod.getStandardRef());
-        existing.setResultType(updatedTestMethod.getResultType());
-        existing.setUnit(updatedTestMethod.getUnit());
-        existing.setDecimalPlaces(updatedTestMethod.getDecimalPlaces());
-        existing.setMinLimit(updatedTestMethod.getMinLimit());
-        existing.setMaxLimit(updatedTestMethod.getMaxLimit());
+        existing.setTatHours(updatedTestMethod.getTatHours());
         existing.setTatHours(updatedTestMethod.getTatHours());
         existing.setActive(updatedTestMethod.isActive());
 

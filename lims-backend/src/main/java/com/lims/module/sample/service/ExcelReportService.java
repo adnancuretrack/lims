@@ -152,17 +152,32 @@ public class ExcelReportService {
                     return String.valueOf(map.getOrDefault(parts[1], ""));
                 }
             } else if (parts.length == 3) {
-                // {section.index.field}
+                // {section.index_or_rowId.field}
                 if (sectionData instanceof List) {
-                    int index = Integer.parseInt(parts[1]);
-                    List<?> list = (List<?>) sectionData;
-                    if (index >= 0 && index < list.size()) {
-                        Object rowData = list.get(index);
-                        if (rowData instanceof Map) {
-                            @SuppressWarnings("unchecked")
-                            Map<String, Object> map = (Map<String, Object>) rowData;
-                            return String.valueOf(map.getOrDefault(parts[2], ""));
+                    // Standard Data Table: use numeric index
+                    try {
+                        int index = Integer.parseInt(parts[1]);
+                        List<?> list = (List<?>) sectionData;
+                        if (index >= 0 && index < list.size()) {
+                            Object rowData = list.get(index);
+                            if (rowData instanceof Map) {
+                                @SuppressWarnings("unchecked")
+                                Map<String, Object> map = (Map<String, Object>) rowData;
+                                return String.valueOf(map.getOrDefault(parts[2], ""));
+                            }
                         }
+                    } catch (NumberFormatException e) {
+                        return "";
+                    }
+                } else if (sectionData instanceof Map) {
+                    // Matrix Table: use string rowId
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> matrix = (Map<String, Object>) sectionData;
+                    Object rowData = matrix.get(parts[1]); 
+                    if (rowData instanceof Map) {
+                        @SuppressWarnings("unchecked")
+                        Map<String, Object> rowMap = (Map<String, Object>) rowData;
+                        return String.valueOf(rowMap.getOrDefault(parts[2], ""));
                     }
                 }
             }

@@ -33,24 +33,6 @@ export default function TestMethodListPage() {
         { title: 'Name', dataIndex: 'name', key: 'name' },
         { title: 'Standard Ref', dataIndex: 'standardRef', key: 'standardRef' },
         {
-            title: 'Type',
-            dataIndex: 'resultType',
-            key: 'resultType',
-            render: (type: string) => (
-                <Tag color={type === 'QUANTITATIVE' ? 'blue' : 'orange'}>{type}</Tag>
-            )
-        },
-        { title: 'Unit', dataIndex: 'unit', key: 'unit' },
-        {
-            title: 'Limits',
-            key: 'limits',
-            render: (_: any, record: TestMethodDTO) => (
-                record.resultType === 'QUANTITATIVE' ? (
-                    <span>{record.minLimit ?? '-'} to {record.maxLimit ?? '-'}</span>
-                ) : 'N/A'
-            )
-        },
-        {
             title: 'Status',
             dataIndex: 'active',
             key: 'active',

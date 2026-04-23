@@ -2,7 +2,7 @@ import React from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Card, Typography, Button, Space, Input, Select, Form, Row, Col, Tag } from 'antd';
+import { Card, Typography, Button, Space, Input, Form, Row, Col, Tag } from 'antd';
 import { DeleteOutlined, SettingOutlined, PlusOutlined, MenuOutlined } from '@ant-design/icons';
 import { useDesignerStore } from './store';
 import type { SectionSchema, FieldSchema } from './types';
@@ -266,24 +266,13 @@ export const DesignerCanvas: React.FC = () => {
               </Col>
             </Row>
             <Row gutter={16}>
-              <Col span={16}>
+              <Col span={24}>
                 <Form.Item label={<Typography.Text strong>Standard Reference</Typography.Text>} style={{ marginBottom: 0 }}>
                   <Input 
                     value={schema.metadata?.standardRef as string || schema.metadata?.standard || ''} 
                     onChange={e => setMetadata({ standardRef: e.target.value, standard: e.target.value })} 
                     placeholder="e.g. ASTM C39 / C39M" 
                   />
-                </Form.Item>
-              </Col>
-              <Col span={8}>
-                <Form.Item label={<Typography.Text strong>Result Type</Typography.Text>} style={{ marginBottom: 0 }}>
-                  <Select 
-                    value={(schema.metadata as any)?.resultType || 'QUANTITATIVE'} 
-                    onChange={v => setMetadata({ resultType: v } as any)}
-                  >
-                    <Select.Option value="QUANTITATIVE">Quantitative</Select.Option>
-                    <Select.Option value="PASS_FAIL">Pass / Fail</Select.Option>
-                  </Select>
                 </Form.Item>
               </Col>
             </Row>

@@ -61,7 +61,8 @@ public class WorksheetDataService {
         return Map.of(
             "schema", activeDef.getSchemaDefinition(),
             "data", wd.getData() != null ? wd.getData() : Map.of(),
-            "status", wd.getStatus()
+            "status", wd.getStatus(),
+            "context", buildContextData(st)
         );
     }
 
@@ -122,19 +123,6 @@ public class WorksheetDataService {
                     .findFirst()
                     .ifPresent(v -> result.setNumericValue(new BigDecimal(v.toString())));
             }
-        }
-
-        // Flag OOS for Quantitative
-        if (result.getNumericValue() != null && st.getTestMethod().getMinLimit() != null && st.getTestMethod().getMaxLimit() != null) {
-            BigDecimal val = result.getNumericValue();
-            BigDecimal min = st.getTestMethod().getMinLimit();
-            BigDecimal max = st.getTestMethod().getMaxLimit();
-            boolean oos = val.compareTo(min) < 0 || val.compareTo(max) > 0;
-            result.setOutOfRange(oos);
-            result.setFlagColor(oos ? "RED" : "GREEN");
-        } else {
-            result.setOutOfRange(false);
-            result.setFlagColor("GREEN");
         }
 
         testResultRepository.save(result);
@@ -220,5 +208,30 @@ public class WorksheetDataService {
             case "sample.receivedAt": return s.getReceivedAt();
             default: return null;
         }
+    }
+
+    private Map<String, Object> buildContextData(SampleTest st) {
+        Map<String, Object> ctx = new HashMap<>();
+        Sample s = st.getSample();
+        Job j = s.getJob();
+        
+        ctx.put("sample.sampleNumber", s.getSampleNumber());
+        ctx.put("sample.product.name", s.getProduct() != null ? s.getProduct().getName() : null);
+        ctx.put("sample.receivedAt", s.getReceivedAt());
+        ctx.put("sample.sampledAt", s.getSampledAt());
+        
+        if (j != null) {
+            ctx.put("sample.job.jobNumber", j.getJobNumber());
+            ctx.put("sample.job.projectName", j.getProjectName());
+            ctx.put("sample.job.poNumber", j.getPoNumber());
+            if (j.getClient() != null) {
+                ctx.put("sample.job.client.name", j.getClient().getName());
+            }
+        }
+        
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        ctx.put("currentUser.name", username);
+        
+        return ctx;
     }
 }

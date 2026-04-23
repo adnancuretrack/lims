@@ -23,6 +23,7 @@ import { VariableCheatSheet } from './VariableCheatSheet';
 import type { SectionType } from './types';
 import { LookupService } from '../../../api/LookupService';
 import { MethodDefinitionService } from '../../../api/MethodDefinitionService';
+import { DEFAULT_NOTES_SECTION } from './utils';
 import { useAuthStore } from '../../../store/authStore';
 
 const { Header, Content } = Layout;
@@ -162,8 +163,6 @@ export const MethodDesignerPage: React.FC = () => {
               name: schema.metadata?.name || schema.metadata?.title || 'Unnamed',
               code: schema.metadata?.code || 'TEMP-CODE',
               standardRef: schema.metadata?.standardRef || schema.metadata?.standard || '',
-              resultType: (schema.metadata as any)?.resultType || 'QUANTITATIVE',
-              decimalPlaces: (schema.metadata as any)?.decimalPlaces || 2,
               active: true,
               tatHours: 24,
               hasWorksheet: true
@@ -171,9 +170,15 @@ export const MethodDesignerPage: React.FC = () => {
             targetId = String(newMethod.id);
           }
 
+          // 1.5 Publish Guard: Auto-inject notes if empty
+          const schemaToSave = { ...schema };
+          if (!schemaToSave.sections || schemaToSave.sections.length === 0) {
+             schemaToSave.sections = [DEFAULT_NOTES_SECTION];
+          }
+
           // 2. Save the Schema as a Draft first (Backend logic)
           await MethodDefinitionService.saveDraft(targetId!, {
-            schemaDefinition: schema
+            schemaDefinition: schemaToSave
           });
 
           // 3. Publish (Move from DRAFT to PUBLISHED)

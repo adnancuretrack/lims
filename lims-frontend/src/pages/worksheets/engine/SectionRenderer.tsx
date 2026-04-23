@@ -5,32 +5,44 @@ import type { SectionSchema, FieldSchema } from '../../methods/designer/types';
 import { useEngineStore } from './store';
 import { evaluateCondition } from './FormulaEngine';
 import { ChartRenderer } from './ChartRenderer';
+import { getGroupedColumns } from '../../methods/designer/utils';
 
 const { Text } = Typography;
 
 interface SectionRendererProps {
   section: SectionSchema;
+  readOnly?: boolean;
+  externalData?: Record<string, any>;
+  externalSchema?: any;
+  externalErrors?: Record<string, { message: string; severity: 'WARNING' | 'ERROR' }>;
 }
 
-export const SectionRenderer: React.FC<SectionRendererProps> = ({ section }) => {
-  const { data, errors, updateFieldValue, updateRowValue, addRow, removeRow } = useEngineStore();
+export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readOnly, externalData, externalSchema, externalErrors }) => {
+  const storeState = useEngineStore();
+  
+  // Use external props if in read-only mode, otherwise use global store
+  const data = readOnly ? (externalData || {}) : storeState.data;
+  const errors = readOnly ? (externalErrors || {}) : storeState.errors;
+  const schema = readOnly ? (externalSchema || storeState.schema) : storeState.schema;
+  
+  const { updateFieldValue, updateRowValue, updateMatrixValue, addRow, removeRow } = storeState;
 
   const renderFieldInput = (field: FieldSchema, value: any, onChange: (v: any) => void) => {
     switch (field.inputType) {
       case 'TEXTAREA':
-        return <Input.TextArea rows={2} value={value} onChange={e => onChange(e.target.value)} disabled={field.required === false} />;
+        return <Input.TextArea rows={2} value={value} onChange={e => onChange(e.target.value)} disabled={readOnly || field.required === false} />;
       case 'CHECKBOX':
       case 'YES_NO':
-        return <Checkbox checked={value} onChange={e => onChange(e.target.checked)}>{field.label}</Checkbox>;
+        return <Checkbox checked={value} onChange={e => onChange(e.target.checked)} disabled={readOnly}>{field.label}</Checkbox>;
       case 'SELECTION_INLINE':
       case 'RADIO':
-        return <Radio.Group value={value} onChange={e => onChange(e.target.value)} options={field.options?.map(o => ({ label: o, value: o })) || []} />;
+        return <Radio.Group value={value} onChange={e => onChange(e.target.value)} options={field.options?.map(o => ({ label: o, value: o })) || []} disabled={readOnly} />;
       case 'NUMERIC':
-        return <InputNumber value={value} onChange={onChange} style={{ width: '100%' }} />;
+        return <InputNumber value={value} onChange={onChange} style={{ width: '100%' }} disabled={readOnly} />;
       case 'CALCULATED':
         return <Input disabled value={value} placeholder="Auto-calculated" style={{ backgroundColor: '#f5f5f5' }} />;
       default:
-        return <Input value={value} onChange={e => onChange(e.target.value)} disabled={field.inputType === 'READONLY'} />;
+        return <Input value={value} onChange={e => onChange(e.target.value)} disabled={readOnly || field.inputType === 'READONLY'} />;
     }
   };
 
@@ -43,7 +55,7 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section }) => 
             if (f.visibilityCondition) {
               const isVisible = evaluateCondition({
                 formula: f.visibilityCondition,
-                schema: useEngineStore.getState().schema!,
+                schema: schema!,
                 data,
                 currentSectionId: section.id,
                 currentRowIndex: null
@@ -84,7 +96,7 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section }) => 
           title: (
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                <span>{t}</span>
-               {trialLen > minRows && (
+               {trialLen > minRows && !readOnly && (
                  <Button 
                     type="text" 
                     size="small" 
@@ -114,7 +126,7 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section }) => 
              );
           }
         })),
-        ...(trialLen < maxRows ? [{
+        ...(trialLen < maxRows && !readOnly ? [{
           title: (
             <Button 
               type="dashed" 
@@ -140,113 +152,36 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section }) => 
       return <Table columns={columns} dataSource={dataSource} pagination={false} size="small" scroll={{ x: 'max-content' }} bordered />;
     } else {
       // ROWS_AS_RECORDS
-      const buildNestedColumns = (
-        rawFields: FieldSchema[],
-        groups?: import('../../methods/designer/types').ColumnGroupSchema[]
-      ): any[] => {
-        if (!groups || groups.length === 0) {
-          return rawFields.map(c => ({
-            title: c.label + (c.unit ? ` (${c.unit})` : ''),
-            dataIndex: c.id,
-            key: c.id,
-            render: (_: any, __: any, index: number) => {
-              const val = tableData[index]?.[c.id];
-              const error = errors[`${section.id}.${index}.${c.id}`];
-              return (
-                <Form.Item 
-                  validateStatus={error ? (error.severity === 'ERROR' ? 'error' : 'warning') : ''}
-                  help={error?.message}
-                  style={{ margin: 0 }}
-                >
-                  {renderFieldInput(c, val, (v) => updateRowValue(section.id, index, c.id, v))}
-                </Form.Item>
-              );
-            }
-          }));
+      const buildCol = (c: FieldSchema) => ({
+        title: c.label + (c.unit ? ` (${c.unit})` : ''),
+        dataIndex: c.id,
+        key: c.id,
+        render: (_: any, __: any, index: number) => {
+          const val = tableData[index]?.[c.id];
+          const error = errors[`${section.id}.${index}.${c.id}`];
+          return (
+            <Form.Item 
+              validateStatus={error ? (error.severity === 'ERROR' ? 'error' : 'warning') : ''}
+              help={error?.message}
+              style={{ margin: 0 }}
+            >
+              {renderFieldInput(c, val, (v) => updateRowValue(section.id, index, c.id, v))}
+            </Form.Item>
+          );
         }
+      });
 
-        const handledFieldIds = new Set<string>();
-        const result: any[] = [];
-
-        const traverseGrouping = (groupDef: import('../../methods/designer/types').ColumnGroupSchema) => {
-          const groupColumnItem: any = {
-            title: groupDef.label,
-            children: []
-          };
-
-          if (groupDef.subGroups) {
-            groupDef.subGroups.forEach(sg => {
-              groupColumnItem.children.push(traverseGrouping(sg));
-            });
-          }
-
-          if (groupDef.span) {
-            groupDef.span.forEach(fId => {
-              const matchedField = rawFields.find(f => f.id === fId);
-              if (matchedField && !handledFieldIds.has(fId)) {
-                handledFieldIds.add(fId);
-                groupColumnItem.children.push({
-                  title: matchedField.label + (matchedField.unit ? ` (${matchedField.unit})` : ''),
-                  dataIndex: matchedField.id,
-                  key: matchedField.id,
-                  render: (_: any, __: any, index: number) => {
-                    const val = tableData[index]?.[matchedField.id];
-                    const error = errors[`${section.id}.${index}.${matchedField.id}`];
-                    return (
-                      <Form.Item 
-                        validateStatus={error ? (error.severity === 'ERROR' ? 'error' : 'warning') : ''}
-                        help={error?.message}
-                        style={{ margin: 0 }}
-                      >
-                        {renderFieldInput(matchedField, val, (v) => updateRowValue(section.id, index, matchedField.id, v))}
-                      </Form.Item>
-                    );
-                  }
-                });
-              }
-            });
-          }
-
-          return groupColumnItem;
-        };
-
-        groups.forEach(g => {
-          result.push(traverseGrouping(g));
-        });
-
-        rawFields.forEach(c => {
-          if (!handledFieldIds.has(c.id)) {
-            result.push({
-              title: c.label + (c.unit ? ` (${c.unit})` : ''),
-              dataIndex: c.id,
-              key: c.id,
-              render: (_: any, __: any, index: number) => {
-                const val = tableData[index]?.[c.id];
-                const error = errors[`${section.id}.${index}.${c.id}`];
-                return (
-                  <Form.Item 
-                    validateStatus={error ? (error.severity === 'ERROR' ? 'error' : 'warning') : ''}
-                    help={error?.message}
-                    style={{ margin: 0 }}
-                  >
-                    {renderFieldInput(c, val, (v) => updateRowValue(section.id, index, c.id, v))}
-                  </Form.Item>
-                );
-              }
-            });
-          }
-        });
-
-        return result;
-      };
-
-      const columns = buildNestedColumns(section.columns || section.dataColumns || [], section.columnGroups);
+      const columns = getGroupedColumns({ 
+        fields: section.columns || section.dataColumns || [], 
+        groups: section.columnGroups,
+        buildCol
+      });
 
       const minRows = section.minRows || 1;
       const maxRows = section.maxRows || Infinity;
       const canDelete = tableData.length > minRows;
 
-      if (canDelete || tableData.length > 0) {
+      if ((canDelete || tableData.length > 0) && !readOnly) {
         columns.push({
           title: '',
           dataIndex: 'actions',
@@ -317,7 +252,7 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section }) => 
               );
             }}
           />
-          {tableData.length < maxRows && (
+          {tableData.length < maxRows && !readOnly && (
             <Button 
               type="dashed" 
               icon={<PlusOutlined />} 
@@ -334,6 +269,67 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section }) => 
 
   if (section.type === 'CHART') {
     return <ChartRenderer section={section} />;
+  }
+
+  if (section.type === 'MATRIX_TABLE') {
+    const matrixData = data[section.id] || {};
+
+    const rowStubCol = {
+      title: '',
+      dataIndex: 'rowLabel',
+      key: 'rowLabel',
+      width: 160,
+      fixed: 'left' as const,
+      render: (text: string) => <Text strong>{text}</Text>
+    };
+
+    const buildCol = (c: FieldSchema) => ({
+      title: (
+        <div style={{ textAlign: 'center' }}>
+          <div>{c.label}</div>
+          {c.unit && <Text type="secondary" style={{ fontSize: 11 }}>({c.unit})</Text>}
+        </div>
+      ),
+      dataIndex: c.id,
+      key: c.id,
+      align: 'center' as const,
+      render: (_: any, record: any) => {
+        const val = matrixData[record.rowId]?.[c.id];
+        const error = errors[`${section.id}.${record.rowId}.${c.id}`];
+        return (
+          <Form.Item 
+            validateStatus={error ? (error.severity === 'ERROR' ? 'error' : 'warning') : ''}
+            help={error?.message}
+            style={{ margin: 0 }}
+          >
+            {renderFieldInput(c, val, (v) => updateMatrixValue(section.id, record.rowId, c.id, v))}
+          </Form.Item>
+        );
+      }
+    });
+
+    const dataCols = getGroupedColumns({ 
+      fields: section.columns || [], 
+      groups: section.columnGroups,
+      buildCol 
+    });
+
+    const dataSource = (section.rowHeaders || []).map(rh => ({
+      key: rh.id,
+      rowId: rh.id,
+      rowLabel: rh.label
+    }));
+
+    return (
+      <Table 
+        columns={[rowStubCol, ...dataCols]} 
+        dataSource={dataSource} 
+        pagination={false} 
+        size="small" 
+        bordered 
+        scroll={{ x: 'max-content' }}
+      />
+    );
   }
 
   return <Text type="secondary">Unsupported section type: {section.type}</Text>;

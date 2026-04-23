@@ -21,6 +21,13 @@ export const WorksheetService = {
   
   getHistory: async (sampleTestId: string | number) => {
     return apiClient.get(`/worksheet/${sampleTestId}/history`);
+  },
+
+  downloadWorksheetReport: async (sampleTestId: string | number): Promise<Blob> => {
+    const response = await apiClient.get(`/worksheet/${sampleTestId}/report`, {
+      responseType: 'blob'
+    });
+    return response.data;
   }
 };
 

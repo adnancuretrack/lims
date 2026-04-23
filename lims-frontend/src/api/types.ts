@@ -68,11 +68,6 @@ export interface TestMethodDTO {
     name: string;
     code: string;
     standardRef?: string;
-    resultType: 'QUANTITATIVE' | 'PASS_FAIL' | 'TEXT';
-    unit?: string;
-    decimalPlaces: number;
-    minLimit?: number;
-    maxLimit?: number;
     tatHours: number;
     active: boolean;
 }
@@ -98,14 +93,6 @@ export interface SampleTestDTO {
     testMethodCode: string;
     status: string;
     sortOrder: number;
-    numericValue?: number;
-    textValue?: string;
-    isOutOfRange: boolean;
-    flagColor?: string;
-    unit?: string;
-    minLimit?: number;
-    maxLimit?: number;
-    resultType: 'QUANTITATIVE' | 'PASS_FAIL' | 'TEXT';
     testResultId?: number;
     instrumentId?: number;
     reagentLot?: string;
@@ -114,8 +101,6 @@ export interface SampleTestDTO {
 
 export interface ResultEntryRequest {
     sampleTestId: number;
-    numericValue?: number;
-    textValue?: string;
     instrumentId?: number;
     reagentLot?: string;
 }
