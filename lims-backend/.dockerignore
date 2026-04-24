@@ -1,7 +1,7 @@
-target/
+# Allow target for local build strategy
+# target/
 *.class
-*.jar
-*.war
+# *.jar
 .mvn/
 mvnw
 mvnw.cmd

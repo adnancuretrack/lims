@@ -2,10 +2,12 @@ package com.lims.module.sample.service;
 
 import com.lims.module.sample.entity.Sample;
 import com.lims.module.sample.entity.WorksheetData;
+import com.lims.module.sample.config.ReportPrintingConfig;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.apache.poi.xssf.usermodel.XSSFPrintSetup;
 import org.springframework.stereotype.Service;
 
 import java.io.FileInputStream;
@@ -23,6 +25,7 @@ import java.util.regex.Pattern;
 @Slf4j
 public class ExcelReportService {
 
+    private final ReportPrintingConfig printingConfig;
     private static final Pattern TAG_PATTERN = Pattern.compile("\\{([^}]+)\\}");
 
     /**
@@ -44,16 +47,43 @@ public class ExcelReportService {
             log.info("Generating Excel report for SampleTest: {} using template: {}", 
                 worksheetData.getSampleTest().getId(), templatePath);
 
-            for (int i = 0; i < workbook.getNumberOfSheets(); i++) {
-                Sheet sheet = workbook.getSheetAt(i);
-                for (Row row : sheet) {
-                    for (Cell cell : row) {
-                        processCell(cell, worksheetData);
-                    }
-                }
+            // Use the new configuration module to select and prepare the correct sheet
+            prepareWorkbook(workbook);
+
+            Sheet sheet = workbook.getSheetAt(0); // The target sheet is now at index 0 after preparation
+            // int maxCol = 0;
+            // int maxRow = 0;
+
+            // for (Row row : sheet) {
+            //     for (Cell cell : row) {
+            //         processCell(cell, worksheetData);
+                    
+            //         // Track the maximum bounds for the print area
+            //         if (cell.getCellType() != CellType.BLANK) {
+            //             maxCol = Math.max(maxCol, cell.getColumnIndex());
+            //             maxRow = Math.max(maxRow, row.getRowNum());
+            //         }
+            //     }
+            // }
+            
+            // // Set print area for the target sheet
+            // if (maxCol > 0) {
+            //     workbook.setPrintArea(0, 0, maxCol, 0, maxRow);
+            // }
+
+            // Apply 'Fit to Width' scaling if enabled in the config module
+            if (printingConfig.isFitToWidth()) {
+                        
+                PrintSetup ps = sheet.getPrintSetup();
+                sheet.setFitToPage(true);
+                sheet.setAutobreaks(true);
+                ps.setPaperSize(XSSFPrintSetup.A4_PAPERSIZE);
+                ps.setFitWidth((short) 1);  // Force to 1 page wide
+                ps.setFitHeight((short) 0); // Allow as many pages long as needed
+                
             }
 
-            // Force formula recalculation so POI/Excel updates derived cells
+            // Force formula recalculation
             workbook.getCreationHelper().createFormulaEvaluator().evaluateAll();
 
             Path tempDir = Files.createTempDirectory("lims_reports");
@@ -185,5 +215,27 @@ public class ExcelReportService {
             log.warn("Failed to resolve tag: {} - {}", tag, e.getMessage());
         }
         return "";
+    }
+
+    /**
+     * Prepares the workbook based on the configuration (Sheet selection and isolation).
+     */
+    private void prepareWorkbook(Workbook workbook) throws IOException {
+        int targetIndex = printingConfig.getTargetSheetIndex();
+        
+        if (workbook.getNumberOfSheets() <= targetIndex) {
+            throw new IOException("The template does not contain a sheet at index: " + targetIndex);
+        }
+
+        if (printingConfig.isIsolateTargetSheet()) {
+            // Remove everything before the target index
+            for (int i = 0; i < targetIndex; i++) {
+                workbook.removeSheetAt(0);
+            }
+            // Remove everything that was originally after the target index
+            while (workbook.getNumberOfSheets() > 1) {
+                workbook.removeSheetAt(1);
+            }
+        }
     }
 }

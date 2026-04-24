@@ -121,6 +121,16 @@
             <artifactId>openhtmltopdf-slf4j</artifactId>
             <version>1.1.24</version>
         </dependency>
+        <dependency>
+            <groupId>org.jodconverter</groupId>
+            <artifactId>jodconverter-local</artifactId>
+            <version>4.4.11</version>
+        </dependency>
+        <dependency>
+            <groupId>org.jodconverter</groupId>
+            <artifactId>jodconverter-spring-boot-starter</artifactId>
+            <version>4.4.11</version>
+        </dependency>
 
         <!-- ==================== Barcode Generation ==================== -->
         <dependency>

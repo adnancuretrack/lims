@@ -95,3 +95,10 @@ logging:
     org.springframework.security: WARN
     org.hibernate.SQL: WARN
     org.hibernate.type.descriptor.sql.BasicBinder: WARN
+
+# ---------- JODConverter (Excel to PDF) ----------
+jodconverter:
+  local:
+    enabled: true
+    office-home: /usr/lib/libreoffice
+    max-tasks-per-process: 10

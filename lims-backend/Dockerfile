@@ -1,26 +1,15 @@
-# Stage 1: Build the application
-FROM maven:3.9.9-eclipse-temurin-21-alpine AS build
-WORKDIR /app
-
-# Copy pom.xml and download dependencies (cached layer)
-COPY pom.xml .
-RUN mvn dependency:go-offline -B
-
-# Copy source code and build
-COPY src ./src
-RUN mvn clean package -DskipTests
-
-# Stage 2: Run the application
+# Use eclipse-temurin as the base image for runtime
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
-# Install necessary libraries for JasperReports (AWT)
+# Install necessary libraries for JasperReports (AWT) and LibreOffice for PDF conversion
 RUN apk add --no-cache \
     fontconfig \
     ttf-dejavu \
     libxrender \
     libxtst \
-    libxi
+    libxi \
+    libreoffice
 
 # Create a non-root user for security
 RUN addgroup -S lims && adduser -S lims -G lims
@@ -30,8 +19,8 @@ RUN mkdir -p /app/uploads && chown -R lims:lims /app
 
 USER lims
 
-# Copy the JAR from the build stage
-COPY --from=build /app/target/lims-backend-*.jar app.jar
+# Copy the JAR from the local target directory
+COPY target/lims-backend-*.jar app.jar
 
 # Expose the application port
 EXPOSE 8080

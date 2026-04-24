@@ -38,6 +38,9 @@ const QcDashboardPage = lazy(() => import('./pages/qc/QcDashboardPage'));
 const InvestigationListPage = lazy(() => import('./pages/investigation/InvestigationListPage'));
 const InvestigationDetailPage = lazy(() => import('./pages/investigation/InvestigationDetailPage'));
 
+// Quality Documents
+const DocumentListPage = lazy(() => import('./pages/quality/DocumentListPage'));
+
 // Reports
 const ReportsPage = lazy(() => import('./pages/reports/ReportsPage'));
 
@@ -78,6 +81,8 @@ export const routes: RouteObject[] = [
             // Investigations
             { path: 'investigations', element: <InvestigationListPage /> },
             { path: 'investigations/:id', element: <InvestigationDetailPage /> },
+            // Quality Documents
+            { path: 'quality/documents', element: <DocumentListPage /> },
             // Reports
             { path: 'reports', element: <ReportsPage /> },
             // Admin

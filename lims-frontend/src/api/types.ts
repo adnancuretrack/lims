@@ -233,3 +233,14 @@ export interface MethodDefinitionDTO {
     createdAt?: string;
     updatedAt?: string;
 }
+
+export interface ComplianceDocumentDTO {
+    id: number;
+    fileName: string;
+    fileType: string;
+    fileSize: number;
+    description?: string;
+    category?: string;
+    uploadedBy?: string;
+    createdAt: string;
+}

@@ -64,6 +64,7 @@ export default function AppLayout() {
             children: [
                 { key: '/qc', icon: <LineChartOutlined />, label: 'QC Control' },
                 { key: '/investigations', icon: <AlertOutlined />, label: 'Investigations' },
+                { key: '/quality/documents', icon: <FileSearchOutlined />, label: 'Documents' },
             ]
         },
 
