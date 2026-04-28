@@ -19,7 +19,7 @@ public class ReportPrintingConfig {
      * 0 = First Sheet
      * 1 = Second Sheet (Current requirement)
      */
-    private int targetSheetIndex = 1;
+    private int targetSheetIndex = 0;
 
     /**
      * Whether to force the report to fit the width of a single page.
