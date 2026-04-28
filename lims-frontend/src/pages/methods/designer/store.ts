@@ -38,7 +38,7 @@ export const useDesignerStore = create<DesignerState>((set) => ({
   setSchema: (schema) => set({ schema, selectedSectionId: null, selectedFieldId: null }),
 
   addSection: (type) => set((state) => {
-    const newId = `section_${crypto.randomUUID().slice(0, 8)}`;
+    const newId = `section_${Math.random().toString(36).substring(2, 10)}`;
     const newSection: SectionSchema = {
       id: newId,
       type,
@@ -85,7 +85,7 @@ export const useDesignerStore = create<DesignerState>((set) => ({
       sections: state.schema.sections.map(s => {
         if (s.id !== sectionId) return s;
         
-        newFieldId = `field_${crypto.randomUUID().slice(0,8)}`;
+        newFieldId = `field_${Math.random().toString(36).substring(2, 10)}`;
         const newField: FieldSchema = {
           id: newFieldId,
           label: 'New Field',
@@ -210,7 +210,7 @@ export const useDesignerStore = create<DesignerState>((set) => ({
       sections: state.schema.sections.map(s => {
         if (s.id !== sectionId) return s;
         const newRow: import('./types').RowHeaderSchema = {
-          id: `row_${crypto.randomUUID().slice(0, 8)}`,
+          id: `row_${Math.random().toString(36).substring(2, 10)}`,
           label: 'New Row'
         };
         return { ...s, rowHeaders: [...(s.rowHeaders || []), newRow] };
