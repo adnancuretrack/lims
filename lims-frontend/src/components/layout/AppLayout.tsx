@@ -5,7 +5,6 @@ import {
     DashboardOutlined,
     ExperimentOutlined,
     FileSearchOutlined,
-    AuditOutlined,
     SettingOutlined,
     UserOutlined,
     LogoutOutlined,
@@ -14,7 +13,6 @@ import {
     ProjectOutlined,
     TeamOutlined,
     ShopOutlined,
-    ScanOutlined,
     LineChartOutlined,
     MedicineBoxOutlined,
     CodeOutlined,
@@ -40,8 +38,6 @@ export default function AppLayout() {
     const logout = useAuthStore((s) => s.logout);
     const isAdmin = useHasRole('ADMIN');
 
-    const hasRole = (role: string) => user?.roles.includes(role) || user?.roles.includes('ADMIN');
-
     const sideMenuItems: MenuProps['items'] = [
         { key: '/', icon: <DashboardOutlined />, label: 'Dashboard' },
 
@@ -50,11 +46,8 @@ export default function AppLayout() {
             icon: <ExperimentOutlined />,
             label: 'Operations',
             children: [
-                hasRole('RECEPTIONIST') ? { key: '/samples/receive', icon: <ScanOutlined />, label: 'Sample Intake' } : null,
-                { key: '/samples', icon: <ExperimentOutlined />, label: 'Sample List' },
-                hasRole('ANALYST') ? { key: '/analysis', icon: <FileSearchOutlined />, label: 'Result Entry' } : null,
-                (hasRole('REVIEWER') || hasRole('AUTHORIZER')) ? { key: '/review', icon: <AuditOutlined />, label: 'Review Queue' } : null,
-            ].filter(Boolean) as MenuProps['items']
+                { key: '/samples', icon: <ExperimentOutlined />, label: 'Samples' },
+            ]
         },
 
         {

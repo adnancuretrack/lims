@@ -6,6 +6,8 @@ import { useEngineStore } from './store';
 import { evaluateCondition } from './FormulaEngine';
 import { ChartRenderer } from './ChartRenderer';
 import { getGroupedColumns } from '../../methods/designer/utils';
+import { AdrCaptureModal } from '../../../components/instrument/AdrCaptureModal';
+import { ApiOutlined } from '@ant-design/icons';
 
 const { Text } = Typography;
 
@@ -27,23 +29,58 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
   
   const { updateFieldValue, updateRowValue, updateMatrixValue, addRow, removeRow } = storeState;
 
-  const renderFieldInput = (field: FieldSchema, value: any, onChange: (v: any) => void) => {
+  const [captureModalOpen, setCaptureModalOpen] = React.useState(false);
+  const [captureTarget, setCaptureTarget] = React.useState<{ fieldId: string, label: string, rowIndex?: number, rowId?: string } | null>(null);
+
+  const handleCapture = (value: number | string) => {
+    if (!captureTarget) return;
+    const { fieldId, rowIndex, rowId } = captureTarget;
+    
+    if (rowIndex !== undefined) {
+      updateRowValue(section.id, rowIndex, fieldId, value);
+    } else if (rowId !== undefined) {
+      updateMatrixValue(section.id, rowId, fieldId, value);
+    } else {
+      updateFieldValue(section.id, fieldId, value);
+    }
+  };
+
+  const renderFieldInput = (field: FieldSchema, value: any, onChange: (v: any) => void, rowIndex?: number, rowId?: string) => {
+    let inputEl;
     switch (field.inputType) {
       case 'TEXTAREA':
-        return <Input.TextArea rows={2} value={value} onChange={e => onChange(e.target.value)} disabled={readOnly || field.required === false} />;
+        inputEl = <Input.TextArea rows={2} value={value} onChange={e => onChange(e.target.value)} disabled={readOnly || field.required === false} />; break;
       case 'CHECKBOX':
       case 'YES_NO':
-        return <Checkbox checked={value} onChange={e => onChange(e.target.checked)} disabled={readOnly}>{field.label}</Checkbox>;
+        inputEl = <Checkbox checked={value} onChange={e => onChange(e.target.checked)} disabled={readOnly}>{field.label}</Checkbox>; break;
       case 'SELECTION_INLINE':
       case 'RADIO':
-        return <Radio.Group value={value} onChange={e => onChange(e.target.value)} options={field.options?.map(o => ({ label: o, value: o })) || []} disabled={readOnly} />;
+        inputEl = <Radio.Group value={value} onChange={e => onChange(e.target.value)} options={field.options?.map(o => ({ label: o, value: o })) || []} disabled={readOnly} />; break;
       case 'NUMERIC':
-        return <InputNumber value={value} onChange={onChange} style={{ width: '100%' }} disabled={readOnly} />;
+        inputEl = <InputNumber value={value} onChange={onChange} style={{ width: '100%' }} disabled={readOnly} />; break;
       case 'CALCULATED':
-        return <Input disabled value={value} placeholder="Auto-calculated" style={{ backgroundColor: '#f5f5f5' }} />;
+        inputEl = <Input disabled value={value} placeholder="Auto-calculated" style={{ backgroundColor: '#f5f5f5' }} />; break;
       default:
-        return <Input value={value} onChange={e => onChange(e.target.value)} disabled={readOnly || field.inputType === 'READONLY'} />;
+        inputEl = <Input value={value} onChange={e => onChange(e.target.value)} disabled={readOnly || field.inputType === 'READONLY'} />; break;
     }
+
+    if (field.instrumentSource === 'ADR_TOUCH' && !readOnly) {
+      return (
+        <Space.Compact style={{ width: '100%' }}>
+          {inputEl}
+          <Button 
+            icon={<ApiOutlined />} 
+            onClick={() => {
+              setCaptureTarget({ fieldId: field.id, label: field.label, rowIndex, rowId });
+              setCaptureModalOpen(true);
+            }} 
+            title="Capture from ADR Touch"
+          />
+        </Space.Compact>
+      );
+    }
+    
+    return inputEl;
   };
 
   if (section.type === 'SINGLE_VALUE') {
@@ -77,6 +114,15 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
             );
           })}
         </div>
+        {captureTarget && (
+          <AdrCaptureModal 
+            open={captureModalOpen} 
+            onClose={() => setCaptureModalOpen(false)} 
+            onCapture={handleCapture}
+            targetFieldId={captureTarget.fieldId}
+            targetFieldLabel={captureTarget.label}
+          />
+        )}
       </Form>
     );
   }
@@ -121,7 +167,7 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
                  help={error?.message}
                  style={{ margin: 0 }}
                >
-                 {renderFieldInput(record.fieldSchema, val, (v) => updateRowValue(section.id, i, record.key, v))}
+                 {renderFieldInput(record.fieldSchema, val, (v) => updateRowValue(section.id, i, record.key, v), i)}
                </Form.Item>
              );
           }
@@ -149,7 +195,20 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
         fieldSchema: f,
       }));
 
-      return <Table columns={columns} dataSource={dataSource} pagination={false} size="small" scroll={{ x: 'max-content' }} bordered />;
+      return (
+        <>
+          <Table columns={columns} dataSource={dataSource} pagination={false} size="small" scroll={{ x: 'max-content' }} bordered />
+          {captureTarget && (
+            <AdrCaptureModal 
+              open={captureModalOpen} 
+              onClose={() => setCaptureModalOpen(false)} 
+              onCapture={handleCapture}
+              targetFieldId={captureTarget.fieldId}
+              targetFieldLabel={captureTarget.label}
+            />
+          )}
+        </>
+      );
     } else {
       // ROWS_AS_RECORDS
       const buildCol = (c: FieldSchema) => ({
@@ -165,7 +224,7 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
               help={error?.message}
               style={{ margin: 0 }}
             >
-              {renderFieldInput(c, val, (v) => updateRowValue(section.id, index, c.id, v))}
+              {renderFieldInput(c, val, (v) => updateRowValue(section.id, index, c.id, v), index)}
             </Form.Item>
           );
         }
@@ -262,6 +321,15 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
               Add Row
             </Button>
           )}
+          {captureTarget && (
+            <AdrCaptureModal 
+              open={captureModalOpen} 
+              onClose={() => setCaptureModalOpen(false)} 
+              onCapture={handleCapture}
+              targetFieldId={captureTarget.fieldId}
+              targetFieldLabel={captureTarget.label}
+            />
+          )}
         </Space>
       );
     }
@@ -302,7 +370,7 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
             help={error?.message}
             style={{ margin: 0 }}
           >
-            {renderFieldInput(c, val, (v) => updateMatrixValue(section.id, record.rowId, c.id, v))}
+            {renderFieldInput(c, val, (v) => updateMatrixValue(section.id, record.rowId, c.id, v), undefined, record.rowId)}
           </Form.Item>
         );
       }
@@ -321,16 +389,50 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
     }));
 
     return (
-      <Table 
-        columns={[rowStubCol, ...dataCols]} 
-        dataSource={dataSource} 
-        pagination={false} 
-        size="small" 
-        bordered 
-        scroll={{ x: 'max-content' }}
-      />
+      <>
+        <Table 
+          columns={[rowStubCol, ...dataCols]} 
+          dataSource={dataSource} 
+          pagination={false} 
+          size="small" 
+          bordered 
+          scroll={{ x: 'max-content' }}
+        />
+        {captureTarget && (
+          <AdrCaptureModal 
+            open={captureModalOpen} 
+            onClose={() => setCaptureModalOpen(false)} 
+            onCapture={handleCapture}
+            targetFieldId={captureTarget.fieldId}
+            targetFieldLabel={captureTarget.label}
+          />
+        )}
+      </>
     );
   }
 
-  return <Text type="secondary">Unsupported section type: {section.type}</Text>;
+  if (section.type === 'NOTES') {
+    return (
+      <div style={{ padding: 16, backgroundColor: '#fffbe6', border: '1px solid #ffe58f', borderRadius: 8 }}>
+        <Text style={{ whiteSpace: 'pre-wrap' }}>
+          {section.description || 'No notes provided.'}
+        </Text>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <Text type="secondary">Unsupported section type: {section.type}</Text>
+      {captureTarget && (
+        <AdrCaptureModal 
+          open={captureModalOpen} 
+          onClose={() => setCaptureModalOpen(false)} 
+          onCapture={handleCapture}
+          targetFieldId={captureTarget.fieldId}
+          targetFieldLabel={captureTarget.label}
+        />
+      )}
+    </>
+  );
 };

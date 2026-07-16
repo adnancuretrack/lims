@@ -144,6 +144,16 @@ const renderSection = (section: SectionSchema) => {
     );
   }
 
+  if (section.type === 'NOTES') {
+    return (
+      <div style={{ padding: 16, backgroundColor: '#fffbe6', border: '1px solid #ffe58f', borderRadius: 8 }}>
+        <Text style={{ whiteSpace: 'pre-wrap' }}>
+          {section.description || 'No notes provided.'}
+        </Text>
+      </div>
+    );
+  }
+
   return <Empty description={`Preview for ${section.type} not yet implemented`} />;
 };
 

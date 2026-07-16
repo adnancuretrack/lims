@@ -11,6 +11,7 @@ interface DesignerState {
   updateSection: (id: string, updates: Partial<SectionSchema>) => void;
   removeSection: (id: string) => void;
   reorderSections: (oldIndex: number, newIndex: number) => void;
+  convertSectionType: (sectionId: string, newType: SectionType) => void;
   
   addField: (sectionId: string) => void;
   updateField: (sectionId: string, fieldId: string, updates: Partial<FieldSchema>) => void;
@@ -76,6 +77,71 @@ export const useDesignerStore = create<DesignerState>((set) => ({
     const [moved] = sections.splice(oldIndex, 1);
     sections.splice(newIndex, 0, moved);
     return { schema: { ...state.schema, sections } };
+  }),
+
+  convertSectionType: (sectionId, newType) => set((state) => {
+    const sectionIndex = state.schema.sections.findIndex(s => s.id === sectionId);
+    if (sectionIndex === -1) return state;
+
+    const section = { ...state.schema.sections[sectionIndex] };
+    const currentType = section.type;
+    if (currentType === newType) return state;
+
+    // Extract fields
+    let extractedFields: FieldSchema[] = [];
+    if (currentType === 'SINGLE_VALUE') {
+      extractedFields = section.fields || [];
+    } else if (currentType === 'DATA_TABLE' || currentType === 'MATRIX_TABLE') {
+      extractedFields = section.columns || [];
+    } else if (currentType === 'GROUPED_TABLE') {
+      extractedFields = section.dataColumns || [];
+    }
+
+    // Clean irrelevant properties
+    extractedFields = extractedFields.map(f => {
+      const cleanField = { ...f };
+      if (newType === 'MATRIX_TABLE') {
+        delete cleanField.systemMapping;
+      }
+      return cleanField;
+    });
+
+    // Update type
+    section.type = newType;
+
+    // Assign fields
+    section.fields = undefined;
+    section.columns = undefined;
+    section.dataColumns = undefined;
+
+    if (newType === 'SINGLE_VALUE') {
+      section.fields = extractedFields;
+      // Clear table-specific config
+      section.orientation = undefined;
+      section.minRows = undefined;
+      section.maxRows = undefined;
+      section.showTotalRow = undefined;
+      section.totalRowLabel = undefined;
+      section.totalColumns = undefined;
+      section.columnGroups = undefined;
+    } else if (newType === 'DATA_TABLE' || newType === 'MATRIX_TABLE') {
+      section.columns = extractedFields;
+      if (newType === 'MATRIX_TABLE') {
+        if (!section.rowHeaders || section.rowHeaders.length === 0) {
+          section.rowHeaders = [{ id: `row_${Math.random().toString(36).substring(2, 10)}`, label: 'Row 1' }];
+        }
+      }
+      section.minRows = section.minRows || 1;
+      section.orientation = section.orientation || 'ROWS_AS_RECORDS';
+    } else if (newType === 'GROUPED_TABLE') {
+      section.dataColumns = extractedFields;
+      section.minRows = section.minRows || 1;
+      section.orientation = section.orientation || 'ROWS_AS_RECORDS';
+    }
+
+    const newSections = [...state.schema.sections];
+    newSections[sectionIndex] = section;
+    return { schema: { ...state.schema, sections: newSections } };
   }),
 
   addField: (sectionId) => set((state) => {

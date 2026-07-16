@@ -47,6 +47,7 @@ export const MethodDesignerPage: React.FC = () => {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [cheatSheetOpen, setCheatSheetOpen] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const [postPublishModalOpen, setPostPublishModalOpen] = useState(false);
   const [targetPublishId, setTargetPublishId] = useState<string | null>(null);
@@ -63,7 +64,7 @@ export const MethodDesignerPage: React.FC = () => {
 
   const loadExistingMethod = async (methodId: string) => {
     try {
-      const activeDef = await MethodDefinitionService.getActiveDefinition(methodId);
+      const activeDef = await MethodDefinitionService.getLatestDefinition(methodId);
       if (activeDef && activeDef.schemaDefinition) {
         const fullSchema = {
           ...(activeDef.schemaDefinition as any),
@@ -137,6 +138,46 @@ export const MethodDesignerPage: React.FC = () => {
       if (activeSectionId && overSectionId && (active.id !== over.id || activeSectionId !== overSectionId)) {
         moveField(String(active.id), String(over.id), String(activeSectionId), String(overSectionId));
       }
+    }
+  };
+
+  const saveDraft = async () => {
+    if (isNew && (!schema.metadata?.name || !schema.metadata?.code)) {
+      message.warning('Please provide Method Code and Name at the top of the canvas before saving.');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      let targetId = id;
+
+      // Create the Test Method record first if it's new
+      if (isNew) {
+        const newMethod = await LookupService.createTestMethod({
+          name: schema.metadata?.name || schema.metadata?.title || 'Unnamed',
+          code: schema.metadata?.code || 'TEMP-CODE',
+          standardRef: schema.metadata?.standardRef || schema.metadata?.standard || '',
+          active: true,
+          tatHours: 24,
+          hasWorksheet: true
+        } as any);
+        targetId = String(newMethod.id);
+      }
+
+      await MethodDefinitionService.saveDraft(targetId!, {
+        schemaDefinition: schema
+      });
+
+      message.success('Draft saved.');
+
+      if (isNew) {
+        navigate(`/test-methods/${targetId}/designer`, { replace: true });
+      }
+    } catch (err) {
+      console.error('Save draft failed', err);
+      message.error('Failed to save draft.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -215,7 +256,7 @@ export const MethodDesignerPage: React.FC = () => {
         <Space split={<div style={{ width: 1, height: 16, backgroundColor: '#f0f0f0' }} />}>
           <Button type="link" onClick={() => setCheatSheetOpen(true)}>Variables</Button>
           <Button onClick={() => setPreviewOpen(true)}>Preview</Button>
-          <Button icon={<SaveOutlined />} disabled={isPublishing}>Save Draft</Button>
+          <Button icon={<SaveOutlined />} onClick={saveDraft} loading={isSaving} disabled={isPublishing}>Save Draft</Button>
           <Button type="primary" onClick={publishSchema} loading={isPublishing}>Publish</Button>
         </Space>
       </Header>

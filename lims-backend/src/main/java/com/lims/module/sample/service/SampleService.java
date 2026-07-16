@@ -171,39 +171,45 @@ public class SampleService {
         // These will be wired properly in Batch 3
         long awaitingAuth = sampleRepository.countByStatus("COMPLETED");
         long authorizedToday = sampleRepository.countByStatus("AUTHORIZED");
+        long rejected = sampleRepository.countByStatus("REJECTED");
 
         return DashboardStatsDTO.builder()
                 .unreceivedCount(unreceived)
                 .inProgressCount(inProgress)
                 .awaitingAuthorizationCount(awaitingAuth)
                 .authorizedTodayCount(authorizedToday)
+                .rejectedCount(rejected)
                 .build();
     }
 
     @Transactional(readOnly = true)
-    public Page<SampleDTO> listSamples(String search, Pageable pageable) {
-        if (search == null || search.trim().isEmpty()) {
-            return sampleRepository.findByOrderByCreatedAtDesc(pageable)
-                    .map(this::mapToDTO);
-        }
-
-        String lowercaseSearch = "%" + search.toLowerCase() + "%";
+    public Page<SampleDTO> listSamples(String search, List<String> statuses, Pageable pageable) {
         Specification<Sample> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
             
-            // Search in Sample fields
-            predicates.add(cb.like(cb.lower(root.get("sampleNumber")), lowercaseSearch));
-            predicates.add(cb.like(cb.lower(root.get("description")), lowercaseSearch));
-            predicates.add(cb.like(cb.lower(root.get("status")), lowercaseSearch));
+            if (statuses != null && !statuses.isEmpty()) {
+                predicates.add(root.get("status").in(statuses));
+            }
             
-            // Search in related Job/Client/Project fields
-            predicates.add(cb.like(cb.lower(root.join("job").get("client").get("name")), lowercaseSearch));
-            predicates.add(cb.like(cb.lower(root.join("job").get("projectName")), lowercaseSearch));
+            if (search != null && !search.trim().isEmpty()) {
+                String lowercaseSearch = "%" + search.toLowerCase() + "%";
+                List<Predicate> searchPredicates = new ArrayList<>();
+                // Search in Sample fields
+                searchPredicates.add(cb.like(cb.lower(root.get("sampleNumber")), lowercaseSearch));
+                searchPredicates.add(cb.like(cb.lower(root.get("description")), lowercaseSearch));
+                searchPredicates.add(cb.like(cb.lower(root.get("status")), lowercaseSearch));
+                
+                // Search in related Job/Client/Project fields
+                searchPredicates.add(cb.like(cb.lower(root.join("job").get("client").get("name")), lowercaseSearch));
+                searchPredicates.add(cb.like(cb.lower(root.join("job").get("projectName")), lowercaseSearch));
+                
+                // Search in Product fields
+                searchPredicates.add(cb.like(cb.lower(root.join("product").get("name")), lowercaseSearch));
+                
+                predicates.add(cb.or(searchPredicates.toArray(new Predicate[0])));
+            }
             
-            // Search in Product fields
-            predicates.add(cb.like(cb.lower(root.join("product").get("name")), lowercaseSearch));
-            
-            return cb.or(predicates.toArray(new Predicate[0]));
+            return predicates.isEmpty() ? cb.conjunction() : cb.and(predicates.toArray(new Predicate[0]));
         };
 
         return sampleRepository.findAll(spec, pageable)

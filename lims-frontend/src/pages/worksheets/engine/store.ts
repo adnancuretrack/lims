@@ -40,7 +40,7 @@ export const useEngineStore = create<EngineState>((set) => ({
     const cleanData: Record<string, any> = { ...(initialData || {}) };
     
 
-    schema.sections.forEach(sec => {
+    (schema.sections || []).forEach(sec => {
       // If data for this section is missing, scaffold it
       if (!cleanData[sec.id]) {
         if (sec.type === 'SINGLE_VALUE') {

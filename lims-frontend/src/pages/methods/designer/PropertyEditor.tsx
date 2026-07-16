@@ -1,9 +1,9 @@
 import React from 'react';
 import { useParams } from 'react-router-dom';
-import { Form, Input, Select, InputNumber, Switch, Typography, Divider, Button, Upload, message, Space, Card } from 'antd';
+import { Form, Input, Select, InputNumber, Switch, Typography, Divider, Button, Upload, message, Space, Card, Modal } from 'antd';
 import { UploadOutlined, BookOutlined, FileExcelOutlined, CloseOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { useDesignerStore } from './store';
-import type { InputType, TableOrientation, FieldSchema } from './types';
+import type { InputType, TableOrientation, FieldSchema, SectionType } from './types';
 import { ColumnGroupEditor } from './ColumnGroupEditor';
 import { FormulaBuilder } from './FormulaBuilder';
 import { ConditionBuilder } from './ConditionBuilder';
@@ -32,7 +32,7 @@ export const PropertyEditor: React.FC = () => {
   const { 
     schema, selectedSectionId, selectedFieldId, 
     updateSection, updateField, removeField, setReportTemplatePath,
-    addRowHeader, updateRowHeader, removeRowHeader
+    addRowHeader, updateRowHeader, removeRowHeader, convertSectionType
   } = useDesignerStore();
   const [grouperOpen, setGrouperOpen] = React.useState(false);
   const [isUploading, setIsUploading] = React.useState(false);
@@ -132,6 +132,19 @@ export const PropertyEditor: React.FC = () => {
               />
             </Form.Item>
           )}
+          {field.inputType === 'NUMERIC' && (
+            <Form.Item label="Instrument Integration" help="Link this field to direct instrument data capture.">
+              <Select 
+                allowClear 
+                value={field.instrumentSource} 
+                onChange={v => handleUpdate({ instrumentSource: v })}
+                options={[
+                  { value: 'ADR_TOUCH', label: 'ELE ADR Touch' },
+                  { value: 'GENERIC_SERIAL', label: 'Generic Serial RS-232' },
+                ]}
+              />
+            </Form.Item>
+          )}
           <Divider />
           <Form.Item label="COA Final Result" help="Extract this field's value for the final report.">
             <Switch checked={field.isFinalResult} onChange={v => handleUpdate({ isFinalResult: v })} />
@@ -142,8 +155,33 @@ export const PropertyEditor: React.FC = () => {
 
     // 2. If no field, but a SECTION is selected, show Section Properties
     if (section) {
+      const isConvertible = ['SINGLE_VALUE', 'DATA_TABLE', 'GROUPED_TABLE', 'MATRIX_TABLE'].includes(section.type);
+
       return (
         <Form layout="vertical" key={`section-${section.id}`}>
+          {isConvertible && (
+            <Form.Item label="Section Type">
+              <Select<SectionType>
+                value={section.type}
+                onChange={v => {
+                  if (v === section.type) return;
+                  Modal.confirm({
+                    title: 'Convert Section Type',
+                    content: 'Changing the section type will preserve the fields, but it resets table-specific settings and may break formulas in other sections that reference this one. Do you want to continue?',
+                    okText: 'Convert',
+                    cancelText: 'Cancel',
+                    onOk: () => convertSectionType(section.id, v)
+                  });
+                }}
+                options={[
+                  { value: 'SINGLE_VALUE', label: 'Flat Fields' },
+                  { value: 'DATA_TABLE', label: 'Data Table' },
+                  { value: 'GROUPED_TABLE', label: 'Grouped Table' },
+                  { value: 'MATRIX_TABLE', label: 'Matrix Table' },
+                ]}
+              />
+            </Form.Item>
+          )}
           <Form.Item label="Section Title">
             <Input value={section.title} onChange={e => updateSection(section.id, { title: e.target.value })} />
           </Form.Item>

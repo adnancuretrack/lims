@@ -29,6 +29,12 @@ public class MethodDefinitionController {
         return ResponseEntity.ok(methodDefinitionService.getActiveDefinition(testMethodId));
     }
 
+    @GetMapping("/latest")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<MethodDefinitionDTO> getLatestDefinition(@PathVariable Long testMethodId) {
+        return ResponseEntity.ok(methodDefinitionService.getLatestDefinition(testMethodId));
+    }
+
     @PostMapping("/draft")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<MethodDefinitionDTO> saveDraft(@PathVariable Long testMethodId,

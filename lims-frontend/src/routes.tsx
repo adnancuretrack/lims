@@ -10,14 +10,7 @@ const LoginPage = lazy(() => import('./pages/LoginPage'));
 // Sample lifecycle
 const SampleListPage = lazy(() => import('./pages/samples/SampleListPage'));
 const SampleRegisterPage = lazy(() => import('./pages/samples/SampleRegisterPage'));
-const SampleReceivePage = lazy(() => import('./pages/samples/SampleReceivePage'));
 const SampleDetailPage = lazy(() => import('./pages/samples/SampleDetailPage'));
-
-// Analysis
-const ResultEntryPage = lazy(() => import('./pages/analysis/ResultEntryPage'));
-
-// Review
-const ReviewQueuePage = lazy(() => import('./pages/review/ReviewQueuePage'));
 
 // Admin
 const UserManagementPage = lazy(() => import('./pages/admin/UserManagementPage'));
@@ -26,7 +19,6 @@ const ClientListPage = lazy(() => import('./pages/clients/ClientListPage'));
 const ProductListPage = lazy(() => import('./pages/products/ProductListPage'));
 const TestMethodListPage = lazy(() => import('./pages/methods/TestMethodListPage'));
 const MethodDesignerPage = lazy(() => import('./pages/methods/designer'));
-const WorksheetEnginePage = lazy(() => import('./pages/worksheets/engine'));
 
 // ERP
 const ErpSimulatorPage = lazy(() => import('./pages/admin/ErpSimulatorPage'));
@@ -61,12 +53,7 @@ export const routes: RouteObject[] = [
             // Sample lifecycle
             { path: 'samples', element: <SampleListPage /> },
             { path: 'samples/register', element: <SampleRegisterPage /> },
-            { path: 'samples/receive', element: <SampleReceivePage /> },
             { path: 'samples/:id', element: <SampleDetailPage /> },
-            // Analysis & results
-            { path: 'analysis', element: <ResultEntryPage /> },
-            // Review & approval
-            { path: 'review', element: <ReviewQueuePage /> },
             // Admin
             { path: 'admin/users', element: <ProtectedRoute requiredRole="ADMIN"><UserManagementPage /></ProtectedRoute> },
             { path: 'projects', element: <ProtectedRoute requiredRole="ADMIN"><ProjectListPage /></ProtectedRoute> },
@@ -75,7 +62,6 @@ export const routes: RouteObject[] = [
             { path: 'test-methods', element: <ProtectedRoute requiredRole="ADMIN"><TestMethodListPage /></ProtectedRoute> },
             { path: 'test-methods/new/design', element: <ProtectedRoute requiredRole="ADMIN"><MethodDesignerPage /></ProtectedRoute> },
             { path: 'test-methods/:id/design', element: <ProtectedRoute requiredRole="ADMIN"><MethodDesignerPage /></ProtectedRoute> },
-            { path: 'worksheets/:id', element: <WorksheetEnginePage /> },
             // ERP
             { path: 'qc', element: <QcDashboardPage /> },
             // Investigations

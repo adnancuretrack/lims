@@ -53,6 +53,7 @@ public class SchemaValidator {
             case "SINGLE_VALUE":
             case "GROUPED_TABLE":
             case "DATA_TABLE":
+            case "MATRIX_TABLE":
                 validateFields(section, allFieldIds);
                 break;
             // Other types might not have an array strictly named "fields" or "columns"
@@ -69,7 +70,7 @@ public class SchemaValidator {
 
     private void validateFields(Map<String, Object> section, Set<String> allFieldIds) {
         String arrayKey = "fields"; // default for SINGLE_VALUE
-        if ("DATA_TABLE".equals(section.get("type"))) {
+        if ("DATA_TABLE".equals(section.get("type")) || "MATRIX_TABLE".equals(section.get("type"))) {
             arrayKey = "columns";
         } else if ("GROUPED_TABLE".equals(section.get("type"))) {
             arrayKey = "dataColumns";

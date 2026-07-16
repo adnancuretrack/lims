@@ -74,7 +74,7 @@ export const WorksheetReviewPanel: React.FC<WorksheetReviewPanelProps> = ({ samp
 
   return (
     <Space direction="vertical" size="large" style={{ width: '100%' }}>
-      {schema.sections.map(section => {
+      {(schema.sections || []).map(section => {
         const isVisible = evaluateCondition({
           formula: section.visibilityCondition || '',
           schema,

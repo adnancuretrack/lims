@@ -9,4 +9,5 @@ public class DashboardStatsDTO {
     private long inProgressCount;
     private long awaitingAuthorizationCount;
     private long authorizedTodayCount;
+    private long rejectedCount;
 }

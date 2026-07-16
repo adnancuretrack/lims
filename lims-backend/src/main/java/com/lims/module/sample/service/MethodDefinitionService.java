@@ -21,6 +21,7 @@ import java.nio.file.StandardCopyOption;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -88,6 +89,18 @@ public class MethodDefinitionService {
                 .orElseThrow(() -> new IllegalStateException("Active definition ID points to missing row"));
         
         return toDto(def);
+    }
+
+    @Transactional(readOnly = true)
+    public MethodDefinitionDTO getLatestDefinition(Long testMethodId) {
+        // Prefer draft if one exists
+        Optional<MethodDefinition> draft = methodDefinitionRepository
+            .findByTestMethodIdAndStatus(testMethodId, "DRAFT");
+        if (draft.isPresent()) {
+            return toDto(draft.get());
+        }
+        // Fall back to the published/active version
+        return getActiveDefinition(testMethodId);
     }
 
     @Transactional

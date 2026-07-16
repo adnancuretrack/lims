@@ -41,6 +41,7 @@ export interface SampleDTO {
     clientName?: string;
     jobNumber?: string;
     sampledAt?: string;
+    rejectionReason?: string;
 }
 
 export interface ClientDTO {
@@ -85,6 +86,7 @@ export interface DashboardStats {
     inProgressCount: number;
     awaitingAuthorizationCount: number;
     authorizedTodayCount: number;
+    rejectedCount: number;
 }
 export interface SampleTestDTO {
     id: number;

@@ -136,7 +136,13 @@ const SortableSection = ({ section }: { section: SectionSchema }) => {
         }
       >
         <div style={{ minHeight: 40, padding: 8, background: '#fafafa', borderRadius: 4, border: '1px dashed #d9d9d9' }}>
-          {section.type === 'MATRIX_TABLE' ? (
+          {section.type === 'NOTES' ? (
+            <div style={{ padding: 16, backgroundColor: '#fffbe6', border: '1px solid #ffe58f', borderRadius: 8 }}>
+                <Typography.Text type="secondary" style={{ whiteSpace: 'pre-wrap' }}>
+                    {section.description || 'Enter notes in the properties panel...'}
+                </Typography.Text>
+            </div>
+          ) : section.type === 'MATRIX_TABLE' ? (
             <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 8, tableLayout: 'fixed' }}>
                 <thead>

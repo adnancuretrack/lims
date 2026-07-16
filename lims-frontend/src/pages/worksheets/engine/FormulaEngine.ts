@@ -71,7 +71,7 @@ export const evaluateFormula = (context: EvaluationContext, precision?: number):
       const ref = parseFieldRef(fieldRef, currentSectionId);
       let val: any = null;
 
-      const secSchema = schema.sections.find(s => s.id === ref.sectionId);
+      const secSchema = (schema.sections || []).find(s => s.id === ref.sectionId);
       
       if (secSchema?.type === 'DATA_TABLE' || secSchema?.type === 'GROUPED_TABLE') {
         const tableData = data[ref.sectionId] || [];
@@ -141,7 +141,7 @@ export const evaluateCondition = (context: EvaluationContext & { formula: string
     const varRegex = /\{([^}]+)\}/g;
     expression = expression.replace(varRegex, (_, fieldRef) => {
       const ref = parseFieldRef(fieldRef, currentSectionId);
-      const secSchema = schema.sections.find(s => s.id === ref.sectionId);
+      const secSchema = (schema.sections || []).find(s => s.id === ref.sectionId);
       
       let val: any = null;
       if (secSchema?.type === 'DATA_TABLE' || secSchema?.type === 'GROUPED_TABLE') {
@@ -191,7 +191,7 @@ export const recomputeAllFormulas = (schema: WorksheetSchema, data: Record<strin
   const maxPasses = 3;
   
   for (let pass = 0; pass < maxPasses; pass++) {
-    schema.sections.forEach(section => {
+    (schema.sections || []).forEach(section => {
       if (section.type === 'SINGLE_VALUE') {
         (section.fields || []).filter(f => f.inputType === 'CALCULATED' && f.formula).forEach(f => {
            nextData[section.id] = nextData[section.id] || {};
@@ -246,7 +246,7 @@ export const runAllValidations = (
 ): Record<string, { message: string; severity: 'WARNING' | 'ERROR' }> => {
   const newErrors: Record<string, { message: string; severity: 'WARNING' | 'ERROR' }> = {};
 
-  schema.sections.forEach(section => {
+  (schema.sections || []).forEach(section => {
     if (section.type === 'SINGLE_VALUE') {
       (section.fields || []).forEach(f => {
         (f.validations || []).forEach(rule => {
@@ -290,7 +290,7 @@ export const extractFinalResults = (
 ): Record<string, { value: any, unit?: string, label: string }> => {
   const finalResults: Record<string, { value: any, unit?: string, label: string }> = {};
 
-  schema.sections.forEach(section => {
+  (schema.sections || []).forEach(section => {
     if (section.type === 'SINGLE_VALUE') {
       (section.fields || []).filter(f => f.isFinalResult).forEach(f => {
         const val = data[section.id]?.[f.id];

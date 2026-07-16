@@ -59,7 +59,7 @@ public class WorksheetDataService {
                 });
         
         return Map.of(
-            "schema", activeDef.getSchemaDefinition(),
+            "schema", wd.getMethodDefinition().getSchemaDefinition(),
             "data", wd.getData() != null ? wd.getData() : Map.of(),
             "status", wd.getStatus(),
             "context", buildContextData(st)

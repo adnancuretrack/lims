@@ -12,6 +12,11 @@ export const MethodDefinitionService = {
         return response.data;
     },
 
+    getLatestDefinition: async (testMethodId: number | string): Promise<MethodDefinitionDTO> => {
+        const response = await apiClient.get(`/v1/test-methods/${testMethodId}/definitions/latest`);
+        return response.data;
+    },
+
     saveDraft: async (testMethodId: number | string, definition: Partial<MethodDefinitionDTO>): Promise<MethodDefinitionDTO> => {
         const response = await apiClient.post(`/v1/test-methods/${testMethodId}/definitions/draft`, definition);
         return response.data;

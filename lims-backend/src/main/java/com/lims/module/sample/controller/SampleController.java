@@ -49,9 +49,16 @@ public class SampleController {
     @Operation(summary = "List samples", description = "Paged list of samples with optional search filter")
     @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'LAB_MANAGER', 'ANALYST')")
     public Page<SampleDTO> listSamples(
-            @RequestParam(required = false) String search,
+            @RequestParam(name = "search", required = false) String search,
+            @RequestParam(name = "status", required = false) String status,
             Pageable pageable) {
-        return sampleService.listSamples(search, pageable);
+        
+        List<String> statusList = null;
+        if (status != null && !status.trim().isEmpty()) {
+            statusList = java.util.Arrays.asList(status.split(","));
+        }
+        
+        return sampleService.listSamples(search, statusList, pageable);
     }
 
     @GetMapping("/{id}")

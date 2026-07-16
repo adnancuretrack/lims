@@ -1,35 +1,45 @@
 import { useState } from 'react';
-import { Table, Tag, Button, Space, Card, Typography, Input, Popconfirm, message } from 'antd';
+import { Table, Tag, Button, Space, Card, Typography, Input, Badge, Tabs } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { PlusOutlined, ReloadOutlined, DeleteOutlined } from '@ant-design/icons';
+import { useQuery } from '@tanstack/react-query';
+import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { SampleService } from '../../api/SampleService';
 import type { SampleDTO } from '../../api/types';
+import { useAuthStore } from '../../store/authStore';
 
 const { Title } = Typography;
 const { Search } = Input;
 
 export default function SampleListPage() {
     const navigate = useNavigate();
-    const queryClient = useQueryClient();
+    const user = useAuthStore((s) => s.user);
+    const hasRole = (role: string) => user?.roles.includes(role) || user?.roles.includes('ADMIN');
+
     const [pagination, setPagination] = useState({ current: 1, pageSize: 10 });
     const [searchText, setSearchText] = useState('');
+    const [activeTab, setActiveTab] = useState('ALL');
 
-    const { data, isLoading, refetch } = useQuery({
-        queryKey: ['samples', pagination.current, pagination.pageSize, searchText],
-        queryFn: () => SampleService.list(pagination.current - 1, pagination.pageSize, searchText),
+    const { data: stats } = useQuery({
+        queryKey: ['sampleStats'],
+        queryFn: SampleService.getStats,
     });
 
-    const deleteMutation = useMutation({
-        mutationFn: (id: number) => SampleService.deleteSample(id),
-        onSuccess: () => {
-            message.success('Sample deleted successfully');
-            queryClient.invalidateQueries({ queryKey: ['samples'] });
-        },
-        onError: (error: any) => {
-            message.error('Failed to delete sample: ' + (error.response?.data?.message || error.message));
+    // Derive status filter based on active tab
+    const getStatusFilter = (tab: string) => {
+        switch (tab) {
+            case 'REGISTERED': return 'REGISTERED';
+            case 'TESTING': return 'RECEIVED,IN_PROGRESS';
+            case 'COMPLETED': return 'COMPLETED';
+            case 'AUTHORIZED': return 'AUTHORIZED';
+            case 'REJECTED': return 'REJECTED';
+            default: return undefined;
         }
+    };
+
+    const { data, isLoading, refetch } = useQuery({
+        queryKey: ['samples', pagination.current, pagination.pageSize, searchText, activeTab],
+        queryFn: () => SampleService.list(pagination.current - 1, pagination.pageSize, searchText, getStatusFilter(activeTab)),
     });
 
     const onSearch = (value: string) => {
@@ -37,17 +47,31 @@ export default function SampleListPage() {
         setPagination({ ...pagination, current: 1 }); // Reset to first page on search
     };
 
+    const onTabChange = (key: string) => {
+        setActiveTab(key);
+        setPagination({ ...pagination, current: 1 });
+    };
+
     const columns: ColumnsType<SampleDTO> = [
         {
             title: 'Sample No.',
             dataIndex: 'sampleNumber',
             key: 'sampleNumber',
-            render: (text, record) => <a onClick={() => navigate(`/samples/${record.id}`)}>{text}</a>,
         },
         {
             title: 'Product',
             dataIndex: 'productName',
             key: 'productName',
+        },
+        {
+            title: 'Client',
+            dataIndex: 'clientName',
+            key: 'clientName',
+        },
+        {
+            title: 'Job No.',
+            dataIndex: 'jobNumber',
+            key: 'jobNumber',
         },
         {
             title: 'Condition',
@@ -60,7 +84,8 @@ export default function SampleListPage() {
             key: 'status',
             render: (status) => {
                 let color = 'default';
-                if (status === 'COMPLETED') color = 'success';
+                if (status === 'COMPLETED') color = 'cyan';
+                if (status === 'AUTHORIZED') color = 'success';
                 if (status === 'IN_PROGRESS') color = 'processing';
                 if (status === 'RECEIVED') color = 'blue';
                 if (status === 'REJECTED') color = 'error';
@@ -72,37 +97,40 @@ export default function SampleListPage() {
             dataIndex: 'receivedAt',
             key: 'receivedAt',
             render: (date) => date ? new Date(date).toLocaleString() : '-',
+        }
+    ];
+
+    const tabItems = [
+        {
+            key: 'ALL',
+            label: 'All'
+        },
+        (hasRole('RECEPTIONIST') || hasRole('LAB_MANAGER') || hasRole('ANALYST') || hasRole('REVIEWER') || hasRole('AUTHORIZER')) ? {
+            key: 'REGISTERED',
+            label: <Badge count={stats?.unreceivedCount} offset={[10, 0]} size="small"><div style={{ paddingRight: 15 }}>Awaiting Intake</div></Badge>
+        } : null,
+        (hasRole('ANALYST') || hasRole('LAB_MANAGER')) ? {
+            key: 'TESTING',
+            label: <Badge count={stats?.inProgressCount} offset={[10, 0]} size="small"><div style={{ paddingRight: 15 }}>In Testing</div></Badge>
+        } : null,
+        (hasRole('REVIEWER') || hasRole('AUTHORIZER') || hasRole('LAB_MANAGER')) ? {
+            key: 'COMPLETED',
+            label: <Badge count={stats?.awaitingAuthorizationCount} offset={[10, 0]} size="small"><div style={{ paddingRight: 15 }}>Awaiting Review</div></Badge>
+        } : null,
+        {
+            key: 'AUTHORIZED',
+            label: <Badge count={stats?.authorizedTodayCount} offset={[10, 0]} size="small" color="#52c41a"><div style={{ paddingRight: 15 }}>Completed</div></Badge>
         },
         {
-            title: 'Actions',
-            key: 'actions',
-            width: 100,
-            render: (_, record) => (
-                <Space size="middle">
-                    <Popconfirm
-                        title="Delete Sample"
-                        description="Are you sure you want to delete this sample? This will also delete all associated test results."
-                        onConfirm={() => deleteMutation.mutate(record.id!)}
-                        okText="Yes"
-                        cancelText="No"
-                        okButtonProps={{ danger: true, loading: deleteMutation.isPending }}
-                    >
-                        <Button
-                            type="text"
-                            danger
-                            icon={<DeleteOutlined />}
-                            title="Delete Sample"
-                        />
-                    </Popconfirm>
-                </Space>
-            ),
-        },
-    ];
+            key: 'REJECTED',
+            label: <Badge count={stats?.rejectedCount} offset={[10, 0]} size="small" color="red"><div style={{ paddingRight: 15 }}>Rejected</div></Badge>
+        }
+    ].filter(Boolean) as any;
 
     return (
         <div style={{ padding: 24 }}>
             <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Title level={2} style={{ margin: 0 }}>Sample Registry</Title>
+                <Title level={2} style={{ margin: 0 }}>Samples</Title>
                 <Space size="middle">
                     <Search
                         placeholder="Search samples..."
@@ -116,18 +144,29 @@ export default function SampleListPage() {
                         icon={<PlusOutlined />}
                         onClick={() => navigate('/samples/register')}
                     >
-                        Register New Sample
+                        Register New Job
                     </Button>
                     <Button icon={<ReloadOutlined />} onClick={() => refetch()} />
                 </Space>
             </div>
 
             <Card styles={{ body: { padding: 0 } }}>
+                <Tabs 
+                    activeKey={activeTab} 
+                    onChange={onTabChange} 
+                    items={tabItems} 
+                    style={{ padding: '0 24px' }} 
+                    tabBarStyle={{ marginBottom: 0 }}
+                />
                 <Table
                     dataSource={data?.content}
                     columns={columns}
                     rowKey="id"
                     loading={isLoading}
+                    onRow={(record) => ({
+                        onClick: () => navigate(`/samples/${record.id}`),
+                        style: { cursor: 'pointer' }
+                    })}
                     pagination={{
                         current: pagination.current,
                         pageSize: pagination.pageSize,
