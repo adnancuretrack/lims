@@ -59,7 +59,7 @@ export default function DashboardPage() {
                     <Card
                         hoverable
                         bordered={false}
-                        onClick={() => navigate('/samples')}
+                        onClick={() => navigate('/samples?tab=REGISTERED')}
                     >
                         <Statistic
                             title="Un-Received Samples"
@@ -73,7 +73,7 @@ export default function DashboardPage() {
                     <Card
                         hoverable
                         bordered={false}
-                        onClick={() => navigate('/analysis')}
+                        onClick={() => navigate('/samples?tab=TESTING')}
                     >
                         <Statistic
                             title="In Progress"
@@ -87,7 +87,7 @@ export default function DashboardPage() {
                     <Card
                         hoverable
                         bordered={false}
-                        onClick={() => navigate('/review')}
+                        onClick={() => navigate('/samples?tab=COMPLETED')}
                     >
                         <Statistic
                             title="Awaiting Authorization"
@@ -101,7 +101,7 @@ export default function DashboardPage() {
                     <Card
                         hoverable
                         bordered={false}
-                        onClick={() => navigate('/analysis')}
+                        onClick={() => navigate('/samples?tab=AUTHORIZED')}
                     >
                         <Statistic
                             title="Authorized Today"

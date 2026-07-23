@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Table, Tag, Button, Space, Card, Typography, Input, Badge, Tabs } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useQuery } from '@tanstack/react-query';
 import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { SampleService } from '../../api/SampleService';
 import type { SampleDTO } from '../../api/types';
 import { useAuthStore } from '../../store/authStore';
@@ -16,9 +16,17 @@ export default function SampleListPage() {
     const user = useAuthStore((s) => s.user);
     const hasRole = (role: string) => user?.roles.includes(role) || user?.roles.includes('ADMIN');
 
+    const [searchParams, setSearchParams] = useSearchParams();
     const [pagination, setPagination] = useState({ current: 1, pageSize: 10 });
     const [searchText, setSearchText] = useState('');
-    const [activeTab, setActiveTab] = useState('ALL');
+    const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'ALL');
+
+    useEffect(() => {
+        const tab = searchParams.get('tab');
+        if (tab && tab !== activeTab) {
+            setActiveTab(tab);
+        }
+    }, [searchParams]);
 
     const { data: stats } = useQuery({
         queryKey: ['sampleStats'],
@@ -49,6 +57,7 @@ export default function SampleListPage() {
 
     const onTabChange = (key: string) => {
         setActiveTab(key);
+        setSearchParams({ tab: key });
         setPagination({ ...pagination, current: 1 });
     };
 
