@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { adrSerialService } from '../services/instrument/AdrSerialService';
-import type { AdrLiveFrame, AdrConnectionState } from '../services/instrument/adrTypes';
+import type { AdrPrintReport, AdrConnectionState } from '../services/instrument/adrTypes';
 
-const HISTORY_SIZE = 50; // Keep the last 50 frames for charting if needed
+const HISTORY_SIZE = 10; // Keep the last 10 reports for history
 
 export const useAdrCapture = () => {
   const [connectionState, setConnectionState] = useState<AdrConnectionState>({
@@ -10,8 +10,8 @@ export const useAdrCapture = () => {
     portInfo: adrSerialService.getPortInfo(),
   });
 
-  const [latestFrame, setLatestFrame] = useState<AdrLiveFrame | null>(null);
-  const [liveFrameHistory, setLiveFrameHistory] = useState<AdrLiveFrame[]>([]);
+  const [latestReport, setLatestReport] = useState<AdrPrintReport | null>(null);
+  const [reportHistory, setReportHistory] = useState<AdrPrintReport[]>([]);
   const [garbageCount, setGarbageCount] = useState<number>(0);
 
   useEffect(() => {
@@ -28,10 +28,10 @@ export const useAdrCapture = () => {
       setConnectionState(prev => ({ ...prev, errorMessage: err.message }));
     });
 
-    const unsubscribeLiveFrame = adrSerialService.onLiveFrame((frame) => {
-      setLatestFrame(frame);
-      setLiveFrameHistory(prev => {
-        const next = [...prev, frame];
+    const unsubscribeReport = adrSerialService.onReport((report) => {
+      setLatestReport(report);
+      setReportHistory(prev => {
+        const next = [...prev, report];
         if (next.length > HISTORY_SIZE) {
           next.shift();
         }
@@ -46,7 +46,7 @@ export const useAdrCapture = () => {
     return () => {
       unsubscribeConnection();
       unsubscribeError();
-      unsubscribeLiveFrame();
+      unsubscribeReport();
       unsubscribeGarbage();
     };
   }, []);
@@ -66,15 +66,15 @@ export const useAdrCapture = () => {
   }, []);
 
   const clearData = useCallback(() => {
-    setLatestFrame(null);
-    setLiveFrameHistory([]);
+    setLatestReport(null);
+    setReportHistory([]);
     setGarbageCount(0);
   }, []);
 
   return {
     connectionState,
-    latestFrame,
-    liveFrameHistory,
+    latestReport,
+    reportHistory,
     garbageCount,
     connect,
     disconnect,

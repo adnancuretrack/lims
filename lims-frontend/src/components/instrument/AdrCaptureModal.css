@@ -19,46 +19,21 @@
   margin-bottom: 20px;
 }
 
-.adr-dashboard {
+.adr-report-table {
   background-color: #fafafa;
-  padding: 20px;
+  padding: 16px;
   border-radius: 8px;
   border: 1px solid #e8e8e8;
 }
 
-.adr-value-card {
+.adr-waiting-state {
   text-align: center;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-}
-
-.adr-value-label {
-  font-size: 12px;
-  font-weight: 600;
+  padding: 32px 0;
   color: #8c8c8c;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  margin-bottom: 8px;
 }
 
-.adr-value-display {
-  font-family: 'Roboto Mono', monospace, sans-serif;
-  font-size: 28px;
-  font-weight: 700;
-  line-height: 1.2;
-}
-
-.adr-value-display.active {
-  color: #1677ff;
-}
-
-.adr-value-display.inactive {
-  color: #d9d9d9;
-}
-
-.adr-value-unit {
-  font-size: 14px;
-  font-weight: 500;
-  color: #8c8c8c;
+.adr-row-highlight {
+  background-color: #e6f4ff !important;
 }
 
 .adr-audit-footer {

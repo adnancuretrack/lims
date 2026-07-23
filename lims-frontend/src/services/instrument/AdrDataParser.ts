@@ -1,12 +1,10 @@
-import type { AdrLiveFrame } from './adrTypes';
+import type { AdrReportField } from './adrTypes';
 
 /**
  * Parses raw serial text lines from the ELE ADR Touch machine.
  */
 export class AdrDataParser {
-  // Pattern based on integration guide:
-  // TIME: 002.4s  LOAD: 0045.2 kN  STRESS: 001.81 MPa  PACE: 00.25 MPa/s
-  private static LIVE_FRAME_REGEX = /TIME:\s*(?<time>[\d.-]+)\s*s[,]?\s*LOAD:\s*(?<load>[\d.-]+)\s*kN[,]?\s*STRESS:\s*(?<stress>[\d.-]+)\s*MPa[,]?\s*PACE:\s*(?<pace>[\d.-]+)\s*MPa\s*\/\s*s/i;
+  private static REPORT_LINE_REGEX = /^(.+?)\s{2,}(\S+(?:\s\S+)*?)(?:\s{2,}(\S+))?\s*$/;
 
   static sanitizeLine(raw: string): string {
       // Strip non-printable characters (keep space through tilde, plus tab)
@@ -17,35 +15,44 @@ export class AdrDataParser {
   }
 
   /**
-   * Attempts to parse a line as a Profile A live data frame.
-   * Returns null if it doesn't match the expected format.
+   * Attempts to parse a single line from a print report.
+   * Returns a parsed field object, or null if the line is a header/annotation/garbage.
    */
-  static async parseLiveFrame(line: string): Promise<AdrLiveFrame | null> {
+  static parseReportLine(line: string): AdrReportField | null {
     const cleanLine = this.sanitizeLine(line);
     if (cleanLine !== line.trim()) {
         console.log('[ADR SANITIZE] Stripped non-printable chars:', JSON.stringify(line), '→', JSON.stringify(cleanLine));
     }
 
-    const match = cleanLine.match(this.LIVE_FRAME_REGEX);
+    const match = cleanLine.match(this.REPORT_LINE_REGEX);
 
-    if (match && match.groups) {
-      const { time, load, stress, pace } = match.groups;
-      
-      const hash = await this.computeIntegrityHash(cleanLine);
+    if (match) {
+      let label = match[1].trim();
+      let value = match[2].trim();
+      let unit = match[3] ? match[3].trim() : undefined;
+      let numericValue: number | undefined;
+
+      // Special handling for Operating Mode
+      if (label === 'Operating Mode' && value.includes(' : ')) {
+         value = value;
+      } else {
+         const parsedNum = parseFloat(value);
+         if (!isNaN(parsedNum)) {
+             numericValue = parsedNum;
+         }
+      }
+
+      // Ignore single words or annotations that happen to get matched incorrectly
+      if (label.startsWith('(') && label.endsWith(')')) {
+          return null;
+      }
 
       return {
-        time: parseFloat(time),
-        load: parseFloat(load),
-        stress: parseFloat(stress),
-        pace: parseFloat(pace),
-        rawLine: cleanLine,
-        integrityHash: hash,
-        timestamp: new Date()
+        label,
+        value,
+        unit,
+        numericValue
       };
-    }
-
-    if (this.isGarbageData(line)) {
-      return null;
     }
 
     return null;

@@ -1,4 +1,4 @@
-import type { AdrLiveFrame } from './adrTypes';
+import type { AdrPrintReport, AdrReportField } from './adrTypes';
 import { AdrDataParser } from './AdrDataParser';
 
 type SerialCallback<T> = (data: T) => void;
@@ -16,14 +16,21 @@ class AdrSerialService {
   private readPromise: Promise<void> | null = null;
 
   // Listeners
-  private liveFrameListeners: Set<SerialCallback<AdrLiveFrame>> = new Set();
+  private reportListeners: Set<SerialCallback<AdrPrintReport>> = new Set();
   private connectionChangeListeners: Set<SerialCallback<'connected' | 'disconnected' | 'error'>> = new Set();
   private errorListeners: Set<SerialCallback<Error>> = new Set();
   private garbageDataListeners: Set<SerialCallback<string>> = new Set();
 
-  onLiveFrame(callback: SerialCallback<AdrLiveFrame>) {
-    this.liveFrameListeners.add(callback);
-    return () => this.liveFrameListeners.delete(callback);
+  private currentReportLines: string[] = [];
+  private currentReportFields: AdrReportField[] = [];
+  private blankLineCount = 0;
+  private reportTimeout: ReturnType<typeof setTimeout> | null = null;
+  private static BLANK_LINES_TO_FINALIZE = 3;
+  private static REPORT_TIMEOUT_MS = 3000;
+
+  onReport(callback: SerialCallback<AdrPrintReport>) {
+    this.reportListeners.add(callback);
+    return () => this.reportListeners.delete(callback);
   }
 
   onConnectionChange(callback: SerialCallback<'connected' | 'disconnected' | 'error'>) {
@@ -45,8 +52,8 @@ class AdrSerialService {
     this.connectionChangeListeners.forEach(cb => cb(status));
   }
 
-  private notifyLiveFrame(frame: AdrLiveFrame) {
-    this.liveFrameListeners.forEach(cb => cb(frame));
+  private notifyReport(report: AdrPrintReport) {
+    this.reportListeners.forEach(cb => cb(report));
   }
   
   private notifyError(error: Error) {
@@ -105,6 +112,11 @@ class AdrSerialService {
     if (!this.port) return;
 
     this.keepReading = false;
+    
+    if (this.reportTimeout) {
+      clearTimeout(this.reportTimeout);
+      this.reportTimeout = null;
+    }
     
     // Cancel the reader if it exists
     if (this.reader) {
@@ -222,14 +234,33 @@ class AdrSerialService {
       // Remove the line from the buffer
       this.tokenBuffer = this.tokenBuffer.slice(newlineIndex + 1);
 
-      if (line.length > 0) {
-        console.log('[ADR LINE]', JSON.stringify(line));
-        // Pass to parser
-        const frame = await AdrDataParser.parseLiveFrame(line);
-        console.log('[ADR PARSE]', frame ? 'SUCCESS' : 'FAIL', frame);
+      if (line.length === 0) {
+          this.blankLineCount++;
+          if (this.blankLineCount >= AdrSerialService.BLANK_LINES_TO_FINALIZE && this.currentReportFields.length > 0) {
+              await this.finalizeReport();
+          }
+      } else {
+        this.blankLineCount = 0;
         
-        if (frame) {
-            this.notifyLiveFrame(frame);
+        if (this.reportTimeout) {
+            clearTimeout(this.reportTimeout);
+        }
+        
+        this.reportTimeout = setTimeout(async () => {
+            if (this.currentReportFields.length > 0) {
+                await this.finalizeReport();
+            }
+        }, AdrSerialService.REPORT_TIMEOUT_MS);
+
+        console.log('[ADR LINE]', JSON.stringify(line));
+        this.currentReportLines.push(line);
+        
+        // Pass to parser
+        const field = AdrDataParser.parseReportLine(line);
+        console.log('[ADR PARSE]', field ? 'SUCCESS' : 'FAIL', field);
+        
+        if (field) {
+            this.currentReportFields.push(field);
         } else if (AdrDataParser.isGarbageData(line)) {
             this.notifyGarbageData(line);
         }
@@ -238,6 +269,35 @@ class AdrSerialService {
       // Check for next newline
       newlineIndex = this.tokenBuffer.indexOf('\n');
     }
+  }
+
+  private async finalizeReport() {
+      if (this.reportTimeout) {
+          clearTimeout(this.reportTimeout);
+          this.reportTimeout = null;
+      }
+      
+      if (this.currentReportFields.length === 0) {
+          this.currentReportLines = [];
+          this.blankLineCount = 0;
+          return;
+      }
+
+      const hash = await AdrDataParser.computeIntegrityHash(this.currentReportLines.join('\n'));
+      
+      const report: AdrPrintReport = {
+          fields: [...this.currentReportFields],
+          rawLines: [...this.currentReportLines],
+          integrityHash: hash,
+          timestamp: new Date()
+      };
+
+      console.log('[ADR REPORT]', report);
+      this.notifyReport(report);
+
+      this.currentReportFields = [];
+      this.currentReportLines = [];
+      this.blankLineCount = 0;
   }
 }
 

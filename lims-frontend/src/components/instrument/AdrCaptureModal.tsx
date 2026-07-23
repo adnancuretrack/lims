@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, Button, Typography, Space, Alert, Tag, Row, Col, Card, Tooltip } from 'antd';
+import { Modal, Button, Typography, Space, Alert, Tag, Tooltip, Table } from 'antd';
 import { ApiOutlined, DisconnectOutlined, SyncOutlined, CheckCircleOutlined, ThunderboltOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { useAdrCapture } from '../../hooks/useAdrCapture';
+import type { AdrReportField } from '../../services/instrument/adrTypes';
 import './AdrCaptureModal.css';
 
 const { Text } = Typography;
@@ -20,7 +21,7 @@ export const AdrCaptureModal: React.FC<AdrCaptureModalProps> = ({
   onCapture,
   targetFieldLabel
 }) => {
-  const { connectionState, latestFrame, connect, disconnect } = useAdrCapture();
+  const { connectionState, latestReport, reportHistory, connect, disconnect } = useAdrCapture();
   const [isSupported, setIsSupported] = useState(true);
 
   useEffect(() => {
@@ -50,28 +51,43 @@ export const AdrCaptureModal: React.FC<AdrCaptureModalProps> = ({
     }
   };
 
-  const renderValueCard = (label: string, value: number | undefined, unit: string) => (
-    <Card 
-      size="small" 
-      className="adr-value-card"
-      actions={[
-        <Button 
-          type="primary" 
-          size="small" 
-          disabled={value === undefined}
-          onClick={() => value !== undefined && handleCapture(value)}
+  const columns = [
+    {
+      title: 'Field',
+      dataIndex: 'label',
+      key: 'label',
+      width: '40%',
+    },
+    {
+      title: 'Value',
+      dataIndex: 'value',
+      key: 'value',
+      width: '25%',
+    },
+    {
+      title: 'Unit',
+      dataIndex: 'unit',
+      key: 'unit',
+      width: '15%',
+      render: (unit?: string) => unit || '—',
+    },
+    {
+      title: 'Action',
+      key: 'action',
+      width: '20%',
+      render: (_: any, record: AdrReportField) => (
+        <Button
+          type="primary"
+          size="small"
+          disabled={record.numericValue === undefined}
+          onClick={() => record.numericValue !== undefined && handleCapture(record.numericValue)}
           icon={<ThunderboltOutlined />}
         >
           Capture
         </Button>
-      ]}
-    >
-      <div className="adr-value-label">{label}</div>
-      <div className={`adr-value-display ${value !== undefined ? 'active' : 'inactive'}`}>
-        {value !== undefined ? value.toFixed(2) : '--'} <span className="adr-value-unit">{unit}</span>
-      </div>
-    </Card>
-  );
+      ),
+    },
+  ];
 
   return (
     <Modal
@@ -140,34 +156,44 @@ export const AdrCaptureModal: React.FC<AdrCaptureModalProps> = ({
         <Text type="secondary" style={{ marginLeft: 8 }}>Select a value below to insert it into this field.</Text>
       </div>
 
-      <div className="adr-dashboard">
-        <Row gutter={[16, 16]}>
-          <Col span={12}>
-            {renderValueCard('LOAD', latestFrame?.load, 'kN')}
-          </Col>
-          <Col span={12}>
-            {renderValueCard('STRESS', latestFrame?.stress, 'MPa')}
-          </Col>
-          <Col span={12}>
-            {renderValueCard('PACE', latestFrame?.pace, 'MPa/s')}
-          </Col>
-          <Col span={12}>
-            {renderValueCard('TIME', latestFrame?.time, 's')}
-          </Col>
-        </Row>
+      <div className="adr-report-table">
+        {connectionState.status === 'connected' && !latestReport && (
+            <div className="adr-waiting-state">
+                <SyncOutlined spin style={{ fontSize: 24, marginBottom: 12 }} />
+                <div>Waiting for data... Press Print on the ADR Touch device to send a test report.</div>
+            </div>
+        )}
+        
+        {latestReport && (
+            <Table 
+                columns={columns} 
+                dataSource={latestReport.fields} 
+                rowKey="label"
+                pagination={false}
+                size="small"
+                rowClassName={(record) => 
+                    targetFieldLabel && record.label.toLowerCase().includes(targetFieldLabel.toLowerCase()) 
+                        ? 'adr-row-highlight' 
+                        : ''
+                }
+            />
+        )}
       </div>
 
-      {latestFrame && (
+      {latestReport && (
         <div className="adr-audit-footer">
-          <Tooltip title={latestFrame.integrityHash}>
+          <Tooltip title={latestReport.integrityHash}>
             <Text type="secondary" style={{ fontSize: 12 }}>
               <InfoCircleOutlined style={{ marginRight: 4 }} />
-              Latest Hash: {latestFrame.integrityHash.substring(0, 16)}...
+              Latest Hash: {latestReport.integrityHash.substring(0, 16)}...
             </Text>
           </Tooltip>
           <Text type="secondary" style={{ fontSize: 12, marginLeft: 16 }}>
             <CheckCircleOutlined style={{ marginRight: 4 }} />
-            Validated {latestFrame.timestamp.toLocaleTimeString()}
+            Validated {latestReport.timestamp.toLocaleTimeString()}
+          </Text>
+          <Text type="secondary" style={{ fontSize: 12, marginLeft: 16 }}>
+            Report {reportHistory.length}
           </Text>
         </div>
       )}
