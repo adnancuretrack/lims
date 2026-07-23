@@ -176,8 +176,14 @@ class AdrSerialService {
 
           if (value) {
             const chunk = decoder.decode(value, { stream: true });
+            console.log('[ADR CHUNK]', JSON.stringify(chunk));
             this.tokenBuffer += chunk;
-            this.processBuffer();
+            try {
+                await this.processBuffer();
+            } catch (err: any) {
+                console.error('[ADR] Error in processBuffer:', err);
+                this.notifyError(err);
+            }
           }
         }
       } catch (err: any) {
@@ -200,23 +206,28 @@ class AdrSerialService {
    * Splits the buffer by \r\n and parses complete lines.
    */
   private async processBuffer() {
-    let newlineIndex = this.tokenBuffer.indexOf('\r\n');
-    
-    // Fallback for single \n if device varies
-    if (newlineIndex === -1) {
-        newlineIndex = this.tokenBuffer.indexOf('\n');
+    if (this.tokenBuffer.length > 10000) {
+        console.warn('[ADR BUFFER] Buffer exceeding 10KB without finding a newline. Possible line-ending issue. Buffer preview:', JSON.stringify(this.tokenBuffer.substring(0, 200)));
     }
+
+    // Normalize all line endings to \n
+    this.tokenBuffer = this.tokenBuffer.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+    let newlineIndex = this.tokenBuffer.indexOf('\n');
 
     while (newlineIndex !== -1) {
       // Extract the full line
       let line = this.tokenBuffer.slice(0, newlineIndex).trim();
       
       // Remove the line from the buffer
-      this.tokenBuffer = this.tokenBuffer.slice(newlineIndex + (this.tokenBuffer[newlineIndex] === '\r' ? 2 : 1));
+      this.tokenBuffer = this.tokenBuffer.slice(newlineIndex + 1);
 
       if (line.length > 0) {
+        console.log('[ADR LINE]', JSON.stringify(line));
         // Pass to parser
         const frame = await AdrDataParser.parseLiveFrame(line);
+        console.log('[ADR PARSE]', frame ? 'SUCCESS' : 'FAIL', frame);
+        
         if (frame) {
             this.notifyLiveFrame(frame);
         } else if (AdrDataParser.isGarbageData(line)) {
@@ -225,10 +236,7 @@ class AdrSerialService {
       }
 
       // Check for next newline
-      newlineIndex = this.tokenBuffer.indexOf('\r\n');
-      if (newlineIndex === -1) {
-          newlineIndex = this.tokenBuffer.indexOf('\n');
-      }
+      newlineIndex = this.tokenBuffer.indexOf('\n');
     }
   }
 }
