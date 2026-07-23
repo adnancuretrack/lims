@@ -31,7 +31,7 @@ export interface FieldSchema {
   isFinalResult?: boolean; // If true, this field is extracted and sent to the TestResult COA API.
   originalFormula?: string; // Reference to the original Excel formula (for auditing).
   systemMapping?: string; // e.g. "sample.sampleNumber", "job.jobNumber" for pre-filling.
-  instrumentSource?: 'ADR_TOUCH' | 'GENERIC_SERIAL'; // which instrument can populate this field
+  instrumentSource?: 'ADR_TOUCH' | 'NL_5032X' | 'GENERIC_SERIAL'; // which instrument can populate this field
 }
 
 export interface ColumnGroupSchema {

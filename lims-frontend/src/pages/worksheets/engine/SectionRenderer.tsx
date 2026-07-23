@@ -7,6 +7,7 @@ import { evaluateCondition } from './FormulaEngine';
 import { ChartRenderer } from './ChartRenderer';
 import { getGroupedColumns } from '../../methods/designer/utils';
 import { AdrCaptureModal } from '../../../components/instrument/AdrCaptureModal';
+import { NlCaptureModal } from '../../../components/instrument/NlCaptureModal';
 import { ApiOutlined } from '@ant-design/icons';
 
 const { Text } = Typography;
@@ -30,7 +31,7 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
   const { updateFieldValue, updateRowValue, updateMatrixValue, addRow, removeRow } = storeState;
 
   const [captureModalOpen, setCaptureModalOpen] = React.useState(false);
-  const [captureTarget, setCaptureTarget] = React.useState<{ fieldId: string, label: string, rowIndex?: number, rowId?: string } | null>(null);
+  const [captureTarget, setCaptureTarget] = React.useState<{ fieldId: string, label: string, rowIndex?: number, rowId?: string, instrumentSource?: string } | null>(null);
 
   const handleCapture = (value: number | string) => {
     if (!captureTarget) return;
@@ -43,6 +44,33 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
     } else {
       updateFieldValue(section.id, fieldId, value);
     }
+  };
+
+  const renderCaptureModal = () => {
+    if (!captureTarget) return null;
+    if (captureTarget.instrumentSource === 'ADR_TOUCH') {
+      return (
+        <AdrCaptureModal 
+          open={captureModalOpen} 
+          onClose={() => setCaptureModalOpen(false)} 
+          onCapture={handleCapture}
+          targetFieldId={captureTarget.fieldId}
+          targetFieldLabel={captureTarget.label}
+        />
+      );
+    }
+    if (captureTarget.instrumentSource === 'NL_5032X') {
+      return (
+        <NlCaptureModal 
+          open={captureModalOpen} 
+          onClose={() => setCaptureModalOpen(false)} 
+          onCapture={handleCapture}
+          targetFieldId={captureTarget.fieldId}
+          targetFieldLabel={captureTarget.label}
+        />
+      );
+    }
+    return null;
   };
 
   const renderFieldInput = (field: FieldSchema, value: any, onChange: (v: any) => void, rowIndex?: number, rowId?: string) => {
@@ -64,17 +92,17 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
         inputEl = <Input value={value} onChange={e => onChange(e.target.value)} disabled={readOnly || field.inputType === 'READONLY'} />; break;
     }
 
-    if (field.instrumentSource === 'ADR_TOUCH' && !readOnly) {
+    if (field.instrumentSource && field.instrumentSource !== 'GENERIC_SERIAL' && !readOnly) {
       return (
         <Space.Compact style={{ width: '100%' }}>
           {inputEl}
           <Button 
             icon={<ApiOutlined />} 
             onClick={() => {
-              setCaptureTarget({ fieldId: field.id, label: field.label, rowIndex, rowId });
+              setCaptureTarget({ fieldId: field.id, label: field.label, rowIndex, rowId, instrumentSource: field.instrumentSource });
               setCaptureModalOpen(true);
             }} 
-            title="Capture from ADR Touch"
+            title="Capture from Instrument"
           />
         </Space.Compact>
       );
@@ -114,15 +142,7 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
             );
           })}
         </div>
-        {captureTarget && (
-          <AdrCaptureModal 
-            open={captureModalOpen} 
-            onClose={() => setCaptureModalOpen(false)} 
-            onCapture={handleCapture}
-            targetFieldId={captureTarget.fieldId}
-            targetFieldLabel={captureTarget.label}
-          />
-        )}
+        {renderCaptureModal()}
       </Form>
     );
   }
@@ -198,15 +218,7 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
       return (
         <>
           <Table columns={columns} dataSource={dataSource} pagination={false} size="small" scroll={{ x: 'max-content' }} bordered />
-          {captureTarget && (
-            <AdrCaptureModal 
-              open={captureModalOpen} 
-              onClose={() => setCaptureModalOpen(false)} 
-              onCapture={handleCapture}
-              targetFieldId={captureTarget.fieldId}
-              targetFieldLabel={captureTarget.label}
-            />
-          )}
+          {renderCaptureModal()}
         </>
       );
     } else {
@@ -321,15 +333,7 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
               Add Row
             </Button>
           )}
-          {captureTarget && (
-            <AdrCaptureModal 
-              open={captureModalOpen} 
-              onClose={() => setCaptureModalOpen(false)} 
-              onCapture={handleCapture}
-              targetFieldId={captureTarget.fieldId}
-              targetFieldLabel={captureTarget.label}
-            />
-          )}
+          {renderCaptureModal()}
         </Space>
       );
     }
@@ -398,15 +402,7 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
           bordered 
           scroll={{ x: 'max-content' }}
         />
-        {captureTarget && (
-          <AdrCaptureModal 
-            open={captureModalOpen} 
-            onClose={() => setCaptureModalOpen(false)} 
-            onCapture={handleCapture}
-            targetFieldId={captureTarget.fieldId}
-            targetFieldLabel={captureTarget.label}
-          />
-        )}
+        {renderCaptureModal()}
       </>
     );
   }
@@ -424,15 +420,7 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
   return (
     <>
       <Text type="secondary">Unsupported section type: {section.type}</Text>
-      {captureTarget && (
-        <AdrCaptureModal 
-          open={captureModalOpen} 
-          onClose={() => setCaptureModalOpen(false)} 
-          onCapture={handleCapture}
-          targetFieldId={captureTarget.fieldId}
-          targetFieldLabel={captureTarget.label}
-        />
-      )}
+      {renderCaptureModal()}
     </>
   );
 };

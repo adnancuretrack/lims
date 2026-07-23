@@ -1,0 +1,46 @@
+.nl-capture-modal .ant-modal-body {
+  padding: 16px 24px 24px;
+}
+
+.nl-connection-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.nl-target-info {
+  background-color: #e6f4ff;
+  border: 1px solid #91caff;
+  padding: 12px 16px;
+  border-radius: 6px;
+  margin-bottom: 20px;
+}
+
+.nl-report-table {
+  background-color: #fafafa;
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid #e8e8e8;
+}
+
+.nl-waiting-state {
+  text-align: center;
+  padding: 32px 0;
+  color: #8c8c8c;
+}
+
+.nl-row-highlight {
+  background-color: #e6f4ff !important;
+}
+
+.nl-audit-footer {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px dashed #d9d9d9;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
