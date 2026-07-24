@@ -58,6 +58,7 @@ public class SampleService {
     private final AttachmentRepository attachmentRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final DataSyncService dataSyncService;
+    private final com.lims.common.service.SequenceService sequenceService;
 
     @Transactional
     public JobDTO registerJob(SampleRegistrationRequest request, String username) {
@@ -84,7 +85,7 @@ public class SampleService {
 
         // generate job number: J-{Year}-{Sequence}
         // In real app, use a DB sequence or dedicated table for numbering
-        String jobNumber = generateJobNumber();
+        String jobNumber = sequenceService.getNextJobNumber();
 
         Job job = Job.builder()
                 .jobNumber(jobNumber)
@@ -279,10 +280,6 @@ public class SampleService {
         }
     }
 
-    // Simplistic numbering for demo. Real implementation would use Redis/DB sequence.
-    private String generateJobNumber() {
-        return "J" + Year.now().getValue() + "-" + System.currentTimeMillis() % 10000;
-    }
 
     private SampleDTO mapToDTO(Sample sample) {
         return SampleDTO.builder()
