@@ -20,6 +20,7 @@ import { EmbeddableWorksheetEngine } from '../../components/worksheet/Embeddable
 import { message, Collapse, Alert, Popconfirm } from 'antd';
 import { DeleteOutlined, ExperimentOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import Barcode from 'react-barcode';
 
 const { Title, Text } = Typography;
 
@@ -169,6 +170,9 @@ export default function SampleDetailPage() {
                         <Tag color={getStatusColor(sample.status)} style={{ marginLeft: 8 }}>{sample.status}</Tag>
                     </Space>
                     <Text type="secondary">{sample.productName} - {sample.description}</Text>
+                    <div style={{ marginTop: 12, padding: '8px', backgroundColor: '#fafafa', border: '1px solid #f0f0f0', borderRadius: '4px', display: 'inline-block' }}>
+                        <Barcode value={sample.sampleNumber} format="CODE128" height={40} width={1.5} fontSize={12} margin={0} />
+                    </div>
                 </Space>
 
                 <Space>
