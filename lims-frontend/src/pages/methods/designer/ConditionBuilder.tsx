@@ -67,13 +67,13 @@ export const ConditionBuilder: React.FC<ConditionBuilderProps> = ({ value, onCha
         <Collapse.Panel header={<Text type="secondary" style={{ fontSize: 12 }}>Available Fields (Click to insert)</Text>} key="1">
           <div style={{ maxHeight: 200, overflowY: 'auto', display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
             {availableVars.map(v => (
-              <Tooltip title={`From: ${v.sectionTitle}`} key={v.id}>
+              <Tooltip title={`From: ${v.sectionTitle} • ID: ${v.id}`} key={v.id}>
                 <Tag 
                   color="blue" 
                   style={{ cursor: 'pointer', margin: 0, fontFamily: 'monospace' }} 
                   onClick={() => insertText(`{${v.id}}`)}
                 >
-                  {v.id}
+                  {v.label}
                 </Tag>
               </Tooltip>
             ))}
