@@ -87,7 +87,9 @@ public class SecurityConfig {
             "http://*.pinggy.online",
             "https://lims.ddns.net",
             "http://lims.ddns.net",
-            "http://localhost"
+            "http://localhost",
+            "http://localhost:3000",
+            "http://localhost:5173"
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
