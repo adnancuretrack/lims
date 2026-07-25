@@ -15,6 +15,14 @@ export const ExcelImporter: React.FC = () => {
   const { schema, setSchema } = useDesignerStore();
 
   const handleFileUpload = (file: File) => {
+    const fileName = file.name.toLowerCase();
+    const isSupported = fileName.endsWith('.xlsx') || fileName.endsWith('.xls') || fileName.endsWith('.csv');
+    
+    if (!isSupported) {
+      message.error('Unsupported file format. Please upload a .xlsx, .xls, or .csv file.');
+      return Upload.LIST_IGNORE;
+    }
+
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
