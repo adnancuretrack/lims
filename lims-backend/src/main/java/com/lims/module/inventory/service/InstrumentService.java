@@ -34,15 +34,19 @@ public class InstrumentService {
 
     @Transactional
     public InstrumentDTO create(CreateInstrumentRequest request) {
-        if (repository.findBySerialNumber(request.getSerialNumber()).isPresent()) {
-            throw new RuntimeException("Instrument serial number already exists: " + request.getSerialNumber());
+        String manufacturer = request.getManufacturer() != null ? request.getManufacturer() : "";
+        String model = request.getModel() != null ? request.getModel() : "";
+
+        if (repository.findByManufacturerAndNameAndModelAndSerialNumber(
+                manufacturer, request.getName(), model, request.getSerialNumber()).isPresent()) {
+            throw new RuntimeException("Instrument with this manufacturer, name, model, and serial number already exists.");
         }
 
         Instrument instrument = Instrument.builder()
                 .name(request.getName())
                 .serialNumber(request.getSerialNumber())
-                .model(request.getModel())
-                .manufacturer(request.getManufacturer())
+                .model(model)
+                .manufacturer(manufacturer)
                 .location(request.getLocation())
                 .status(request.getStatus() != null ? request.getStatus() : "ACTIVE")
                 .calibrationDueDate(request.getCalibrationDueDate())
@@ -58,6 +62,18 @@ public class InstrumentService {
     public InstrumentDTO update(Long id, CreateInstrumentRequest request) {
         Instrument instrument = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Instrument not found"));
+
+        String newName = request.getName() != null ? request.getName() : instrument.getName();
+        String newSerialNumber = request.getSerialNumber() != null ? request.getSerialNumber() : instrument.getSerialNumber();
+        String newModel = request.getModel() != null ? request.getModel() : instrument.getModel();
+        String newManufacturer = request.getManufacturer() != null ? request.getManufacturer() : instrument.getManufacturer();
+
+        if (repository.findByManufacturerAndNameAndModelAndSerialNumber(
+                newManufacturer, newName, newModel, newSerialNumber)
+                .filter(inst -> !inst.getId().equals(id))
+                .isPresent()) {
+            throw new RuntimeException("Instrument with this manufacturer, name, model, and serial number already exists.");
+        }
 
         if (request.getName() != null) instrument.setName(request.getName());
         if (request.getSerialNumber() != null) instrument.setSerialNumber(request.getSerialNumber());

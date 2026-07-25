@@ -107,6 +107,8 @@ export const InstrumentPage: React.FC = () => {
     const onFinish = (values: any) => {
         const request: CreateInstrumentRequest = {
             ...values,
+            model: values.model || "",
+            manufacturer: values.manufacturer || "",
             calibrationDueDate: values.calibrationDueDate ? values.calibrationDueDate.format('YYYY-MM-DD') : null,
             lastCalibratedAt: values.lastCalibratedAt ? values.lastCalibratedAt.format('YYYY-MM-DD') : null,
         };

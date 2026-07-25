@@ -9,7 +9,9 @@ import java.time.LocalDate;
 import org.hibernate.envers.Audited;
 
 @Entity
-@Table(name = "instruments")
+@Table(name = "instruments", uniqueConstraints = {
+    @UniqueConstraint(name = "uq_instruments_composite", columnNames = {"manufacturer", "name", "model", "serial_number"})
+})
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 @Audited
 public class Instrument extends BaseEntity {
@@ -17,14 +19,16 @@ public class Instrument extends BaseEntity {
     @Column(nullable = false, length = 200)
     private String name;
 
-    @Column(name = "serial_number", nullable = false, unique = true, length = 100)
+    @Column(name = "serial_number", nullable = false, length = 100)
     private String serialNumber;
 
-    @Column(length = 200)
-    private String model;
+    @Column(nullable = false, length = 200)
+    @Builder.Default
+    private String model = "";
 
-    @Column(length = 200)
-    private String manufacturer;
+    @Column(nullable = false, length = 200)
+    @Builder.Default
+    private String manufacturer = "";
 
     @Column(length = 100)
     private String location;

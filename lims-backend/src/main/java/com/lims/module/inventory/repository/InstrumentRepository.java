@@ -10,7 +10,7 @@ import java.util.Optional;
 
 @Repository
 public interface InstrumentRepository extends JpaRepository<Instrument, Long> {
-    Optional<Instrument> findBySerialNumber(String serialNumber);
+    Optional<Instrument> findByManufacturerAndNameAndModelAndSerialNumber(String manufacturer, String name, String model, String serialNumber);
     List<Instrument> findByActiveTrue();
     List<Instrument> findByActiveTrueAndCalibrationDueDateBefore(LocalDate date);
     List<Instrument> findByStatus(String status);
