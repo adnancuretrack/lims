@@ -46,22 +46,25 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
   };
 
   const renderFieldInput = (field: FieldSchema, value: any, onChange: (v: any) => void, rowIndex?: number, rowId?: string) => {
+    const isInstrumentLinked = !!field.instrumentSource;
+    const isFieldDisabled = readOnly || isInstrumentLinked;
+
     let inputEl;
     switch (field.inputType) {
       case 'TEXTAREA':
-        inputEl = <Input.TextArea rows={2} value={value} onChange={e => onChange(e.target.value)} disabled={readOnly || field.required === false} />; break;
+        inputEl = <Input.TextArea rows={2} value={value} onChange={e => onChange(e.target.value)} disabled={isFieldDisabled || field.required === false} />; break;
       case 'CHECKBOX':
       case 'YES_NO':
-        inputEl = <Checkbox checked={value} onChange={e => onChange(e.target.checked)} disabled={readOnly}>{field.label}</Checkbox>; break;
+        inputEl = <Checkbox checked={value} onChange={e => onChange(e.target.checked)} disabled={isFieldDisabled}>{field.label}</Checkbox>; break;
       case 'SELECTION_INLINE':
       case 'RADIO':
-        inputEl = <Radio.Group value={value} onChange={e => onChange(e.target.value)} options={field.options?.map(o => ({ label: o, value: o })) || []} disabled={readOnly} />; break;
+        inputEl = <Radio.Group value={value} onChange={e => onChange(e.target.value)} options={field.options?.map(o => ({ label: o, value: o })) || []} disabled={isFieldDisabled} />; break;
       case 'NUMERIC':
-        inputEl = <InputNumber value={value} onChange={onChange} style={{ width: '100%' }} disabled={readOnly} />; break;
+        inputEl = <InputNumber value={value} onChange={onChange} style={{ width: '100%' }} disabled={isFieldDisabled} />; break;
       case 'CALCULATED':
         inputEl = <Input disabled value={value} placeholder="Auto-calculated" style={{ backgroundColor: '#f5f5f5' }} />; break;
       default:
-        inputEl = <Input value={value} onChange={e => onChange(e.target.value)} disabled={readOnly || field.inputType === 'READONLY'} />; break;
+        inputEl = <Input value={value} onChange={e => onChange(e.target.value)} disabled={isFieldDisabled || field.inputType === 'READONLY'} />; break;
     }
 
     if (field.instrumentSource === 'ADR_TOUCH' && !readOnly) {
