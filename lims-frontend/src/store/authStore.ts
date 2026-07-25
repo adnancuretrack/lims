@@ -4,6 +4,8 @@ import { persist } from 'zustand/middleware';
 interface UserInfo {
     username: string;
     displayName: string;
+    email?: string;
+    phone?: string;
     roles: string[];
 }
 
@@ -12,6 +14,7 @@ interface AuthState {
     user: UserInfo | null;
     isAuthenticated: boolean;
     setAuth: (token: string, user: UserInfo) => void;
+    updateUser: (updates: Partial<UserInfo>) => void;
     logout: () => void;
 }
 
@@ -27,6 +30,10 @@ export const useAuthStore = create<AuthState>()(
                 user,
                 isAuthenticated: true,
             }),
+
+            updateUser: (updates) => set((state) => ({
+                user: state.user ? { ...state.user, ...updates } : null,
+            })),
 
             logout: () => set({
                 token: null,

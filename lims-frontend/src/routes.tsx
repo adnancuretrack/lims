@@ -6,6 +6,7 @@ import ProtectedRoute from './components/auth/ProtectedRoute';
 // Lazy-loaded page modules
 const DashboardPage = lazy(() => import('./pages/dashboard/DashboardPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
+const ProfilePage = lazy(() => import('./pages/profile/ProfilePage'));
 
 // Sample lifecycle
 const SampleListPage = lazy(() => import('./pages/samples/SampleListPage'));
@@ -50,6 +51,7 @@ export const routes: RouteObject[] = [
         element: <ProtectedRoute><AppLayout /></ProtectedRoute>,
         children: [
             { index: true, element: <DashboardPage /> },
+            { path: 'profile', element: <ProfilePage /> },
             // Sample lifecycle
             { path: 'samples', element: <SampleListPage /> },
             { path: 'samples/register', element: <SampleRegisterPage /> },

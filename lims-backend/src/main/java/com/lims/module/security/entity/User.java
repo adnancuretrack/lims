@@ -41,6 +41,12 @@ public class User extends BaseEntity {
     @Column(name = "last_login_at")
     private Instant lastLoginAt;
 
+    @Column(length = 50)
+    private String phone;
+
+    @Column(name = "signature_image_path", length = 500)
+    private String signatureImagePath;
+
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
         name = "user_roles",

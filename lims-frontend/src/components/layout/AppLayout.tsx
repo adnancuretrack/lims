@@ -103,6 +103,8 @@ export default function AppLayout() {
         if (key === 'logout') {
             logout();
             navigate('/login');
+        } else if (key === 'profile') {
+            navigate('/profile');
         }
     };
 
