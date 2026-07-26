@@ -111,7 +111,7 @@ class NlSerialService {
     if (!this.port) return;
 
     this.keepReading = false;
-    
+
     if (this.readTimeout) {
       clearTimeout(this.readTimeout);
       this.readTimeout = null;
@@ -153,13 +153,13 @@ class NlSerialService {
     return this.port ? this.port.getInfo() : null;
   }
 
-  /**
-   * Flush any stale bytes left in the buffer from power-on spikes before main reading starts.
-   */
-  private async flushStaleBuffer(decoder: TextDecoder) {
-      // For a truly clean buffer on init, we might read and discard until we timeout briefly.
-      // But we can also just let processBuffer discard garbage frames since isGarbageData handles it.
-  }
+  // /**
+  //  * Flush any stale bytes left in the buffer from power-on spikes before main reading starts.
+  //  */
+  // private async flushStaleBuffer(decoder: TextDecoder) {
+  //     // For a truly clean buffer on init, we might read and discard until we timeout briefly.
+  //     // But we can also just let processBuffer discard garbage frames since isGarbageData handles it.
+  // }
 
   /**
    * The main read loop. Handles parsing incoming text.
@@ -173,15 +173,14 @@ class NlSerialService {
         while (this.keepReading) {
           // Implement 3000ms timeout for impedance out-of-bounds silence
           const readPromise = this.reader.read();
-          
-          let timeoutFired = false;
+
           if (this.readTimeout) clearTimeout(this.readTimeout);
-          
+
           // We won't actually throw an exception and kill the connection if it times out
           // unless we are in the middle of a manual read request, but in this case the device pushes data.
           // The guide says: Implement a non-blocking timeout of 3000ms after issuing manual read requests.
           // Since we are passively polling, we just await the read.
-          
+
           const { value, done } = await readPromise;
 
           if (done) {
@@ -236,29 +235,29 @@ class NlSerialService {
 
       if (line.length > 0) {
         console.log('[NL LINE]', JSON.stringify(line));
-        
+
         if (NlDataParser.isGarbageData(line)) {
-            console.log('[NL GARBAGE]', line);
-            this.notifyGarbageData(line);
+          console.log('[NL GARBAGE]', line);
+          this.notifyGarbageData(line);
         } else {
-            const record = NlDataParser.parseMeasurementLine(line);
-            if (record) {
-                const validation = NlDataParser.validateRecord(record);
-                const hash = await NlDataParser.computeIntegrityHash(line);
-                
-                const report: NlMeasurementReport = {
-                    record,
-                    rawLine: line,
-                    integrityHash: hash,
-                    timestamp: new Date(),
-                    sensorFault: validation.fault
-                };
-                
-                this.notifyReport(report);
-            } else {
-                console.log('[NL PARSE FAIL]', line);
-                this.notifyGarbageData(line);
-            }
+          const record = NlDataParser.parseMeasurementLine(line);
+          if (record) {
+            const validation = NlDataParser.validateRecord(record);
+            const hash = await NlDataParser.computeIntegrityHash(line);
+
+            const report: NlMeasurementReport = {
+              record,
+              rawLine: line,
+              integrityHash: hash,
+              timestamp: new Date(),
+              sensorFault: validation.fault
+            };
+
+            this.notifyReport(report);
+          } else {
+            console.log('[NL PARSE FAIL]', line);
+            this.notifyGarbageData(line);
+          }
         }
       }
 

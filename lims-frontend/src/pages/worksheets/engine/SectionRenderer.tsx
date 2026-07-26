@@ -32,7 +32,7 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
   const { updateFieldValue, updateRowValue, updateMatrixValue, addRow, removeRow } = storeState;
 
   const [captureModalOpen, setCaptureModalOpen] = React.useState(false);
-  const [captureTarget, setCaptureTarget] = React.useState<{ fieldId: string, label: string, rowIndex?: number, rowId?: string } | null>(null);
+  const [captureTarget, setCaptureTarget] = React.useState<{ fieldId: string, label: string, rowIndex?: number, rowId?: string, instrumentSource?: string } | null>(null);
 
   const [equipmentModalOpen, setEquipmentModalOpen] = React.useState(false);
   const [equipmentTarget, setEquipmentTarget] = React.useState<{ rowId: string } | null>(null);
