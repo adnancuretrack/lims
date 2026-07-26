@@ -155,7 +155,7 @@ export const PropertyEditor: React.FC = () => {
 
     // 2. If no field, but a SECTION is selected, show Section Properties
     if (section) {
-      const isConvertible = ['SINGLE_VALUE', 'DATA_TABLE', 'GROUPED_TABLE', 'MATRIX_TABLE'].includes(section.type);
+      const isConvertible = ['SINGLE_VALUE', 'DATA_TABLE', 'GROUPED_TABLE', 'MATRIX_TABLE', 'EQUIPMENT'].includes(section.type);
 
       return (
         <Form layout="vertical" key={`section-${section.id}`}>
@@ -178,6 +178,7 @@ export const PropertyEditor: React.FC = () => {
                   { value: 'DATA_TABLE', label: 'Data Table' },
                   { value: 'GROUPED_TABLE', label: 'Grouped Table' },
                   { value: 'MATRIX_TABLE', label: 'Matrix Table' },
+                  { value: 'EQUIPMENT', label: 'Equipment Registry' },
                 ]}
               />
             </Form.Item>
@@ -250,7 +251,11 @@ export const PropertyEditor: React.FC = () => {
               >
                 Add Column
               </Button>
+            </>
+          )}
               
+          {(section.type === 'MATRIX_TABLE' || section.type === 'EQUIPMENT') && (
+            <>
               <Divider>Row Definitions</Divider>
               {(section.rowHeaders || []).map((rh, index) => (
                 <Card size="small" style={{ marginBottom: 12, backgroundColor: '#f9f9f9' }} key={rh.id}>
@@ -266,7 +271,7 @@ export const PropertyEditor: React.FC = () => {
                       />
                     </div>
                     <Input 
-                      placeholder="Row Label (e.g. Tested by)" 
+                      placeholder={section.type === 'EQUIPMENT' ? "Equipment Name (e.g. Weighing Balance)" : "Row Label (e.g. Tested by)"} 
                       value={rh.label} 
                       onChange={e => updateRowHeader(section.id, rh.id, { label: e.target.value })} 
                     />
@@ -279,9 +284,13 @@ export const PropertyEditor: React.FC = () => {
                 icon={<PlusOutlined />} 
                 onClick={() => addRowHeader(section.id)}
               >
-                Add Row Header
+                {section.type === 'EQUIPMENT' ? 'Add Equipment' : 'Add Row Header'}
               </Button>
+            </>
+          )}
 
+          {section.type === 'MATRIX_TABLE' && (
+            <>
               <Divider>Header Configuration</Divider>
               <Form.Item>
                 <Button type="default" block onClick={() => setGrouperOpen(true)}>Configure Merged Headers</Button>

@@ -142,6 +142,39 @@ const SortableSection = ({ section }: { section: SectionSchema }) => {
                     {section.description || 'Enter notes in the properties panel...'}
                 </Typography.Text>
             </div>
+          ) : section.type === 'EQUIPMENT' ? (
+            <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 8, tableLayout: 'fixed' }}>
+                <thead>
+                    <tr>
+                    <th style={{ border: '1px solid #d9d9d9', padding: '4px 8px', background: '#f5f5f5', width: 200, fontSize: 11, textAlign: 'left' }}>
+                        Equipment Name
+                    </th>
+                    <th style={{ border: '1px solid #d9d9d9', padding: '4px 8px', background: '#f5f5f5', fontSize: 11, textAlign: 'center' }}>
+                        Equipment Number
+                    </th>
+                    <th style={{ border: '1px solid #d9d9d9', padding: '4px 8px', background: '#f5f5f5', fontSize: 11, textAlign: 'center' }}>
+                        Calibration Date
+                    </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {(section.rowHeaders && section.rowHeaders.length > 0 ? section.rowHeaders : [{ id: 'e1', label: 'New Equipment' }]).map((rh) => (
+                    <tr key={rh.id}>
+                        <td style={{ border: '1px solid #d9d9d9', padding: '6px 8px', fontSize: 12, fontWeight: 500, backgroundColor: '#fff' }}>
+                            {rh.label}
+                        </td>
+                        <td style={{ border: '1px solid #d9d9d9', padding: '6px 8px', textAlign: 'center', backgroundColor: '#fdfdfd' }}>
+                            <Input size="small" disabled placeholder="Select equipment..." style={{ width: '100%', pointerEvents: 'none' }} />
+                        </td>
+                        <td style={{ border: '1px solid #d9d9d9', padding: '6px 8px', textAlign: 'center', backgroundColor: '#fdfdfd' }}>
+                            <Input size="small" disabled placeholder="Calibration date..." style={{ width: '100%', pointerEvents: 'none' }} />
+                        </td>
+                    </tr>
+                    ))}
+                </tbody>
+                </table>
+            </div>
           ) : section.type === 'MATRIX_TABLE' ? (
             <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 8, tableLayout: 'fixed' }}>

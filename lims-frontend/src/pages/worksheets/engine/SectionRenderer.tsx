@@ -1,5 +1,5 @@
 import React from 'react';
-import { Form, Input, Table, Checkbox, Radio, InputNumber, Typography, Button, Space } from 'antd';
+import { Form, Input, Table, Checkbox, Radio, InputNumber, Typography, Button, Space, message } from 'antd';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import type { SectionSchema, FieldSchema } from '../../methods/designer/types';
 import { useEngineStore } from './store';
@@ -7,7 +7,8 @@ import { evaluateCondition } from './FormulaEngine';
 import { ChartRenderer } from './ChartRenderer';
 import { getGroupedColumns } from '../../methods/designer/utils';
 import { AdrCaptureModal } from '../../../components/instrument/AdrCaptureModal';
-import { ApiOutlined } from '@ant-design/icons';
+import { EquipmentSelectionModal } from '../../../components/instrument/EquipmentSelectionModal';
+import { ApiOutlined, SearchOutlined } from '@ant-design/icons';
 
 const { Text } = Typography;
 
@@ -31,6 +32,24 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
 
   const [captureModalOpen, setCaptureModalOpen] = React.useState(false);
   const [captureTarget, setCaptureTarget] = React.useState<{ fieldId: string, label: string, rowIndex?: number, rowId?: string } | null>(null);
+
+  const [equipmentModalOpen, setEquipmentModalOpen] = React.useState(false);
+  const [equipmentTarget, setEquipmentTarget] = React.useState<{ rowId: string } | null>(null);
+
+  const handleSelectEquipment = (inst: any) => {
+    if (!equipmentTarget) return;
+    updateMatrixValue(section.id, equipmentTarget.rowId, 'equipmentNumber', inst.serialNumber);
+    
+    if (inst.calibrationOverdue) {
+       message.warning(`Warning: ${inst.name} (${inst.serialNumber}) is overdue for calibration.`);
+    }
+
+    const calDate = inst.calibrationDueDate ? new Date(inst.calibrationDueDate).toLocaleDateString() : 'N/A';
+    updateMatrixValue(section.id, equipmentTarget.rowId, 'calibrationDate', calDate);
+    
+    setEquipmentModalOpen(false);
+    setEquipmentTarget(null);
+  };
 
   const handleCapture = (value: number | string) => {
     if (!captureTarget) return;
@@ -340,6 +359,94 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
 
   if (section.type === 'CHART') {
     return <ChartRenderer section={section} />;
+  }
+
+  if (section.type === 'EQUIPMENT') {
+    const matrixData = data[section.id] || {};
+
+    const columns = [
+      {
+        title: 'Equipment Name',
+        dataIndex: 'rowLabel',
+        key: 'rowLabel',
+        width: 200,
+        render: (text: string) => <Text strong>{text}</Text>
+      },
+      {
+        title: 'Equipment Number',
+        key: 'equipmentNumber',
+        width: 250,
+        render: (_: any, record: any) => {
+          const val = matrixData[record.rowId]?.['equipmentNumber'] || '';
+          const error = errors[`${section.id}.${record.rowId}.equipmentNumber`];
+          return (
+            <Form.Item
+              validateStatus={error ? (error.severity === 'ERROR' ? 'error' : 'warning') : ''}
+              help={error?.message}
+              style={{ margin: 0 }}
+            >
+              <Space.Compact style={{ width: '100%' }}>
+                <Input value={val} placeholder="Select equipment..." disabled style={{ color: '#000' }} />
+                {!readOnly && (
+                  <Button 
+                    icon={<SearchOutlined />} 
+                    onClick={() => {
+                      setEquipmentTarget({ rowId: record.rowId });
+                      setEquipmentModalOpen(true);
+                    }}
+                    title="Select Equipment"
+                  />
+                )}
+              </Space.Compact>
+            </Form.Item>
+          );
+        }
+      },
+      {
+        title: 'Calibration Date',
+        key: 'calibrationDate',
+        width: 200,
+        render: (_: any, record: any) => {
+          const val = matrixData[record.rowId]?.['calibrationDate'] || '';
+          const error = errors[`${section.id}.${record.rowId}.calibrationDate`];
+          return (
+            <Form.Item
+              validateStatus={error ? (error.severity === 'ERROR' ? 'error' : 'warning') : ''}
+              help={error?.message}
+              style={{ margin: 0 }}
+            >
+              <Input value={val} placeholder="Calibration Date" disabled style={{ color: '#000' }} />
+            </Form.Item>
+          );
+        }
+      }
+    ];
+
+    const dataSource = (section.rowHeaders || []).map(rh => ({
+      key: rh.id,
+      rowId: rh.id,
+      rowLabel: rh.label
+    }));
+
+    return (
+      <>
+        <Table 
+          columns={columns} 
+          dataSource={dataSource} 
+          pagination={false} 
+          size="small" 
+          bordered 
+        />
+        <EquipmentSelectionModal
+          open={equipmentModalOpen}
+          onClose={() => {
+            setEquipmentModalOpen(false);
+            setEquipmentTarget(null);
+          }}
+          onSelect={handleSelectEquipment}
+        />
+      </>
+    );
   }
 
   if (section.type === 'MATRIX_TABLE') {

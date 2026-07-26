@@ -94,6 +94,43 @@ const renderSection = (section: SectionSchema) => {
     }
   }
 
+  if (section.type === 'EQUIPMENT') {
+    const columns = [
+      {
+        title: 'Equipment Name',
+        dataIndex: 'rowLabel',
+        key: 'rowLabel',
+        width: 200,
+        render: (text: string) => <Text strong>{text}</Text>
+      },
+      {
+        title: 'Equipment Number',
+        key: 'equipmentNumber',
+        render: () => <Input placeholder="Select equipment..." disabled />
+      },
+      {
+        title: 'Calibration Date',
+        key: 'calibrationDate',
+        render: () => <Input placeholder="Calibration Date" disabled />
+      }
+    ];
+
+    const dataSource = (section.rowHeaders || []).map(rh => ({
+      key: rh.id,
+      rowLabel: rh.label
+    }));
+
+    return (
+      <Table 
+        columns={columns} 
+        dataSource={dataSource} 
+        pagination={false} 
+        size="small" 
+        bordered 
+      />
+    );
+  }
+
   if (section.type === 'MATRIX_TABLE') {
     const baseFields = section.columns || section.dataColumns || section.fields || [];
     

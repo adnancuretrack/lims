@@ -182,9 +182,11 @@ export const InstrumentPage: React.FC = () => {
             key: 'actions',
             render: (_: unknown, record: InstrumentDTO) => (
                 <Space>
-                    <Tooltip title="Edit Details">
-                        <Button type="link" icon={<EditOutlined />} onClick={() => handleEdit(record)} />
-                    </Tooltip>
+                    {record.active && (
+                        <Tooltip title="Edit Details">
+                            <Button type="link" icon={<EditOutlined />} onClick={() => handleEdit(record)} />
+                        </Tooltip>
+                    )}
                     {record.active && (
                         <Tooltip title="Record Calibration">
                             <Button
@@ -265,7 +267,6 @@ export const InstrumentPage: React.FC = () => {
                             <Select>
                                 <Select.Option value="ACTIVE">Active</Select.Option>
                                 <Select.Option value="MAINTENANCE">Maintenance</Select.Option>
-                                <Select.Option value="RETIRED">Retired</Select.Option>
                             </Select>
                         </Form.Item>
                         <Form.Item name="lastCalibratedAt" label="Last Calibrated">
