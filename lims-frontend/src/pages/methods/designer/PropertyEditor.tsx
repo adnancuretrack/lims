@@ -140,6 +140,7 @@ export const PropertyEditor: React.FC = () => {
                 onChange={v => handleUpdate({ instrumentSource: v })}
                 options={[
                   { value: 'ADR_TOUCH', label: 'ELE ADR Touch' },
+                  { value: 'NL_5032X', label: 'NL Scientific 5032X/001 EDG' },
                   { value: 'GENERIC_SERIAL', label: 'Generic Serial RS-232' },
                 ]}
               />

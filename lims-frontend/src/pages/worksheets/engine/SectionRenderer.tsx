@@ -7,6 +7,7 @@ import { evaluateCondition } from './FormulaEngine';
 import { ChartRenderer } from './ChartRenderer';
 import { getGroupedColumns } from '../../methods/designer/utils';
 import { AdrCaptureModal } from '../../../components/instrument/AdrCaptureModal';
+import { NlCaptureModal } from '../../../components/instrument/NlCaptureModal';
 import { EquipmentSelectionModal } from '../../../components/instrument/EquipmentSelectionModal';
 import { ApiOutlined, SearchOutlined } from '@ant-design/icons';
 
@@ -22,12 +23,12 @@ interface SectionRendererProps {
 
 export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readOnly, externalData, externalSchema, externalErrors }) => {
   const storeState = useEngineStore();
-  
+
   // Use external props if in read-only mode, otherwise use global store
   const data = readOnly ? (externalData || {}) : storeState.data;
   const errors = readOnly ? (externalErrors || {}) : storeState.errors;
   const schema = readOnly ? (externalSchema || storeState.schema) : storeState.schema;
-  
+
   const { updateFieldValue, updateRowValue, updateMatrixValue, addRow, removeRow } = storeState;
 
   const [captureModalOpen, setCaptureModalOpen] = React.useState(false);
@@ -39,14 +40,14 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
   const handleSelectEquipment = (inst: any) => {
     if (!equipmentTarget) return;
     updateMatrixValue(section.id, equipmentTarget.rowId, 'equipmentNumber', inst.serialNumber);
-    
+
     if (inst.calibrationOverdue) {
-       message.warning(`Warning: ${inst.name} (${inst.serialNumber}) is overdue for calibration.`);
+      message.warning(`Warning: ${inst.name} (${inst.serialNumber}) is overdue for calibration.`);
     }
 
     const calDate = inst.calibrationDueDate ? new Date(inst.calibrationDueDate).toLocaleDateString() : 'N/A';
     updateMatrixValue(section.id, equipmentTarget.rowId, 'calibrationDate', calDate);
-    
+
     setEquipmentModalOpen(false);
     setEquipmentTarget(null);
   };
@@ -54,7 +55,7 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
   const handleCapture = (value: number | string) => {
     if (!captureTarget) return;
     const { fieldId, rowIndex, rowId } = captureTarget;
-    
+
     if (rowIndex !== undefined) {
       updateRowValue(section.id, rowIndex, fieldId, value);
     } else if (rowId !== undefined) {
@@ -62,6 +63,33 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
     } else {
       updateFieldValue(section.id, fieldId, value);
     }
+  };
+
+  const renderCaptureModal = () => {
+    if (!captureTarget) return null;
+    if (captureTarget.instrumentSource === 'ADR_TOUCH') {
+      return (
+        <AdrCaptureModal
+          open={captureModalOpen}
+          onClose={() => setCaptureModalOpen(false)}
+          onCapture={handleCapture}
+          targetFieldId={captureTarget.fieldId}
+          targetFieldLabel={captureTarget.label}
+        />
+      );
+    }
+    if (captureTarget.instrumentSource === 'NL_5032X') {
+      return (
+        <NlCaptureModal
+          open={captureModalOpen}
+          onClose={() => setCaptureModalOpen(false)}
+          onCapture={handleCapture}
+          targetFieldId={captureTarget.fieldId}
+          targetFieldLabel={captureTarget.label}
+        />
+      );
+    }
+    return null;
   };
 
   const renderFieldInput = (field: FieldSchema, value: any, onChange: (v: any) => void, rowIndex?: number, rowId?: string) => {
@@ -86,22 +114,22 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
         inputEl = <Input value={value} onChange={e => onChange(e.target.value)} disabled={isFieldDisabled || field.inputType === 'READONLY'} />; break;
     }
 
-    if (field.instrumentSource === 'ADR_TOUCH' && !readOnly) {
+    if (field.instrumentSource && field.instrumentSource !== 'GENERIC_SERIAL' && !readOnly) {
       return (
         <Space.Compact style={{ width: '100%' }}>
           {inputEl}
-          <Button 
-            icon={<ApiOutlined />} 
+          <Button
+            icon={<ApiOutlined />}
             onClick={() => {
-              setCaptureTarget({ fieldId: field.id, label: field.label, rowIndex, rowId });
+              setCaptureTarget({ fieldId: field.id, label: field.label, rowIndex, rowId, instrumentSource: field.instrumentSource });
               setCaptureModalOpen(true);
-            }} 
-            title="Capture from ADR Touch"
+            }}
+            title="Capture from Instrument"
           />
         </Space.Compact>
       );
     }
-    
+
     return inputEl;
   };
 
@@ -124,9 +152,9 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
 
             const error = errors[`${section.id}.${f.id}`];
             return (
-              <Form.Item 
-                key={f.id} 
-                label={f.label} 
+              <Form.Item
+                key={f.id}
+                label={f.label}
                 required={f.required}
                 validateStatus={error ? (error.severity === 'ERROR' ? 'error' : 'warning') : ''}
                 help={error?.message}
@@ -136,15 +164,7 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
             );
           })}
         </div>
-        {captureTarget && (
-          <AdrCaptureModal 
-            open={captureModalOpen} 
-            onClose={() => setCaptureModalOpen(false)} 
-            onCapture={handleCapture}
-            targetFieldId={captureTarget.fieldId}
-            targetFieldLabel={captureTarget.label}
-          />
-        )}
+        {renderCaptureModal()}
       </Form>
     );
   }
@@ -163,43 +183,43 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
         ...trials.map((t, i) => ({
           title: (
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-               <span>{t}</span>
-               {trialLen > minRows && !readOnly && (
-                 <Button 
-                    type="text" 
-                    size="small" 
-                    danger 
-                    icon={<DeleteOutlined style={{ fontSize: 12 }} />} 
-                    onClick={(e) => {
-                       e.stopPropagation();
-                       removeRow(section.id, i);
-                    }}
-                 />
-               )}
+              <span>{t}</span>
+              {trialLen > minRows && !readOnly && (
+                <Button
+                  type="text"
+                  size="small"
+                  danger
+                  icon={<DeleteOutlined style={{ fontSize: 12 }} />}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeRow(section.id, i);
+                  }}
+                />
+              )}
             </div>
           ),
           dataIndex: `trial_${i}`,
           key: `trial_${i}`,
           render: (_: any, record: any) => {
-             const val = tableData[i]?.[record.key];
-             const error = errors[`${section.id}.${i}.${record.key}`];
-             return (
-               <Form.Item 
-                 validateStatus={error ? (error.severity === 'ERROR' ? 'error' : 'warning') : ''}
-                 help={error?.message}
-                 style={{ margin: 0 }}
-               >
-                 {renderFieldInput(record.fieldSchema, val, (v) => updateRowValue(section.id, i, record.key, v), i)}
-               </Form.Item>
-             );
+            const val = tableData[i]?.[record.key];
+            const error = errors[`${section.id}.${i}.${record.key}`];
+            return (
+              <Form.Item
+                validateStatus={error ? (error.severity === 'ERROR' ? 'error' : 'warning') : ''}
+                help={error?.message}
+                style={{ margin: 0 }}
+              >
+                {renderFieldInput(record.fieldSchema, val, (v) => updateRowValue(section.id, i, record.key, v), i)}
+              </Form.Item>
+            );
           }
         })),
         ...(trialLen < maxRows && !readOnly ? [{
           title: (
-            <Button 
-              type="dashed" 
-              size="small" 
-              icon={<PlusOutlined />} 
+            <Button
+              type="dashed"
+              size="small"
+              icon={<PlusOutlined />}
               onClick={() => addRow(section.id)}
               style={{ width: '100%', fontSize: 11 }}
             >
@@ -210,7 +230,7 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
           width: 120,
         }] : [])
       ];
-      
+
       const dataSource = (section.columns || section.dataColumns || []).map(f => ({
         key: f.id,
         label: (f.label || f.id) + (f.unit ? ` (${f.unit})` : ''),
@@ -220,15 +240,7 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
       return (
         <>
           <Table columns={columns} dataSource={dataSource} pagination={false} size="small" scroll={{ x: 'max-content' }} bordered />
-          {captureTarget && (
-            <AdrCaptureModal 
-              open={captureModalOpen} 
-              onClose={() => setCaptureModalOpen(false)} 
-              onCapture={handleCapture}
-              targetFieldId={captureTarget.fieldId}
-              targetFieldLabel={captureTarget.label}
-            />
-          )}
+          {renderCaptureModal()}
         </>
       );
     } else {
@@ -241,7 +253,7 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
           const val = tableData[index]?.[c.id];
           const error = errors[`${section.id}.${index}.${c.id}`];
           return (
-            <Form.Item 
+            <Form.Item
               validateStatus={error ? (error.severity === 'ERROR' ? 'error' : 'warning') : ''}
               help={error?.message}
               style={{ margin: 0 }}
@@ -252,8 +264,8 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
         }
       });
 
-      const columns = getGroupedColumns({ 
-        fields: section.columns || section.dataColumns || [], 
+      const columns = getGroupedColumns({
+        fields: section.columns || section.dataColumns || [],
         groups: section.columnGroups,
         buildCol
       });
@@ -270,12 +282,12 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
           width: 50,
           fixed: 'right',
           render: (_: any, __: any, index: number) => (
-            <Button 
-              type="text" 
-              danger 
-              icon={<DeleteOutlined />} 
+            <Button
+              type="text"
+              danger
+              icon={<DeleteOutlined />}
               disabled={tableData.length <= minRows}
-              onClick={() => removeRow(section.id, index)} 
+              onClick={() => removeRow(section.id, index)}
             />
           )
         });
@@ -289,22 +301,22 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
         });
         return leaf;
       };
-      
+
       const leafColumns = getLeafColumns(columns);
 
       return (
         <Space direction="vertical" style={{ width: '100%' }}>
-          <Table 
-            columns={columns} 
-            dataSource={tableData} 
-            rowKey={(_, i) => i || 0} 
-            pagination={false} 
-            size="small" 
-            scroll={{ x: 'max-content' }} 
-            bordered 
+          <Table
+            columns={columns}
+            dataSource={tableData}
+            rowKey={(_, i) => i || 0}
+            pagination={false}
+            size="small"
+            scroll={{ x: 'max-content' }}
+            bordered
             summary={(pageData) => {
               if (!section.showTotalRow || !section.totalColumns?.length) return null;
-              
+
               return (
                 <Table.Summary.Row style={{ backgroundColor: '#fafafa' }}>
                   {leafColumns.map((col, idx) => {
@@ -334,24 +346,16 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
             }}
           />
           {tableData.length < maxRows && !readOnly && (
-            <Button 
-              type="dashed" 
-              icon={<PlusOutlined />} 
-              onClick={() => addRow(section.id)} 
+            <Button
+              type="dashed"
+              icon={<PlusOutlined />}
+              onClick={() => addRow(section.id)}
               style={{ width: '100%' }}
             >
               Add Row
             </Button>
           )}
-          {captureTarget && (
-            <AdrCaptureModal 
-              open={captureModalOpen} 
-              onClose={() => setCaptureModalOpen(false)} 
-              onCapture={handleCapture}
-              targetFieldId={captureTarget.fieldId}
-              targetFieldLabel={captureTarget.label}
-            />
-          )}
+          {renderCaptureModal()}
         </Space>
       );
     }
@@ -388,8 +392,8 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
               <Space.Compact style={{ width: '100%' }}>
                 <Input value={val} placeholder="Select equipment..." disabled style={{ color: '#000' }} />
                 {!readOnly && (
-                  <Button 
-                    icon={<SearchOutlined />} 
+                  <Button
+                    icon={<SearchOutlined />}
                     onClick={() => {
                       setEquipmentTarget({ rowId: record.rowId });
                       setEquipmentModalOpen(true);
@@ -430,12 +434,12 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
 
     return (
       <>
-        <Table 
-          columns={columns} 
-          dataSource={dataSource} 
-          pagination={false} 
-          size="small" 
-          bordered 
+        <Table
+          columns={columns}
+          dataSource={dataSource}
+          pagination={false}
+          size="small"
+          bordered
         />
         <EquipmentSelectionModal
           open={equipmentModalOpen}
@@ -475,7 +479,7 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
         const val = matrixData[record.rowId]?.[c.id];
         const error = errors[`${section.id}.${record.rowId}.${c.id}`];
         return (
-          <Form.Item 
+          <Form.Item
             validateStatus={error ? (error.severity === 'ERROR' ? 'error' : 'warning') : ''}
             help={error?.message}
             style={{ margin: 0 }}
@@ -486,10 +490,10 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
       }
     });
 
-    const dataCols = getGroupedColumns({ 
-      fields: section.columns || [], 
+    const dataCols = getGroupedColumns({
+      fields: section.columns || [],
       groups: section.columnGroups,
-      buildCol 
+      buildCol
     });
 
     const dataSource = (section.rowHeaders || []).map(rh => ({
@@ -500,23 +504,15 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
 
     return (
       <>
-        <Table 
-          columns={[rowStubCol, ...dataCols]} 
-          dataSource={dataSource} 
-          pagination={false} 
-          size="small" 
-          bordered 
+        <Table
+          columns={[rowStubCol, ...dataCols]}
+          dataSource={dataSource}
+          pagination={false}
+          size="small"
+          bordered
           scroll={{ x: 'max-content' }}
         />
-        {captureTarget && (
-          <AdrCaptureModal 
-            open={captureModalOpen} 
-            onClose={() => setCaptureModalOpen(false)} 
-            onCapture={handleCapture}
-            targetFieldId={captureTarget.fieldId}
-            targetFieldLabel={captureTarget.label}
-          />
-        )}
+        {renderCaptureModal()}
       </>
     );
   }
@@ -534,15 +530,7 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
   return (
     <>
       <Text type="secondary">Unsupported section type: {section.type}</Text>
-      {captureTarget && (
-        <AdrCaptureModal 
-          open={captureModalOpen} 
-          onClose={() => setCaptureModalOpen(false)} 
-          onCapture={handleCapture}
-          targetFieldId={captureTarget.fieldId}
-          targetFieldLabel={captureTarget.label}
-        />
-      )}
+      {renderCaptureModal()}
     </>
   );
 };
