@@ -7,7 +7,7 @@ import {
 } from 'antd';
 import {
     FilePdfOutlined, HistoryOutlined, ArrowLeftOutlined,
-    FileTextOutlined, MedicineBoxOutlined
+    FileTextOutlined, MedicineBoxOutlined, PrinterOutlined
 } from '@ant-design/icons';
 import { SampleService } from '../../api/SampleService';
 import { AttachmentManager } from '../../components/attachment/AttachmentManager';
@@ -21,6 +21,7 @@ import { message, Collapse, Alert, Popconfirm } from 'antd';
 import { DeleteOutlined, ExperimentOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import Barcode from 'react-barcode';
+import { useBarcodePrinter } from '../../hooks/useBarcodePrinter';
 
 const { Title, Text } = Typography;
 
@@ -29,6 +30,7 @@ export default function SampleDetailPage() {
     const navigate = useNavigate();
     const [auditVisible, setAuditVisible] = useState(false);
     const queryClient = useQueryClient();
+    const { componentRef, handlePrint } = useBarcodePrinter();
 
     const { data: sample, isLoading, error } = useQuery({
         queryKey: ['sample', id],
@@ -171,7 +173,9 @@ export default function SampleDetailPage() {
                     </Space>
                     <Text type="secondary">{sample.productName} - {sample.description}</Text>
                     <div style={{ marginTop: 12, padding: '8px', backgroundColor: '#fafafa', border: '1px solid #f0f0f0', borderRadius: '4px', display: 'inline-block' }}>
-                        <Barcode value={sample.sampleNumber} format="CODE128" height={40} width={1.5} fontSize={12} margin={0} />
+                        <div ref={componentRef} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff', padding: '8px' }}>
+                            <Barcode value={sample.sampleNumber} format="CODE128" height={40} width={1.5} fontSize={12} margin={0} />
+                        </div>
                     </div>
                 </Space>
 
@@ -193,6 +197,12 @@ export default function SampleDetailPage() {
                         onClick={() => setAuditVisible(true)}
                     >
                         History
+                    </Button>
+                    <Button
+                        icon={<PrinterOutlined />}
+                        onClick={handlePrint}
+                    >
+                        Print Barcode
                     </Button>
                     <div style={{ display: sample.status === 'AUTHORIZED' ? 'block' : 'none' }}>
                         <Button
