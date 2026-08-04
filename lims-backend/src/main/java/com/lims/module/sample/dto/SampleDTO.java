@@ -18,4 +18,7 @@ public class SampleDTO {
     private String clientName;
     private String jobNumber;
     private String barcode;
+    private java.util.List<SpecimenDTO> specimens;
+    private Integer specimenCount;
+    private Integer authorizedSpecimenCount;
 }

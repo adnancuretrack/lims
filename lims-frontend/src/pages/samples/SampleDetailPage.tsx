@@ -72,6 +72,18 @@ export default function SampleDetailPage() {
         }
     };
 
+    const getTestStatusColor = (status: string) => {
+        switch (status) {
+            case 'PENDING': return 'default';
+            case 'IN_PROGRESS': return 'processing';
+            case 'COMPLETED': return 'cyan';
+            case 'INTERIM_AUTHORIZED': return 'warning';
+            case 'AUTHORIZED': return 'success';
+            case 'REJECTED': return 'error';
+            default: return 'default';
+        }
+    };
+
     const handleDownloadCoa = async () => {
         if (!sample) return;
         
@@ -113,7 +125,7 @@ export default function SampleDetailPage() {
                                 <Space>
                                     <ExperimentOutlined />
                                     <Text strong>{test.testMethodName}</Text>
-                                    <Tag color="blue">{test.status}</Tag>
+                                    <Tag color={getTestStatusColor(test.status)}>{test.status}</Tag>
                                 </Space>
                                 <Space>
                                     <Text type="secondary">Status:</Text>
@@ -204,15 +216,15 @@ export default function SampleDetailPage() {
                     >
                         Print Barcode
                     </Button>
-                    <div style={{ display: sample.status === 'AUTHORIZED' ? 'block' : 'none' }}>
+                    {(sample.status === 'AUTHORIZED' || (sample.authorizedSpecimenCount !== undefined && sample.authorizedSpecimenCount > 0)) && (
                         <Button
                             type="primary"
                             icon={<FilePdfOutlined />}
                             onClick={handleDownloadCoa}
                         >
-                            Download COA
+                            {sample.status === 'AUTHORIZED' ? 'Download COA' : `Download Interim COA (${sample.authorizedSpecimenCount}/${sample.specimenCount})`}
                         </Button>
-                    </div>
+                    )}
                 </Space>
             </div>
 

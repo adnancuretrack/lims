@@ -1,11 +1,14 @@
 package com.lims.module.sample.service;
 
 import com.lims.module.sample.dto.WorksheetSubmitRequest;
+import com.lims.module.sample.dto.SpecimenSubmitRequest;
+import com.lims.module.sample.dto.SpecimenDTO;
 import com.lims.module.sample.entity.*;
 import com.lims.module.sample.repository.SampleRepository;
 import com.lims.module.sample.repository.SampleTestRepository;
 import com.lims.module.sample.repository.TestResultRepository;
 import com.lims.module.sample.repository.WorksheetDataRepository;
+import com.lims.module.sample.repository.SpecimenRepository;
 import com.lims.module.security.entity.User;
 import com.lims.module.security.repository.UserRepository;
 import com.lims.module.notification.service.DataSyncService;
@@ -32,6 +35,7 @@ public class WorksheetDataService {
     private final UserRepository userRepository;
     private final DataSyncService dataSyncService;
     private final MethodDefinitionService methodDefinitionService;
+    private final SpecimenRepository specimenRepository;
 
     @Transactional
     public Map<String, Object> getWorksheet(Long sampleTestId) {
@@ -58,12 +62,33 @@ public class WorksheetDataService {
                     return worksheetDataRepository.save(newWd);
                 });
         
-        return Map.of(
-            "schema", wd.getMethodDefinition().getSchemaDefinition(),
-            "data", wd.getData() != null ? wd.getData() : Map.of(),
-            "status", wd.getStatus(),
-            "context", buildContextData(st)
-        );
+        List<SpecimenDTO> specimenStatuses = specimenRepository.findBySampleIdOrderBySpecimenNumberAsc(st.getSample().getId())
+                .stream().map(sp -> {
+                    Long trId = testResultRepository.findBySampleTestIdAndSpecimenId(sampleTestId, sp.getId())
+                            .map(TestResult::getId).orElse(null);
+                    return SpecimenDTO.builder()
+                        .id(sp.getId())
+                        .sampleId(sp.getSample().getId())
+                        .specimenNumber(sp.getSpecimenNumber())
+                        .label(sp.getLabel())
+                        .scheduledTestDate(sp.getScheduledTestDate())
+                        .status(sp.getStatus())
+                        .testedBy(sp.getTestedBy() != null ? sp.getTestedBy().getDisplayName() : null)
+                        .testedAt(sp.getTestedAt())
+                        .authorizedBy(sp.getAuthorizedBy() != null ? sp.getAuthorizedBy().getDisplayName() : null)
+                        .authorizedAt(sp.getAuthorizedAt())
+                        .testResultId(trId)
+                        .build();
+                })
+                .collect(Collectors.toList());
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("schema", wd.getMethodDefinition().getSchemaDefinition());
+        response.put("data", wd.getData() != null ? wd.getData() : Map.of());
+        response.put("status", wd.getStatus());
+        response.put("context", buildContextData(st));
+        response.put("specimenStatuses", specimenStatuses);
+        return response;
     }
 
     @Transactional
@@ -71,9 +96,8 @@ public class WorksheetDataService {
         WorksheetData wd = worksheetDataRepository.findBySampleTestId(sampleTestId)
                 .orElseThrow(() -> new RuntimeException("Worksheet data not found"));
 
-        if ("AUTHORIZED".equals(wd.getSampleTest().getStatus())) {
-            throw new RuntimeException("Cannot edit authorized worksheet");
-        }
+        SampleTest st = wd.getSampleTest();
+        validateLockStatus(st, wd.getMethodDefinition().getSchemaDefinition(), request.getData(), wd.getData());
 
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         User currentUser = userRepository.findByUsername(username)
@@ -88,7 +112,6 @@ public class WorksheetDataService {
         worksheetDataRepository.save(wd);
 
         // 2. The Bridge: Update TestResult
-        SampleTest st = wd.getSampleTest();
         TestResult result = st.getResults().isEmpty() ? new TestResult() : st.getResults().get(0);
         result.setSampleTest(st);
         result.setEnteredBy(currentUser);
@@ -139,11 +162,191 @@ public class WorksheetDataService {
     }
 
     @Transactional
+    public void submitInterim(Long sampleTestId, SpecimenSubmitRequest request) {
+        submitSpecimensInternal(sampleTestId, request, false);
+    }
+
+    @Transactional
+    public void submitFinal(Long sampleTestId, SpecimenSubmitRequest request) {
+        submitSpecimensInternal(sampleTestId, request, true);
+    }
+
+    private void submitSpecimensInternal(Long sampleTestId, SpecimenSubmitRequest request, boolean isFinal) {
+        WorksheetData wd = worksheetDataRepository.findBySampleTestId(sampleTestId)
+                .orElseGet(() -> {
+                    SampleTest st = sampleTestRepository.findById(sampleTestId)
+                            .orElseThrow(() -> new RuntimeException("Sample test not found"));
+                    var activeDef = methodDefinitionService.getActiveDefinitionEntity(st.getTestMethod().getId());
+                    if (activeDef == null) {
+                        throw new RuntimeException("No active worksheet definition found for this test method");
+                    }
+                    WorksheetData newWd = new WorksheetData();
+                    newWd.setSampleTest(st);
+                    newWd.setMethodDefinition(activeDef);
+                    newWd.setStatus("DRAFT");
+                    newWd.setData(new HashMap<>());
+                    return worksheetDataRepository.save(newWd);
+                });
+
+        SampleTest st = wd.getSampleTest();
+        validateLockStatus(st, wd.getMethodDefinition().getSchemaDefinition(), request.getData(), wd.getData());
+
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        User currentUser = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // 1. Update WorksheetData data
+        wd.setData(request.getData());
+        wd.setCalculatedResults(request.getCalculatedResults());
+        wd.setStatus(isFinal ? "SUBMITTED_FINAL" : "SUBMITTED");
+        wd.setSubmittedBy(currentUser);
+        wd.setSubmittedAt(Instant.now());
+        wd.setInterimSubmission(!isFinal);
+        wd.setSubmissionCount(wd.getSubmissionCount() + 1);
+        worksheetDataRepository.save(wd);
+
+        Sample sample = st.getSample();
+
+        // 2. Process each finalized specimen index
+        for (Integer index : request.getSpecimenIndices()) {
+            Integer specimenNumber = index + 1;
+            Specimen specimen = specimenRepository.findBySampleIdAndSpecimenNumber(sample.getId(), specimenNumber)
+                    .orElseGet(() -> Specimen.builder()
+                            .sample(sample)
+                            .specimenNumber(specimenNumber)
+                            .build());
+
+            specimen.setStatus("FINALIZED");
+            specimen.setTestedBy(currentUser);
+            specimen.setTestedAt(Instant.now());
+            Specimen savedSpecimen = specimenRepository.save(specimen);
+
+            // 3. Create or update TestResult for this specimen
+            TestResult result = testResultRepository.findBySampleTestIdAndSpecimenId(sampleTestId, savedSpecimen.getId())
+                    .orElseGet(() -> TestResult.builder()
+                            .sampleTest(st)
+                            .specimen(savedSpecimen)
+                            .build());
+
+            result.setEnteredBy(currentUser);
+            result.setEnteredAt(Instant.now());
+
+            if (request.getFinalResults() != null) {
+                StringBuilder combinedText = new StringBuilder();
+                BigDecimal firstNumeric = null;
+                for (Map.Entry<String, Object> entry : request.getFinalResults().entrySet()) {
+                    Map<String, Object> valMap = (Map<String, Object>) entry.getValue();
+                    Object valObj = valMap.get("value");
+                    if (valObj instanceof List) {
+                        List<?> vals = (List<?>) valObj;
+                        if (index < vals.size()) {
+                            Object val = vals.get(index);
+                            if (val != null) {
+                                String label = (String) valMap.get("label");
+                                String unit = (String) valMap.get("unit");
+                                if (combinedText.length() > 0) {
+                                    combinedText.append(", ");
+                                }
+                                combinedText.append(label).append(": ").append(val).append(unit != null ? " " + unit : "");
+                                
+                                if (val instanceof Number && firstNumeric == null) {
+                                    firstNumeric = new BigDecimal(val.toString());
+                                } else if (firstNumeric == null) {
+                                    try {
+                                        firstNumeric = new BigDecimal(val.toString());
+                                    } catch (NumberFormatException ignored) {}
+                                }
+                            }
+                        }
+                    } else if (valObj != null) {
+                        if (combinedText.length() > 0) {
+                            combinedText.append(", ");
+                        }
+                        combinedText.append(valMap.get("label")).append(": ").append(valObj).append(valMap.get("unit") != null ? " " + valMap.get("unit") : "");
+                        if (valObj instanceof Number && firstNumeric == null) {
+                            firstNumeric = new BigDecimal(valObj.toString());
+                        }
+                    }
+                }
+                if (combinedText.length() > 0) {
+                    result.setTextValue(combinedText.toString());
+                }
+                if (firstNumeric != null) {
+                    result.setNumericValue(firstNumeric);
+                }
+            }
+
+            testResultRepository.save(result);
+        }
+
+        // 4. Update SampleTest status
+        st.setStatus("COMPLETED");
+        sampleTestRepository.save(st);
+
+        // 5. Update Sample status
+        updateSampleStatusIfFinished(sample);
+
+        dataSyncService.broadcast("SAMPLE", sample.getId(), "SPECIMENS_SUBMITTED");
+    }
+
+    @Transactional
     public void saveDraft(Long sampleTestId, Map<String, Object> data) {
         WorksheetData wd = worksheetDataRepository.findBySampleTestId(sampleTestId)
                 .orElseThrow(() -> new RuntimeException("Worksheet data not found"));
+        SampleTest st = wd.getSampleTest();
+        validateLockStatus(st, wd.getMethodDefinition().getSchemaDefinition(), data, wd.getData());
         wd.setData(data);
         worksheetDataRepository.save(wd);
+    }
+
+    private void validateLockStatus(SampleTest st, Map<String, Object> schema, Map<String, Object> newData, Map<String, Object> oldData) {
+        String testStatus = st.getStatus();
+        if ("AUTHORIZED".equals(testStatus)) {
+            throw new RuntimeException("Cannot edit authorized worksheet");
+        }
+        if ("COMPLETED".equals(testStatus)) {
+            throw new RuntimeException("Cannot edit worksheet under review");
+        }
+        if ("INTERIM_AUTHORIZED".equals(testStatus)) {
+            verifyAuthorizedDataNotModified(st.getSample().getId(), schema, oldData, newData);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void verifyAuthorizedDataNotModified(Long sampleId, Map<String, Object> schema, Map<String, Object> oldData, Map<String, Object> newData) {
+        if (schema == null || oldData == null || newData == null) return;
+        List<Map<String, Object>> sections = (List<Map<String, Object>>) schema.get("sections");
+        if (sections == null) return;
+
+        for (Map<String, Object> section : sections) {
+            if (Boolean.TRUE.equals(section.get("hasSpecimens"))) {
+                String sectionId = (String) section.get("id");
+                Object oldSectionVal = oldData.get(sectionId);
+                Object newSectionVal = newData.get(sectionId);
+
+                if (!(oldSectionVal instanceof List) || !(newSectionVal instanceof List)) {
+                    continue;
+                }
+
+                List<Map<String, Object>> oldList = (List<Map<String, Object>>) oldSectionVal;
+                List<Map<String, Object>> newList = (List<Map<String, Object>>) newSectionVal;
+
+                List<Specimen> specimens = specimenRepository.findBySampleIdOrderBySpecimenNumberAsc(sampleId);
+                for (Specimen spec : specimens) {
+                    if ("AUTHORIZED".equals(spec.getStatus())) {
+                        int idx = spec.getSpecimenNumber() - 1;
+                        if (idx >= newList.size()) {
+                            throw new RuntimeException("Cannot delete authorized specimen column: " + spec.getSpecimenNumber());
+                        }
+                        Map<String, Object> oldSpecData = idx < oldList.size() ? oldList.get(idx) : Map.of();
+                        Map<String, Object> newSpecData = newList.get(idx);
+                        if (!oldSpecData.equals(newSpecData)) {
+                            throw new RuntimeException("Cannot modify authorized specimen data for specimen: " + spec.getSpecimenNumber());
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private void updateSampleStatusIfFinished(Sample sample) {

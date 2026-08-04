@@ -1,6 +1,7 @@
 package com.lims.module.sample.controller;
 
 import com.lims.module.sample.dto.WorksheetSubmitRequest;
+import com.lims.module.sample.dto.SpecimenSubmitRequest;
 import com.lims.module.sample.service.ReportService;
 import com.lims.module.sample.service.WorksheetAuditService;
 import com.lims.module.sample.service.WorksheetDataService;
@@ -57,6 +58,26 @@ public class WorksheetDataController {
             @PathVariable Long sampleTestId,
             @RequestBody WorksheetSubmitRequest request) {
         worksheetDataService.submitWorksheet(sampleTestId, request);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/{sampleTestId}/submit-interim")
+    @Operation(summary = "Submit specific specimen columns for interim authorization review")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST', 'TECHNICIAN')")
+    public ResponseEntity<Void> submitInterim(
+            @PathVariable Long sampleTestId,
+            @RequestBody SpecimenSubmitRequest request) {
+        worksheetDataService.submitInterim(sampleTestId, request);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/{sampleTestId}/submit-final")
+    @Operation(summary = "Final submission of specimen columns for final authorization review")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST', 'TECHNICIAN')")
+    public ResponseEntity<Void> submitFinal(
+            @PathVariable Long sampleTestId,
+            @RequestBody SpecimenSubmitRequest request) {
+        worksheetDataService.submitFinal(sampleTestId, request);
         return ResponseEntity.ok().build();
     }
 

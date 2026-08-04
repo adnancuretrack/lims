@@ -17,10 +17,13 @@ import com.lims.module.sample.repository.ProductRepository;
 import com.lims.module.sample.repository.ProjectRepository;
 import com.lims.module.sample.repository.SampleRepository;
 import com.lims.module.sample.repository.AttachmentRepository;
+import com.lims.module.sample.repository.SpecimenRepository;
 import com.lims.module.sample.entity.Attachment;
+import com.lims.module.sample.dto.SpecimenDTO;
 import com.lims.module.security.entity.User;
 import com.lims.module.security.repository.UserRepository;
 import com.lims.module.notification.event.SampleReceivedEvent;
+import java.util.stream.Collectors;
 import com.lims.module.notification.service.DataSyncService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -59,6 +62,7 @@ public class SampleService {
     private final ApplicationEventPublisher eventPublisher;
     private final DataSyncService dataSyncService;
     private final com.lims.common.service.SequenceService sequenceService;
+    private final SpecimenRepository specimenRepository;
 
     @Transactional
     public JobDTO registerJob(SampleRegistrationRequest request, String username) {
@@ -168,7 +172,7 @@ public class SampleService {
     @Transactional(readOnly = true)
     public DashboardStatsDTO getDashboardStats() {
         long unreceived = sampleRepository.countByStatus("REGISTERED");
-        long inProgress = sampleRepository.countByStatus("RECEIVED");
+        long inProgress = sampleRepository.countByStatus("RECEIVED") + sampleRepository.countByStatus("IN_PROGRESS");
         // These will be wired properly in Batch 3
         long awaitingAuth = sampleRepository.countByStatus("COMPLETED");
         long authorizedToday = sampleRepository.countByStatus("AUTHORIZED");
@@ -282,6 +286,23 @@ public class SampleService {
 
 
     private SampleDTO mapToDTO(Sample sample) {
+        List<SpecimenDTO> specimenDTOs = specimenRepository.findBySampleIdOrderBySpecimenNumberAsc(sample.getId())
+                .stream().map(sp -> SpecimenDTO.builder()
+                        .id(sp.getId())
+                        .sampleId(sp.getSample().getId())
+                        .specimenNumber(sp.getSpecimenNumber())
+                        .label(sp.getLabel())
+                        .scheduledTestDate(sp.getScheduledTestDate())
+                        .status(sp.getStatus())
+                        .testedBy(sp.getTestedBy() != null ? sp.getTestedBy().getDisplayName() : null)
+                        .testedAt(sp.getTestedAt())
+                        .authorizedBy(sp.getAuthorizedBy() != null ? sp.getAuthorizedBy().getDisplayName() : null)
+                        .authorizedAt(sp.getAuthorizedAt())
+                        .build())
+                .collect(Collectors.toList());
+
+        long authorizedCount = specimenDTOs.stream().filter(s -> "AUTHORIZED".equals(s.getStatus())).count();
+
         return SampleDTO.builder()
                 .id(sample.getId())
                 .sampleNumber(sample.getSampleNumber())
@@ -293,6 +314,9 @@ public class SampleService {
                 .sampledAt(sample.getSampledAt())
                 .clientName(sample.getJob().getClient().getName())
                 .jobNumber(sample.getJob().getJobNumber())
+                .specimens(specimenDTOs)
+                .specimenCount(specimenDTOs.size())
+                .authorizedSpecimenCount((int) authorizedCount)
                 .build();
     }
 

@@ -10,6 +10,7 @@ import com.lims.module.sample.repository.ProductTestRepository;
 import com.lims.module.sample.repository.SampleRepository;
 import com.lims.module.sample.repository.SampleTestRepository;
 import com.lims.module.sample.repository.TestResultRepository;
+import com.lims.module.sample.repository.SpecimenRepository;
 import com.lims.module.security.entity.User;
 import com.lims.module.security.repository.UserRepository;
 import com.lims.module.inventory.repository.InstrumentRepository;
@@ -21,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -34,6 +36,7 @@ public class AnalysisService {
     private final UserRepository userRepository;
     private final InstrumentRepository instrumentRepository;
     private final DataSyncService dataSyncService;
+    private final SpecimenRepository specimenRepository;
 
     @Transactional(readOnly = true)
     public List<SampleTestDTO> getTestsForSample(Long sampleId) {
@@ -108,6 +111,34 @@ public class AnalysisService {
 
     public SampleTestDTO mapToDTO(SampleTest st) {
         TestResult latest = st.getResults().isEmpty() ? null : st.getResults().get(0);
+        
+        boolean hasSpecimens = false;
+        int totalSpecimens = 0;
+        if (st.getWorksheetData() != null) {
+            Map<String, Object> schema = st.getWorksheetData().getMethodDefinition().getSchemaDefinition();
+            if (schema != null && schema.get("sections") instanceof List) {
+                List<Map<String, Object>> sections = (List<Map<String, Object>>) schema.get("sections");
+                for (Map<String, Object> section : sections) {
+                    if (Boolean.TRUE.equals(section.get("hasSpecimens"))) {
+                        hasSpecimens = true;
+                        Number minRows = (Number) section.get("minRows");
+                        totalSpecimens = minRows != null ? minRows.intValue() : 1;
+                        break;
+                    }
+                }
+            }
+        }
+        
+        int finalizedSpecimens = 0;
+        int authorizedSpecimens = 0;
+        if (hasSpecimens) {
+            finalizedSpecimens = (int) specimenRepository.countBySampleIdAndStatus(st.getSample().getId(), "FINALIZED");
+            authorizedSpecimens = (int) specimenRepository.countBySampleIdAndStatus(st.getSample().getId(), "AUTHORIZED");
+        }
+
+        boolean isInterimAuthorized = "INTERIM_AUTHORIZED".equals(st.getStatus());
+        int submissionCount = st.getWorksheetData() != null ? st.getWorksheetData().getSubmissionCount() : 0;
+
         return SampleTestDTO.builder()
                 .id(st.getId())
                 .testMethodId(st.getTestMethod().getId())
@@ -119,6 +150,12 @@ public class AnalysisService {
                 .reagentLot(latest != null ? latest.getReagentLot() : null)
                 .hasWorksheet(st.getTestMethod().isHasWorksheet())
                 .testResultId(latest != null ? latest.getId() : null)
+                .totalSpecimens(totalSpecimens)
+                .finalizedSpecimens(finalizedSpecimens)
+                .authorizedSpecimens(authorizedSpecimens)
+                .hasSpecimens(hasSpecimens)
+                .isInterimAuthorized(isInterimAuthorized)
+                .submissionCount(submissionCount)
                 .build();
     }
 }

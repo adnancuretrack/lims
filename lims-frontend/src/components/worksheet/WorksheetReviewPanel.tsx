@@ -17,6 +17,7 @@ export const WorksheetReviewPanel: React.FC<WorksheetReviewPanelProps> = ({ samp
   const [schema, setSchema] = useState<WorksheetSchema | null>(null);
   const [data, setData] = useState<Record<string, any>>({});
   const [validationErrors, setValidationErrors] = useState<Record<string, any>>({});
+  const [specimens, setSpecimens] = useState<any[]>([]);
 
   useEffect(() => {
     let isMounted = true;
@@ -25,7 +26,7 @@ export const WorksheetReviewPanel: React.FC<WorksheetReviewPanelProps> = ({ samp
       try {
         setLoading(true);
         const response = await WorksheetService.getWorksheet(sampleTestId);
-        const { schema: remoteSchema, data: remoteData } = response.data;
+        const { schema: remoteSchema, data: remoteData, specimenStatuses: remoteSpecimens } = response.data;
         
         if (!remoteSchema) {
           setError('No worksheet schema found for this test.');
@@ -40,6 +41,7 @@ export const WorksheetReviewPanel: React.FC<WorksheetReviewPanelProps> = ({ samp
           setSchema(remoteSchema);
           setData(computedData);
           setValidationErrors(errors);
+          setSpecimens(remoteSpecimens || []);
           setError(null);
         }
       } catch (err) {
@@ -99,6 +101,7 @@ export const WorksheetReviewPanel: React.FC<WorksheetReviewPanelProps> = ({ samp
                 externalData={data} 
                 externalSchema={schema}
                 externalErrors={validationErrors}
+                externalSpecimens={specimens}
             />
           </Card>
         );

@@ -4,29 +4,15 @@ import { recomputeAllFormulas, runAllValidations } from './FormulaEngine';
 
 interface EngineState {
   schema: WorksheetSchema | null;
-  
-  // The active state of all fields, keyed by Section ID
-  // SINGLE_VALUE -> Record<string, any> (key: fieldId)
-  // DATA_TABLE -> Array<Record<string, any>> (array of rows)
   data: Record<string, any>;
-  
-  // Validation errors: Record<"sectionId.fieldId" | "sectionId.rowIndex.fieldId", { message: string, severity: string }>
   errors: Record<string, { message: string, severity: 'WARNING' | 'ERROR' }>;
+  specimenStatuses: any[];
 
-  // Actions
-  initialize: (schema: WorksheetSchema, initialData?: Record<string, any>) => void;
-  
-  // Update a single field in a generic section
+  initialize: (schema: WorksheetSchema, initialData?: Record<string, any>, specimenStatuses?: any[]) => void;
   updateFieldValue: (sectionId: string, fieldId: string, value: any) => void;
-  
-  // Update a field inside a specific row of a DATA_TABLE
   updateRowValue: (sectionId: string, rowIndex: number, fieldId: string, value: any) => void;
-  
-  // Dynamic Table row management
   addRow: (sectionId: string) => void;
   removeRow: (sectionId: string, rowIndex: number) => void;
-  
-  // Update a value in a MATRIX_TABLE
   updateMatrixValue: (sectionId: string, rowHeaderId: string, columnId: string, value: any) => void;
 }
 
@@ -34,9 +20,9 @@ export const useEngineStore = create<EngineState>((set) => ({
   schema: null,
   data: {},
   errors: {},
+  specimenStatuses: [],
 
-  initialize: (schema, initialData) => {
-    // Scaffold initial structure based on schema
+  initialize: (schema, initialData, specimenStatuses) => {
     const cleanData: Record<string, any> = { ...(initialData || {}) };
     
 
@@ -62,7 +48,7 @@ export const useEngineStore = create<EngineState>((set) => ({
       }
     });
 
-    set({ schema, data: cleanData, errors: {} });
+    set({ schema, data: cleanData, errors: {}, specimenStatuses: specimenStatuses || [] });
   },
 
   updateFieldValue: (sectionId, fieldId, value) => set((state) => {

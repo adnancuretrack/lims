@@ -48,7 +48,7 @@ function CoaTab() {
             message.success('Certificate of Analysis downloaded');
         } catch (e: any) {
             if (e.response?.status === 400 || e.response?.status === 500) {
-                message.error('Failed to generate CoA. Ensure the sample is AUTHORIZED.');
+                message.error('Failed to generate CoA. Ensure at least one specimen is authorized.');
             } else {
                 message.error('Download failed. Please try again.');
             }
@@ -63,7 +63,7 @@ function CoaTab() {
                 <FilePdfOutlined style={{ fontSize: 48, color: '#ff4d4f', marginBottom: 16 }} />
                 <Title level={4} style={{ marginBottom: 4 }}>Certificate of Analysis</Title>
                 <Text type="secondary">
-                    Download a finalized CoA PDF for an authorized sample.
+                    Download a finalized or interim CoA PDF for an authorized sample/specimen.
                 </Text>
             </div>
             <Input.Search
@@ -80,7 +80,7 @@ function CoaTab() {
             />
             <div style={{ marginTop: 16 }}>
                 <Text type="secondary" style={{ fontSize: 12 }}>
-                    Note: CoA can only be generated for samples with status <Tag color="green">AUTHORIZED</Tag>
+                    Note: CoA can be generated for samples with status <Tag color="green">AUTHORIZED</Tag> or samples with partially authorized specimens.
                 </Text>
             </div>
         </div>

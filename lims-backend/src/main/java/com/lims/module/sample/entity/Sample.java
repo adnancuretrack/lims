@@ -78,4 +78,13 @@ public class Sample extends BaseEntity {
         sampleTests.add(test);
         test.setSample(this);
     }
+
+    @OneToMany(mappedBy = "sample", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private java.util.Set<Specimen> specimens = new java.util.HashSet<>();
+
+    public void addSpecimen(Specimen specimen) {
+        specimens.add(specimen);
+        specimen.setSample(this);
+    }
 }

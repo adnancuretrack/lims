@@ -1,5 +1,5 @@
 import React from 'react';
-import { Form, Input, Table, Checkbox, Radio, InputNumber, Typography, Button, Space, message } from 'antd';
+import { Form, Input, Table, Checkbox, Radio, InputNumber, Typography, Button, Space, message, Tag } from 'antd';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import type { SectionSchema, FieldSchema } from '../../methods/designer/types';
 import { useEngineStore } from './store';
@@ -19,15 +19,17 @@ interface SectionRendererProps {
   externalData?: Record<string, any>;
   externalSchema?: any;
   externalErrors?: Record<string, { message: string; severity: 'WARNING' | 'ERROR' }>;
+  externalSpecimens?: any[];
 }
 
-export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readOnly, externalData, externalSchema, externalErrors }) => {
+export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readOnly, externalData, externalSchema, externalErrors, externalSpecimens }) => {
   const storeState = useEngineStore();
 
   // Use external props if in read-only mode, otherwise use global store
   const data = readOnly ? (externalData || {}) : storeState.data;
   const errors = readOnly ? (externalErrors || {}) : storeState.errors;
   const schema = readOnly ? (externalSchema || storeState.schema) : storeState.schema;
+  const specimenStatuses = readOnly ? (externalSpecimens || []) : (storeState.specimenStatuses || []);
 
   const { updateFieldValue, updateRowValue, updateMatrixValue, addRow, removeRow } = storeState;
 
@@ -94,7 +96,14 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
 
   const renderFieldInput = (field: FieldSchema, value: any, onChange: (v: any) => void, rowIndex?: number, rowId?: string) => {
     const isInstrumentLinked = !!field.instrumentSource;
-    const isFieldDisabled = readOnly || isInstrumentLinked;
+    let isColumnFinalized = false;
+    if (section.hasSpecimens && rowIndex !== undefined) {
+      const spec = specimenStatuses?.find((s: any) => s.specimenNumber === rowIndex + 1);
+      if (spec && (spec.status === 'FINALIZED' || spec.status === 'AUTHORIZED')) {
+        isColumnFinalized = true;
+      }
+    }
+    const isFieldDisabled = readOnly || isInstrumentLinked || isColumnFinalized;
 
     let inputEl;
     switch (field.inputType) {
@@ -180,40 +189,65 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
 
       const columns = [
         { title: 'Field', dataIndex: 'label', key: 'label', fixed: 'left' as const, width: 200 },
-        ...trials.map((t, i) => ({
-          title: (
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span>{t}</span>
-              {trialLen > minRows && !readOnly && (
-                <Button
-                  type="text"
-                  size="small"
-                  danger
-                  icon={<DeleteOutlined style={{ fontSize: 12 }} />}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    removeRow(section.id, i);
-                  }}
-                />
-              )}
-            </div>
-          ),
-          dataIndex: `trial_${i}`,
-          key: `trial_${i}`,
-          render: (_: any, record: any) => {
-            const val = tableData[i]?.[record.key];
-            const error = errors[`${section.id}.${i}.${record.key}`];
-            return (
-              <Form.Item
-                validateStatus={error ? (error.severity === 'ERROR' ? 'error' : 'warning') : ''}
-                help={error?.message}
-                style={{ margin: 0 }}
-              >
-                {renderFieldInput(record.fieldSchema, val, (v) => updateRowValue(section.id, i, record.key, v), i)}
-              </Form.Item>
-            );
+        ...trials.map((t, i) => {
+          let specTitle = t;
+          let specBadge = null;
+          let isFinalizedOrAuth = false;
+          if (section.hasSpecimens) {
+            const spec = specimenStatuses?.find((s: any) => s.specimenNumber === i + 1);
+            if (spec) {
+              specTitle = spec.label ? `${spec.label} (#${i + 1})` : `Specimen ${i + 1}`;
+              const dateStr = spec.scheduledTestDate ? ` (${spec.scheduledTestDate})` : '';
+              specTitle += dateStr;
+              isFinalizedOrAuth = spec.status === 'FINALIZED' || spec.status === 'AUTHORIZED';
+              
+              if (spec.status === 'FINALIZED') {
+                specBadge = <Tag color="orange" style={{ margin: 0 }}>FINALIZED</Tag>;
+              } else if (spec.status === 'AUTHORIZED') {
+                specBadge = <Tag color="green" style={{ margin: 0 }}>AUTHORIZED</Tag>;
+              }
+            } else {
+              specTitle = `Specimen ${i + 1}`;
+            }
           }
-        })),
+          return {
+            title: (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontWeight: 600 }}>{specTitle}</span>
+                  {!isFinalizedOrAuth && trialLen > minRows && !readOnly && (
+                    <Button
+                      type="text"
+                      size="small"
+                      danger
+                      icon={<DeleteOutlined style={{ fontSize: 12 }} />}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeRow(section.id, i);
+                      }}
+                    />
+                  )}
+                </div>
+                {specBadge}
+              </div>
+            ),
+            dataIndex: `trial_${i}`,
+            key: `trial_${i}`,
+            render: (_: any, record: any) => {
+              const val = tableData[i]?.[record.key];
+              const error = errors[`${section.id}.${i}.${record.key}`];
+              return (
+                <Form.Item
+                  validateStatus={error ? (error.severity === 'ERROR' ? 'error' : 'warning') : ''}
+                  help={error?.message}
+                  style={{ margin: 0 }}
+                >
+                  {renderFieldInput(record.fieldSchema, val, (v) => updateRowValue(section.id, i, record.key, v), i)}
+                </Form.Item>
+              );
+            }
+          };
+        }),
         ...(trialLen < maxRows && !readOnly ? [{
           title: (
             <Button

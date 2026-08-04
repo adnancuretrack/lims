@@ -49,6 +49,15 @@ public class SchemaValidator {
 
         String type = (String) section.get("type");
 
+        if (section.containsKey("hasSpecimens") && Boolean.TRUE.equals(section.get("hasSpecimens"))) {
+            if (!"DATA_TABLE".equals(type) && !"GROUPED_TABLE".equals(type)) {
+                throw new IllegalArgumentException("Section '" + section.get("id") + "' hasSpecimens is only allowed on DATA_TABLE or GROUPED_TABLE");
+            }
+            if (!"COLUMNS_AS_TRIALS".equals(section.get("orientation"))) {
+                throw new IllegalArgumentException("Section '" + section.get("id") + "' hasSpecimens requires COLUMNS_AS_TRIALS orientation");
+            }
+        }
+
         switch (type) {
             case "SINGLE_VALUE":
             case "GROUPED_TABLE":

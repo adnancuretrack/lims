@@ -36,10 +36,18 @@ public class WorksheetData extends BaseEntity {
     @Builder.Default
     private Map<String, Object> calculatedResults = new HashMap<>();
 
+    @Column(name = "is_interim_submission", nullable = false)
+    @Builder.Default
+    private boolean isInterimSubmission = false;
+
+    @Column(name = "submission_count", nullable = false)
+    @Builder.Default
+    private int submissionCount = 0;
+
     @Column(nullable = false, length = 30)
     @Builder.Default
     private String status = "DRAFT";
-    // DRAFT | SUBMITTED | REVIEWED | FINALIZED
+    // DRAFT | IN_PROGRESS | SUBMITTED | INTERIM_AUTHORIZED | SUBMITTED_FINAL
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "submitted_by")

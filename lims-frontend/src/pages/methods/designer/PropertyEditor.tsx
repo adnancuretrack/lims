@@ -205,6 +205,11 @@ export const PropertyEditor: React.FC = () => {
                   options={[{ value: 'ROWS_AS_RECORDS', label: 'Dynamic Rows' }, { value: 'COLUMNS_AS_TRIALS', label: 'Dynamic Columns' }]}
                 />
               </Form.Item>
+              {section.orientation === 'COLUMNS_AS_TRIALS' && (
+                <Form.Item label="Columns Represent Specimens" help="Enable independent testing & authorization lifecycle for each column/specimen">
+                  <Switch checked={section.hasSpecimens} onChange={v => updateSection(section.id, { hasSpecimens: v })} />
+                </Form.Item>
+              )}
               <Form.Item label={section.orientation === 'COLUMNS_AS_TRIALS' ? "Min Columns" : "Min Rows"}>
                 <InputNumber min={1} value={section.minRows} onChange={v => updateSection(section.id, { minRows: v || undefined })} style={{ width: '100%' }} />
               </Form.Item>

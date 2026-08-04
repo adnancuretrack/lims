@@ -18,4 +18,10 @@ public class SampleTestDTO {
     private Long instrumentId;
     private String reagentLot;
     private boolean hasWorksheet;
+    private Integer totalSpecimens;
+    private Integer finalizedSpecimens;
+    private Integer authorizedSpecimens;
+    private boolean hasSpecimens;
+    private boolean isInterimAuthorized;
+    private Integer submissionCount;
 }

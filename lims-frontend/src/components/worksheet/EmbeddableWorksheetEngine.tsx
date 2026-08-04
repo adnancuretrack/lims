@@ -18,7 +18,7 @@ export const EmbeddableWorksheetEngine: React.FC<EmbeddableWorksheetEngineProps>
   readOnly = false,
   onSubmitSuccess 
 }) => {
-  const { schema, initialize, data, errors } = useEngineStore();
+  const { schema, initialize, data, errors, specimenStatuses } = useEngineStore();
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<string>('DRAFT');
   const [auditOpen, setAuditOpen] = useState(false);
@@ -29,7 +29,7 @@ export const EmbeddableWorksheetEngine: React.FC<EmbeddableWorksheetEngineProps>
       try {
         setLoading(true);
         const response = await WorksheetService.getWorksheet(sampleTestId);
-        const { schema: remoteSchema, data: remoteData, status: remoteStatus } = response.data;
+        const { schema: remoteSchema, data: remoteData, status: remoteStatus, specimenStatuses: remoteSpecimens } = response.data;
         
         if (isMounted) {
             setStatus(remoteStatus || 'DRAFT');
@@ -38,7 +38,7 @@ export const EmbeddableWorksheetEngine: React.FC<EmbeddableWorksheetEngineProps>
             const localSaved = localStorage.getItem(`lims_worksheet_${sampleTestId}_draft`);
             const initialData = (localSaved && remoteStatus === 'DRAFT') ? JSON.parse(localSaved) : remoteData;
             
-            initialize(remoteSchema, initialData);
+            initialize(remoteSchema, initialData, remoteSpecimens);
         }
       } catch (err) {
         if (isMounted) {
@@ -116,6 +116,69 @@ export const EmbeddableWorksheetEngine: React.FC<EmbeddableWorksheetEngineProps>
     });
   };
 
+  const handleSubmitSpecimens = (isFinal: boolean) => {
+    const hasErrors = Object.values(errors).some(err => err.severity === 'ERROR');
+    if (hasErrors) {
+      Modal.error({
+        title: 'Validation Failed',
+        content: 'Please resolve all highlighted errors before submitting the worksheet.'
+      });
+      return;
+    }
+
+    Modal.confirm({
+      title: isFinal ? 'Final Submission?' : 'Submit for Interim Authorization?',
+      content: isFinal 
+        ? 'This will lock all data and push the final calculated results downstream. You will not be able to add more specimens.'
+        : 'This will lock the current batch of specimen results and send them for review. You can still add more specimens later.',
+      onOk: async () => {
+        try {
+          const finalResults = extractFinalResults(schema!, data);
+          const specimenIndices: number[] = [];
+          const specSection = schema?.sections?.find(s => s.hasSpecimens);
+          if (specSection) {
+            const tableData = data[specSection.id] || [];
+            tableData.forEach((_: any, idx: number) => {
+              const specStatus = specimenStatuses?.[idx]?.status;
+              if (specStatus !== 'AUTHORIZED') {
+                specimenIndices.push(idx);
+              }
+            });
+          }
+          
+          if (specimenIndices.length === 0) {
+             message.warning('No new specimens to submit');
+             return;
+          }
+
+          if (isFinal) {
+            await WorksheetService.submitFinal(sampleTestId, {
+              specimenIndices,
+              data,
+              calculatedResults: data,
+              finalResults
+            });
+          } else {
+            await WorksheetService.submitInterim(sampleTestId, {
+              specimenIndices,
+              data,
+              calculatedResults: data,
+              finalResults
+            });
+          }
+
+          localStorage.removeItem(`lims_worksheet_${sampleTestId}_draft`);
+          message.success(isFinal ? 'Worksheet submitted for final authorization.' : 'Worksheet submitted for interim authorization.');
+          if (onSubmitSuccess) {
+            onSubmitSuccess();
+          }
+        } catch (err) {
+          message.error('Submission failed. Check your connection and try again.');
+        }
+      }
+    });
+  };
+
   if (loading || !schema) {
     return (
       <div style={{ padding: 40, textAlign: 'center' }}>
@@ -124,7 +187,8 @@ export const EmbeddableWorksheetEngine: React.FC<EmbeddableWorksheetEngineProps>
     );
   }
 
-  const isActuallyReadOnly = readOnly || status !== 'DRAFT';
+  const isActuallyReadOnly = readOnly || !['DRAFT', 'IN_PROGRESS', 'INTERIM_AUTHORIZED'].includes(status);
+  const hasSpecimens = schema?.sections?.some(s => s.hasSpecimens);
 
   const actionButtons = (
     <Space>
@@ -136,7 +200,29 @@ export const EmbeddableWorksheetEngine: React.FC<EmbeddableWorksheetEngineProps>
       ) : (
         <>
           <Button size="small" icon={<SaveOutlined />} onClick={handleSave}>Save Draft</Button>
-          <Button size="small" type="primary" icon={<CheckCircleOutlined />} onClick={handleComplete}>Finalize</Button>
+          {hasSpecimens ? (
+            <>
+              <Button 
+                size="small" 
+                type="primary" 
+                ghost
+                icon={<CheckCircleOutlined />} 
+                onClick={() => handleSubmitSpecimens(false)}
+              >
+                Submit Interim
+              </Button>
+              <Button 
+                size="small" 
+                type="primary" 
+                icon={<CheckCircleOutlined />} 
+                onClick={() => handleSubmitSpecimens(true)}
+              >
+                Final Submission
+              </Button>
+            </>
+          ) : (
+            <Button size="small" type="primary" icon={<CheckCircleOutlined />} onClick={handleComplete}>Finalize</Button>
+          )}
         </>
       )}
     </Space>
@@ -170,7 +256,7 @@ export const EmbeddableWorksheetEngine: React.FC<EmbeddableWorksheetEngineProps>
                 headStyle={{ backgroundColor: '#fafafa', minHeight: 40 }}
                 size="small"
               >
-                <SectionRenderer section={section} />
+                <SectionRenderer section={section} readOnly={isActuallyReadOnly} />
               </Card>
             );
           })}

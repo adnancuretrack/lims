@@ -34,6 +34,7 @@ class WorksheetDataServiceTest {
     @Mock private UserRepository userRepository;
     @Mock private DataSyncService dataSyncService;
     @Mock private MethodDefinitionService methodDefinitionService;
+    @Mock private com.lims.module.sample.repository.SpecimenRepository specimenRepository;
 
     private WorksheetDataService worksheetDataService;
 
@@ -46,7 +47,8 @@ class WorksheetDataServiceTest {
                 sampleRepository,
                 userRepository,
                 dataSyncService,
-                methodDefinitionService
+                methodDefinitionService,
+                specimenRepository
         );
     }
 

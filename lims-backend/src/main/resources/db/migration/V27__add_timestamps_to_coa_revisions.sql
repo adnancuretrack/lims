@@ -1,0 +1,2 @@
+ALTER TABLE coa_revisions ADD COLUMN created_at TIMESTAMPTZ NOT NULL DEFAULT now();
+ALTER TABLE coa_revisions ADD COLUMN updated_at TIMESTAMPTZ NOT NULL DEFAULT now();

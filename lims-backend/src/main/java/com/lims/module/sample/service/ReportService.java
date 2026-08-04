@@ -6,6 +6,11 @@ import com.lims.module.sample.dto.WorkloadReportDTO;
 import com.lims.module.sample.entity.*;
 import com.lims.module.sample.repository.SampleRepository;
 import com.lims.module.sample.repository.SampleTestRepository;
+import com.lims.module.sample.repository.SpecimenRepository;
+import com.lims.module.sample.repository.CoaRevisionRepository;
+import com.lims.module.sample.repository.TestResultRepository;
+import com.lims.module.security.repository.UserRepository;
+import org.springframework.security.core.context.SecurityContextHolder;
 import lombok.RequiredArgsConstructor;
 import net.sf.jasperreports.engine.*;
 import net.sf.jasperreports.engine.data.JRBeanCollectionDataSource;
@@ -35,6 +40,10 @@ public class ReportService {
     private final ExcelReportService excelReportService;
     private final PdfConversionService pdfConversionService;
     private final com.lims.module.sample.repository.WorksheetDataRepository worksheetDataRepository;
+    private final SpecimenRepository specimenRepository;
+    private final CoaRevisionRepository coaRevisionRepository;
+    private final TestResultRepository testResultRepository;
+    private final UserRepository userRepository;
 
     @Transactional(readOnly = true)
     public byte[] generateWorksheetReport(Long sampleTestId) {
@@ -73,16 +82,20 @@ public class ReportService {
 
     // ==================== CoA Report ====================
 
-    @Transactional(readOnly = true)
+    @Transactional
     public byte[] generateCoa(Long sampleId) throws JRException {
         Sample sample = sampleRepository.findById(sampleId)
                 .orElseThrow(() -> new RuntimeException("Sample not found"));
 
-        if (!"AUTHORIZED".equals(sample.getStatus())) {
-            throw new IllegalStateException("CoA can only be generated for AUTHORIZED samples");
-        }
-
+        long authorizedSpecimens = specimenRepository.countBySampleIdAndStatus(sampleId, "AUTHORIZED");
+        long totalSpecimens = specimenRepository.countBySampleId(sampleId);
+        
         List<SampleTest> tests = sampleTestRepository.findBySampleIdOrderBySortOrderAscIdAsc(sampleId);
+        boolean hasAuthorizedTests = tests.stream().anyMatch(t -> "AUTHORIZED".equals(t.getStatus()) || "INTERIM_AUTHORIZED".equals(t.getStatus()));
+
+        if (authorizedSpecimens == 0 && !hasAuthorizedTests && !"AUTHORIZED".equals(sample.getStatus())) {
+            throw new IllegalStateException("CoA requires at least one authorized result");
+        }
 
         // Map Header Parameters (22 Fields)
         Map<String, Object> params = new HashMap<>();
@@ -118,21 +131,78 @@ public class ReportService {
 
         params.put("authorizedAt", sample.getUpdatedAt() != null ? sample.getUpdatedAt().toString() : "N/A");
         
+        // Specimen Interim parameters
+        boolean isInterim = totalSpecimens > authorizedSpecimens;
+        params.put("isInterim", isInterim);
+        params.put("specimenSummary", authorizedSpecimens + " of " + totalSpecimens + " specimens tested");
+
         // Footer Signatures
         params.put("preparedBy", "Lab Registrar"); 
         params.put("checkedBy", "Technical Manager");
         params.put("approvedBy", "Lab Director");
 
         // Map tests to beans for Jasper
-        List<Map<String, Object>> testData = tests.stream().map(t -> {
-            Map<String, Object> map = new HashMap<>();
-            map.put("testName", t.getTestMethod().getName());
-            map.put("methodName", t.getTestMethod().getCode());
-            map.put("result", t.getLastResult() != null ? t.getLastResult().getDisplayValue() : "N/A");
-            map.put("units", "As Spec.");
-            map.put("limits", "As Spec.");
-            return map;
-        }).collect(Collectors.toList());
+        List<Map<String, Object>> testData = new ArrayList<>();
+        for (SampleTest t : tests) {
+            boolean testHasSpecimens = false;
+            if (t.getWorksheetData() != null) {
+                Map<String, Object> schema = t.getWorksheetData().getMethodDefinition().getSchemaDefinition();
+                if (schema != null && schema.get("sections") instanceof List) {
+                    List<Map<String, Object>> sections = (List<Map<String, Object>>) schema.get("sections");
+                    for (Map<String, Object> section : sections) {
+                        if (Boolean.TRUE.equals(section.get("hasSpecimens"))) {
+                            testHasSpecimens = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (testHasSpecimens) {
+                List<TestResult> results = testResultRepository.findBySampleTestIdOrderByEnteredAtDesc(t.getId())
+                        .stream().filter(tr -> tr.getSpecimen() != null && "AUTHORIZED".equals(tr.getSpecimen().getStatus()))
+                        .collect(Collectors.toList());
+                
+                for (TestResult tr : results) {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("testName", t.getTestMethod().getName() + " — " + (tr.getSpecimen().getLabel() != null ? tr.getSpecimen().getLabel() : "Specimen " + tr.getSpecimen().getSpecimenNumber()));
+                    map.put("methodName", t.getTestMethod().getCode());
+                    map.put("result", tr.getDisplayValue());
+                    map.put("units", "As Spec.");
+                    map.put("limits", "As Spec.");
+                    testData.add(map);
+                }
+
+                if (results.size() > 1) {
+                    double sum = 0;
+                    int count = 0;
+                    for (TestResult tr : results) {
+                        if (tr.getNumericValue() != null) {
+                            sum += tr.getNumericValue().doubleValue();
+                            count++;
+                        }
+                    }
+                    if (count > 0) {
+                        double avg = sum / count;
+                        Map<String, Object> map = new HashMap<>();
+                        map.put("testName", t.getTestMethod().getName() + " — AVERAGE");
+                        map.put("methodName", t.getTestMethod().getCode());
+                        map.put("result", String.format("%.2f", avg));
+                        map.put("units", "As Spec.");
+                        map.put("limits", "As Spec.");
+                        testData.add(map);
+                    }
+                }
+            } else {
+                Map<String, Object> map = new HashMap<>();
+                map.put("testName", t.getTestMethod().getName());
+                map.put("methodName", t.getTestMethod().getCode());
+                map.put("result", t.getLastResult() != null ? t.getLastResult().getDisplayValue() : "N/A");
+                map.put("units", "As Spec.");
+                map.put("limits", "As Spec.");
+                testData.add(map);
+            }
+        }
 
         JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(testData);
 
@@ -150,7 +220,7 @@ public class ReportService {
                     attachmentData.add(imgMap);
                 }
             } catch (Exception e) {
-                // Skip files that fail conversion — don't break the whole report
+                // Skip files that fail conversion
             }
         }
 
@@ -163,17 +233,48 @@ public class ReportService {
             JasperReport subreport = JasperCompileManager.compileReport(subIs);
             params.put("ATTACHMENT_SUBREPORT", subreport);
         } catch (IOException e) {
-            // Subreport is optional — COA still works without it
+            // Subreport is optional
         }
 
+        byte[] pdfBytes;
         // Load template
         try (InputStream is = resourceLoader.getResource("classpath:reports/coa_template.jrxml").getInputStream()) {
             JasperReport jasperReport = JasperCompileManager.compileReport(is);
             JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, params, dataSource);
-            return JasperExportManager.exportReportToPdf(jasperPrint);
+            pdfBytes = JasperExportManager.exportReportToPdf(jasperPrint);
         } catch (IOException e) {
             throw new RuntimeException("Failed to load COA template", e);
         }
+
+        // Save a snapshot of this CoA revision
+        try {
+            int nextRev = coaRevisionRepository.countBySampleId(sampleId);
+            String username = "System";
+            try {
+                var auth = SecurityContextHolder.getContext().getAuthentication();
+                if (auth != null && auth.getName() != null) {
+                    username = auth.getName();
+                }
+            } catch (Exception ignored) {}
+            
+            com.lims.module.security.entity.User currentUser = userRepository.findByUsername(username).orElse(null);
+
+            CoaRevision revision = CoaRevision.builder()
+                    .sample(sample)
+                    .revisionNumber(nextRev)
+                    .isInterim(isInterim)
+                    .specimensIncluded((int) authorizedSpecimens)
+                    .specimensTotal((int) totalSpecimens)
+                    .pdfSnapshot(pdfBytes)
+                    .generatedBy(currentUser)
+                    .generatedAt(Instant.now())
+                    .build();
+            coaRevisionRepository.save(revision);
+        } catch (Exception e) {
+            // Log and ignore to prevent blocking PDF download if audit saving fails
+        }
+
+        return pdfBytes;
     }
 
     // ==================== TRF Report ====================

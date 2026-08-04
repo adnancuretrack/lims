@@ -14,7 +14,7 @@ const { Text } = Typography;
 export const WorksheetEnginePage: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { schema, initialize, data, errors } = useEngineStore();
+  const { schema, initialize, data, errors, specimenStatuses } = useEngineStore();
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<string>('DRAFT');
   const [auditOpen, setAuditOpen] = useState(false);
@@ -24,7 +24,7 @@ export const WorksheetEnginePage: React.FC = () => {
       try {
         setLoading(true);
         const response = await WorksheetService.getWorksheet(id!);
-        const { schema: remoteSchema, data: remoteData, status: remoteStatus } = response.data;
+        const { schema: remoteSchema, data: remoteData, status: remoteStatus, specimenStatuses: remoteSpecimens } = response.data;
         
         setStatus(remoteStatus || 'DRAFT');
         
@@ -32,7 +32,7 @@ export const WorksheetEnginePage: React.FC = () => {
         const localSaved = localStorage.getItem(`lims_worksheet_${id}_draft`);
         const initialData = (localSaved && remoteStatus === 'DRAFT') ? JSON.parse(localSaved) : remoteData;
         
-        initialize(remoteSchema, initialData);
+        initialize(remoteSchema, initialData, remoteSpecimens);
       } catch (err) {
         message.error('Failed to load worksheet context');
         console.error(err);
@@ -46,7 +46,7 @@ export const WorksheetEnginePage: React.FC = () => {
 
   // ... (auto-save effect) ...
   useEffect(() => {
-    if (status === 'DRAFT' && Object.keys(data).length > 0) {
+    if ((status === 'DRAFT' || status === 'IN_PROGRESS') && Object.keys(data).length > 0) {
       const handler = setTimeout(() => {
         localStorage.setItem(`lims_worksheet_${id}_draft`, JSON.stringify(data));
       }, 1500); 
@@ -103,6 +103,67 @@ export const WorksheetEnginePage: React.FC = () => {
     });
   };
 
+  const handleSubmitSpecimens = (isFinal: boolean) => {
+    const hasErrors = Object.values(errors).some(err => err.severity === 'ERROR');
+    if (hasErrors) {
+      Modal.error({
+        title: 'Validation Failed',
+        content: 'Please resolve all highlighted errors before submitting the worksheet.'
+      });
+      return;
+    }
+
+    Modal.confirm({
+      title: isFinal ? 'Final Submission?' : 'Submit for Interim Authorization?',
+      content: isFinal 
+        ? 'This will lock all data and push the final calculated results downstream. You will not be able to add more specimens.'
+        : 'This will lock the current batch of specimen results and send them for review. You can still add more specimens later.',
+      onOk: async () => {
+        try {
+          const finalResults = extractFinalResults(schema!, data);
+          const specimenIndices: number[] = [];
+          const specSection = schema?.sections?.find(s => s.hasSpecimens);
+          if (specSection) {
+            const tableData = data[specSection.id] || [];
+            tableData.forEach((_: any, idx: number) => {
+              const specStatus = specimenStatuses?.[idx]?.status;
+              if (specStatus !== 'AUTHORIZED') {
+                specimenIndices.push(idx);
+              }
+            });
+          }
+          
+          if (specimenIndices.length === 0) {
+             message.warning('No new specimens to submit');
+             return;
+          }
+
+          if (isFinal) {
+            await WorksheetService.submitFinal(id!, {
+              specimenIndices,
+              data,
+              calculatedResults: data,
+              finalResults
+            });
+          } else {
+            await WorksheetService.submitInterim(id!, {
+              specimenIndices,
+              data,
+              calculatedResults: data,
+              finalResults
+            });
+          }
+
+          localStorage.removeItem(`lims_worksheet_${id}_draft`);
+          message.success(isFinal ? 'Worksheet submitted for final authorization.' : 'Worksheet submitted for interim authorization.');
+          navigate('/analysis');
+        } catch (err) {
+          message.error('Submission failed. Check your connection and try again.');
+        }
+      }
+    });
+  };
+
   if (loading || !schema) {
     return (
       <div style={{ padding: 100, textAlign: 'center' }}>
@@ -111,7 +172,8 @@ export const WorksheetEnginePage: React.FC = () => {
     );
   }
 
-  const isReadOnly = status !== 'DRAFT';
+  const isReadOnly = status !== 'DRAFT' && status !== 'IN_PROGRESS' && status !== 'INTERIM_AUTHORIZED';
+  const hasSpecimens = schema?.sections?.some(s => s.hasSpecimens);
 
   return (
     <Layout style={{ minHeight: '100vh', background: '#f5f5f5' }}>
@@ -135,7 +197,27 @@ export const WorksheetEnginePage: React.FC = () => {
           {!isReadOnly && (
             <>
               <Button icon={<SaveOutlined />} onClick={handleSave}>Save Draft</Button>
-              <Button type="primary" icon={<CheckCircleOutlined />} onClick={handleComplete}>Finalize Submission</Button>
+              {hasSpecimens ? (
+                <>
+                  <Button 
+                    type="primary" 
+                    ghost
+                    icon={<CheckCircleOutlined />} 
+                    onClick={() => handleSubmitSpecimens(false)}
+                  >
+                    Submit Interim
+                  </Button>
+                  <Button 
+                    type="primary" 
+                    icon={<CheckCircleOutlined />} 
+                    onClick={() => handleSubmitSpecimens(true)}
+                  >
+                    Final Submission
+                  </Button>
+                </>
+              ) : (
+                <Button type="primary" icon={<CheckCircleOutlined />} onClick={handleComplete}>Finalize Submission</Button>
+              )}
             </>
           )}
         </Space>
@@ -159,9 +241,10 @@ export const WorksheetEnginePage: React.FC = () => {
                 key={section.id} 
                 title={<span style={{ fontWeight: 600 }}>{section.title}</span>}
                 styles={{ body: { padding: '16px' } }}
-                headStyle={{ backgroundColor: '#fafafa', minHeight: 48 }}
+                headStyle={{ backgroundColor: '#fafafa', minHeight: 40 }}
+                size="small"
               >
-                <SectionRenderer section={section} />
+                <SectionRenderer section={section} readOnly={isReadOnly} />
               </Card>
             );
           })}

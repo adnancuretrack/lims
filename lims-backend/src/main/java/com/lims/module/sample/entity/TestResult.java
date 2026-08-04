@@ -21,6 +21,10 @@ public class TestResult extends BaseEntity {
     @JoinColumn(name = "sample_test_id", nullable = false)
     private SampleTest sampleTest;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "specimen_id")
+    private Specimen specimen;
+
     @Column(name = "numeric_value", precision = 19, scale = 4)
     private BigDecimal numericValue;
 

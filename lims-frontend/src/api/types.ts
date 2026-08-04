@@ -28,6 +28,20 @@ export interface JobDTO {
     createdAt: string;
 }
 
+export interface SpecimenDTO {
+    id: number;
+    sampleId: number;
+    specimenNumber: number;
+    label?: string;
+    scheduledTestDate?: string;
+    status: 'DRAFT' | 'FINALIZED' | 'AUTHORIZED' | 'REJECTED';
+    testedBy?: string;
+    testedAt?: string;
+    authorizedBy?: string;
+    authorizedAt?: string;
+    testResultId?: number;
+}
+
 export interface SampleDTO {
     id: number;
     sampleNumber: string;
@@ -42,6 +56,9 @@ export interface SampleDTO {
     jobNumber?: string;
     sampledAt?: string;
     rejectionReason?: string;
+    specimens?: SpecimenDTO[];
+    specimenCount?: number;
+    authorizedSpecimenCount?: number;
 }
 
 export interface ClientDTO {
@@ -99,6 +116,10 @@ export interface SampleTestDTO {
     instrumentId?: number;
     reagentLot?: string;
     hasWorksheet: boolean;
+    totalSpecimens?: number;
+    finalizedSpecimens?: number;
+    authorizedSpecimens?: number;
+    hasSpecimens?: boolean;
 }
 
 export interface ResultEntryRequest {

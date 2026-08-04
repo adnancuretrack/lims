@@ -66,6 +66,7 @@ export interface SectionSchema {
   columnGroups?: ColumnGroupSchema[];
   rowHeaders?: RowHeaderSchema[];
   visibilityCondition?: string;
+  hasSpecimens?: boolean;
 
   // Charting Configuration
   chartType?: 'SCATTER' | 'LINE';

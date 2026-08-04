@@ -17,6 +17,7 @@ export default function ReviewQueuePage() {
     const [isReviewModalVisible, setIsReviewModalVisible] = useState(false);
     const [reviewAction, setReviewAction] = useState<'AUTHORIZE' | 'REJECT' | null>(null);
     const [reviewComment, setReviewComment] = useState('');
+    const [selectedTestResultId, setSelectedTestResultId] = useState<number | null>(null);
     const queryClient = useQueryClient();
 
     const { data: queue, isLoading: isLoadingQueue } = useQuery({
@@ -24,7 +25,10 @@ export default function ReviewQueuePage() {
         queryFn: () => SampleService.list()
     });
 
-    const awaitingReview = queue?.content.filter((s: SampleDTO) => s.status === 'COMPLETED') || [];
+    const awaitingReview = queue?.content.filter((s: SampleDTO) => 
+        s.status === 'COMPLETED' || 
+        (s.status === 'IN_PROGRESS' && s.specimens && s.specimens.some((sp: any) => sp.status === 'FINALIZED'))
+    ) || [];
 
     // Fetch tests for selected sample
     const { data: tests, isLoading: isLoadingTests } = useQuery({
@@ -51,11 +55,27 @@ export default function ReviewQueuePage() {
     };
 
     const submitReview = () => {
-        if (!selectedSample || !tests) return;
+        if (!selectedSample) return;
 
-        // In this simplified version, we review the sample's results. 
-        // We'll process the first test result for now or extend to multi-result.
-        // Usually, you review individual test results.
+        if (selectedTestResultId) {
+            const request: ResultReviewRequest = {
+                testResultId: selectedTestResultId,
+                action: reviewAction!,
+                comment: reviewComment
+            };
+            reviewMutation.mutate(request, {
+                onSuccess: () => {
+                    setSelectedTestResultId(null);
+                    queryClient.invalidateQueries({ queryKey: ['sampleTests', selectedSample.id] });
+                    queryClient.invalidateQueries({ queryKey: ['reviewQueue'] });
+                    setIsReviewModalVisible(false);
+                    setReviewComment('');
+                }
+            });
+            return;
+        }
+
+        if (!tests) return;
         const completedTests = tests.filter(t => t.status === 'COMPLETED');
 
         if (completedTests.length === 0) {
@@ -63,7 +83,6 @@ export default function ReviewQueuePage() {
             return;
         }
 
-        // Apply action to all completed tests for this sample
         completedTests.forEach(test => {
             if (test.testResultId) {
                 const request: ResultReviewRequest = {
@@ -172,15 +191,37 @@ export default function ReviewQueuePage() {
                                             </Space>
                                         </div>
                                     ),
-                                    children: test.hasWorksheet ? (
-                                        <WorksheetReviewPanel sampleTestId={test.id} />
-                                    ) : (
-                                        <div style={{ padding: 16 }}>
-                                            <Alert 
-                                                message="No worksheet available for this test. Technical review must be performed against the primary data source." 
-                                                type="info" 
-                                            />
-                                        </div>
+                                    children: (
+                                        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                                            {test.hasSpecimens && (
+                                                <Card title="Specimens for Authorization" size="small">
+                                                    <Table
+                                                        dataSource={selectedSample?.specimens || []}
+                                                        pagination={false}
+                                                        size="small"
+                                                        rowKey="id"
+                                                        columns={[
+                                                            { title: 'Specimen #', dataIndex: 'specimenNumber', key: 'specimenNumber' },
+                                                            { title: 'Label', dataIndex: 'label', key: 'label', render: (l) => l || '-' },
+                                                            { title: 'Status', dataIndex: 'status', key: 'status', render: (st) => (
+                                                                <Tag color={st === 'FINALIZED' ? 'orange' : st === 'AUTHORIZED' ? 'green' : 'default'}>{st}</Tag>
+                                                            )},
+                                                            { title: 'Tested By', dataIndex: 'testedBy', key: 'testedBy' }
+                                                        ]}
+                                                    />
+                                                </Card>
+                                            )}
+                                            {test.hasWorksheet ? (
+                                                <WorksheetReviewPanel sampleTestId={test.id} />
+                                            ) : (
+                                                <div style={{ padding: 16 }}>
+                                                    <Alert 
+                                                        message="No worksheet available for this test. Technical review must be performed against the primary data source." 
+                                                        type="info" 
+                                                    />
+                                                </div>
+                                            )}
+                                        </Space>
                                     )
                                 }))}
                             />

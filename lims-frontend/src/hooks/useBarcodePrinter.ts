@@ -10,7 +10,7 @@ export function useBarcodePrinter(options: PrintOptions = { width: '2in', height
     const componentRef = useRef<HTMLDivElement>(null);
 
     const handlePrint = useReactToPrint({
-        content: () => componentRef.current,
+        contentRef: componentRef,
         pageStyle: `
             @page {
                 size: ${options.width} ${options.height};
