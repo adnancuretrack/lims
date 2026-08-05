@@ -34,8 +34,8 @@ export const WorksheetReviewPanel: React.FC<WorksheetReviewPanelProps> = ({ samp
         }
 
         // Run calculations and validations once to get the final view
-        const computedData = recomputeAllFormulas(remoteSchema, remoteData || {});
-        const errors = runAllValidations(remoteSchema, computedData);
+        const computedData = recomputeAllFormulas(remoteSchema, remoteData || {}, remoteSpecimens);
+        const errors = runAllValidations(remoteSchema, computedData, remoteSpecimens);
         
         if (isMounted) {
           setSchema(remoteSchema);

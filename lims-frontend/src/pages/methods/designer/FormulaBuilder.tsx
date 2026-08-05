@@ -10,15 +10,44 @@ interface FormulaBuilderProps {
   currentSectionId?: string | null;
 }
 
-const FUNCTIONS = [
-  { name: 'SUM_RUNNING', desc: 'Cumulative sum up to current row' },
-  { name: 'SUM_ALL', desc: 'Total across all rows' },
-  { name: 'AVG_ALL', desc: 'Average across all rows' },
-  { name: 'COUNT_ALL', desc: 'Count of non-empty values' },
-  { name: 'MIN_ALL', desc: 'Minimum across all rows' },
-  { name: 'MAX_ALL', desc: 'Maximum across all rows' },
-  { name: 'HOURS_BETWEEN', desc: 'Hours between two datetime fields' },
-  { name: 'ABS', desc: 'Absolute value' },
+const FUNCTION_GROUPS = [
+  {
+    title: 'Current Batch (Active Specimens)',
+    color: 'orange',
+    items: [
+      { name: 'SUM_CURRENT', desc: 'Sum of values in current active batch' },
+      { name: 'AVG_CURRENT', desc: 'Average of values in current active batch' },
+      { name: 'COUNT_CURRENT', desc: 'Count of specimens in current active batch' },
+      { name: 'MIN_CURRENT', desc: 'Minimum of current active batch' },
+      { name: 'MAX_CURRENT', desc: 'Maximum of current active batch' },
+      { name: 'STDEV_CURRENT', desc: 'Sample standard deviation (N-1) of current active batch' },
+      { name: 'CV_CURRENT', desc: 'Coefficient of variation (%) of current active batch' },
+    ]
+  },
+  {
+    title: 'Cumulative (All Specimens / Rows)',
+    color: 'blue',
+    items: [
+      { name: 'SUM_ALL', desc: 'Sum across all specimens/rows' },
+      { name: 'AVG_ALL', desc: 'Average across all specimens/rows' },
+      { name: 'COUNT_ALL', desc: 'Count of all non-empty specimens/rows' },
+      { name: 'MIN_ALL', desc: 'Minimum across all specimens/rows' },
+      { name: 'MAX_ALL', desc: 'Maximum across all specimens/rows' },
+      { name: 'STDEV_ALL', desc: 'Sample standard deviation (N-1) across all specimens/rows' },
+      { name: 'CV_ALL', desc: 'Coefficient of variation (%) across all specimens/rows' },
+      { name: 'MEDIAN_ALL', desc: 'Median across all specimens/rows' },
+      { name: 'SUM_RUNNING', desc: 'Running sum up to current row' },
+    ]
+  },
+  {
+    title: 'Math & Helpers',
+    color: 'green',
+    items: [
+      { name: 'ABS', desc: 'Absolute value' },
+      { name: 'ROUND', desc: 'Round to nearest integer or decimals' },
+      { name: 'HOURS_BETWEEN', desc: 'Hours between two datetime fields' },
+    ]
+  }
 ];
 
 export const FormulaBuilder: React.FC<FormulaBuilderProps> = ({ value, onChange, currentSectionId }) => {
@@ -32,8 +61,6 @@ export const FormulaBuilder: React.FC<FormulaBuilderProps> = ({ value, onChange,
     const pushFields = (fields: any[] | undefined) => {
       if (fields) {
         fields.forEach(f => {
-          // If in the same section, we can use concise notation {fieldId}
-          // If in another section, we use {sectionId.fieldId} for clarity/safety, though the engine might support global uniqueness
           const varName = sec.id === currentSectionId ? f.id : `${sec.id}.${f.id}`;
           availableVars.push({ id: varName, label: f.label || f.id, sectionTitle: sec.title || 'Untitled Section' });
         });
@@ -47,13 +74,9 @@ export const FormulaBuilder: React.FC<FormulaBuilderProps> = ({ value, onChange,
 
   const insertText = (textToInsert: string) => {
     const currentVal = value || '';
-    
-    // We append to the end for simplicity in this V1 builder
-    // A more advanced V2 would track cursor position using selectionStart via inputRef
     const newVal = currentVal + (currentVal.endsWith(' ') || currentVal === '' ? '' : ' ') + textToInsert;
     onChange(newVal);
     
-    // Attempt to focus back
     setTimeout(() => {
       inputRef.current?.focus();
     }, 10);
@@ -87,21 +110,23 @@ export const FormulaBuilder: React.FC<FormulaBuilderProps> = ({ value, onChange,
           </div>
         </Collapse.Panel>
 
-        <Collapse.Panel header={<Text type="secondary" style={{ fontSize: 12 }}>Functions (Click to insert)</Text>} key="2">
-          <Space size={[4, 4]} wrap>
-            {FUNCTIONS.map(fn => (
-              <Tooltip title={fn.desc} key={fn.name}>
-                <Tag 
-                  color="green" 
-                  style={{ cursor: 'pointer', margin: 0, fontFamily: 'monospace' }} 
-                  onClick={() => insertText(`${fn.name}()`)}
-                >
-                  {fn.name}
-                </Tag>
-              </Tooltip>
-            ))}
-          </Space>
-        </Collapse.Panel>
+        {FUNCTION_GROUPS.map((group, groupIdx) => (
+          <Collapse.Panel header={<Text type="secondary" style={{ fontSize: 12 }}>{group.title} (Click to insert)</Text>} key={String(groupIdx + 2)}>
+            <Space size={[4, 4]} wrap>
+              {group.items.map(fn => (
+                <Tooltip title={fn.desc} key={fn.name}>
+                  <Tag 
+                    color={group.color} 
+                    style={{ cursor: 'pointer', margin: 0, fontFamily: 'monospace' }} 
+                    onClick={() => insertText(`${fn.name}()`)}
+                  >
+                    {fn.name}
+                  </Tag>
+                </Tooltip>
+              ))}
+            </Space>
+          </Collapse.Panel>
+        ))}
       </Collapse>
     </div>
   );

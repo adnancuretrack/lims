@@ -6,37 +6,131 @@ interface EvaluationContext {
   data: Record<string, any>;
   currentSectionId: string;
   currentRowIndex: number | string | null; // number for array index, string for rowHeader ID
+  specimenStatuses?: any[];
 }
 
+const calculateSampleStdev = (values: number[]): number | null => {
+  if (values.length < 2) return null;
+  const mean = values.reduce((sum, v) => sum + v, 0) / values.length;
+  const variance = values.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / (values.length - 1);
+  return Math.sqrt(variance);
+};
+
+const calculateCV = (values: number[]): number | null => {
+  if (values.length < 2) return null;
+  const mean = values.reduce((sum, v) => sum + v, 0) / values.length;
+  if (mean === 0) return null;
+  const stdev = calculateSampleStdev(values);
+  return stdev !== null ? (stdev / mean) * 100 : null;
+};
+
+const calculateMedian = (values: number[]): number | null => {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  if (sorted.length % 2 !== 0) {
+    return sorted[mid];
+  }
+  return (sorted[mid - 1] + sorted[mid]) / 2;
+};
+
 export const evaluateFormula = (context: EvaluationContext, precision?: number): number | string | null => {
-  const { formula, schema, data, currentSectionId, currentRowIndex } = context;
+  const { formula, schema, data, currentSectionId, currentRowIndex, specimenStatuses } = context;
   if (!formula || formula.trim() === '') return null;
 
   try {
-    let expression = formula;
+    // Brackets normalization: convert {table[0].field} to {table.0.field}
+    let expression = formula.replace(/\{([^}]+)\}/g, (_, fieldRef) => {
+      const normalized = fieldRef.replace(/\[(\d+)\]/g, '.$1');
+      return `{${normalized}}`;
+    });
 
     // 1. Resolve Cross-Row Aggregate Functions First
-    // Pattern: FUNCTION({fieldId}) or FUNCTION({sectionId.fieldId})
-    const aggRegex = /(SUM_RUNNING|SUM_ALL|AVG_ALL|COUNT_ALL|MIN_ALL|MAX_ALL)\(\{([^}]+)\}\)/g;
-    expression = expression.replace(aggRegex, (_, funcName, fieldRef) => {
+    // Pattern: FUNCTION(args) where args contains {fieldRef} and optional extra parameters
+    const aggRegex = /(SUM_RUNNING|SUM_ALL|AVG_ALL|COUNT_ALL|MIN_ALL|MAX_ALL|STDEV_ALL|CV_ALL|MEDIAN_ALL|SUM_CURRENT|AVG_CURRENT|COUNT_CURRENT|MIN_CURRENT|MAX_CURRENT|STDEV_CURRENT|CV_CURRENT|AVG_AUTHORIZED|SUM_AUTHORIZED|AVG_BATCH|SUM_BATCH)\(([^)]+)\)/g;
+    expression = expression.replace(aggRegex, (_, funcName, matchContent) => {
+      const args = matchContent.split(',');
+      const fieldRef = args[0].replace(/[\{\}]/g, '').trim().replace(/\[(\d+)\]/g, '.$1');
       const ref = parseFieldRef(fieldRef, currentSectionId);
       const sectionData = data[ref.sectionId];
-      
+      const secSchema = (schema.sections || []).find(s => s.id === ref.sectionId);
+      const hasSpecimens = secSchema?.hasSpecimens === true;
+
+      const getSpecimenStatus = (idx: number): string => {
+        const spec = (specimenStatuses || []).find((s: any) => s.specimenNumber === idx + 1);
+        return spec?.status || 'DRAFT';
+      };
+
+      const getSpecimenBatchNumber = (idx: number): number => {
+        const authSpecimens = (specimenStatuses || [])
+          .filter((s: any) => s.status === 'AUTHORIZED' && s.authorizedAt)
+          .sort((a, b) => new Date(a.authorizedAt).getTime() - new Date(b.authorizedAt).getTime());
+
+        const batches: any[][] = [];
+        authSpecimens.forEach(spec => {
+          const time = new Date(spec.authorizedAt).getTime();
+          let placed = false;
+          for (const batch of batches) {
+            const firstTime = new Date(batch[0].authorizedAt).getTime();
+            if (Math.abs(time - firstTime) < 10000) {
+              batch.push(spec);
+              placed = true;
+              break;
+            }
+          }
+          if (!placed) {
+            batches.push([spec]);
+          }
+        });
+
+        const spec = (specimenStatuses || []).find((s: any) => s.specimenNumber === idx + 1);
+        if (!spec) return batches.length + 1;
+
+        if (spec.status !== 'AUTHORIZED') {
+          return batches.length + 1;
+        }
+
+        const foundBatchIdx = batches.findIndex(batch => batch.some(s => s.specimenNumber === spec.specimenNumber));
+        return foundBatchIdx !== -1 ? foundBatchIdx + 1 : batches.length + 1;
+      };
+
       let values: number[] = [];
 
       if (Array.isArray(sectionData)) {
-        // Standard Table
-        values = sectionData.map(row => Number(row[ref.fieldId])).filter(v => !isNaN(v));
+        sectionData.forEach((row, idx) => {
+          const valStr = row[ref.fieldId];
+          if (valStr === undefined || valStr === null || valStr === '') return;
+          const val = Number(valStr);
+          if (isNaN(val)) return;
+
+          if (funcName.endsWith('_CURRENT') && hasSpecimens) {
+            if (getSpecimenStatus(idx) === 'AUTHORIZED') return;
+          } else if (funcName.endsWith('_AUTHORIZED') && hasSpecimens) {
+            if (getSpecimenStatus(idx) !== 'AUTHORIZED') return;
+          } else if ((funcName === 'AVG_BATCH' || funcName === 'SUM_BATCH') && hasSpecimens) {
+            const targetBatch = args[1] ? Number(args[1].trim()) : 1;
+            if (getSpecimenBatchNumber(idx) !== targetBatch) return;
+          }
+
+          values.push(val);
+        });
       } else if (sectionData && typeof sectionData === 'object') {
-        // Matrix Table: sectionData is Record<rowId, Record<columnId, value>>
-        values = Object.values(sectionData)
-          .map((row: any) => Number(row[ref.fieldId]))
-          .filter(v => !isNaN(v));
+        Object.values(sectionData).forEach((row: any) => {
+          const valStr = row[ref.fieldId];
+          if (valStr === undefined || valStr === null || valStr === '') return;
+          const val = Number(valStr);
+          if (!isNaN(val)) {
+            values.push(val);
+          }
+        });
       }
 
-      let result = 0;
+      let result: number | null = 0;
       switch (funcName) {
         case 'SUM_ALL':
+        case 'SUM_CURRENT':
+        case 'SUM_AUTHORIZED':
+        case 'SUM_BATCH':
           result = values.reduce((sum, v) => sum + v, 0);
           break;
         case 'SUM_RUNNING':
@@ -44,25 +138,40 @@ export const evaluateFormula = (context: EvaluationContext, precision?: number):
              const runningVals = values.slice(0, currentRowIndex + 1);
              result = runningVals.reduce((sum, v) => sum + v, 0);
           } else {
-             // For Matrix, running sum doesn't have a clear "top-to-bottom" without sorting logic
-             // Default to sum all for now
              result = values.reduce((sum, v) => sum + v, 0);
           }
           break;
         case 'AVG_ALL':
+        case 'AVG_CURRENT':
+        case 'AVG_AUTHORIZED':
+        case 'AVG_BATCH':
           result = values.length > 0 ? values.reduce((sum, v) => sum + v, 0) / values.length : 0;
           break;
         case 'COUNT_ALL':
+        case 'COUNT_CURRENT':
           result = values.length;
           break;
         case 'MIN_ALL':
+        case 'MIN_CURRENT':
           result = values.length > 0 ? Math.min(...values) : 0;
           break;
         case 'MAX_ALL':
+        case 'MAX_CURRENT':
           result = values.length > 0 ? Math.max(...values) : 0;
           break;
+        case 'STDEV_ALL':
+        case 'STDEV_CURRENT':
+          result = calculateSampleStdev(values);
+          break;
+        case 'CV_ALL':
+        case 'CV_CURRENT':
+          result = calculateCV(values);
+          break;
+        case 'MEDIAN_ALL':
+          result = calculateMedian(values);
+          break;
       }
-      return result.toString();
+      return result !== null ? result.toString() : 'null';
     });
 
     // 2. Resolve Variables: {fieldId}, {sectionId.fieldId}, or {sectionId.rowId.fieldId}
@@ -75,7 +184,6 @@ export const evaluateFormula = (context: EvaluationContext, precision?: number):
       
       if (secSchema?.type === 'DATA_TABLE' || secSchema?.type === 'GROUPED_TABLE') {
         const tableData = data[ref.sectionId] || [];
-        // If it's a 3-part ref {sec.rowIdx.field}, rowId is index
         const idx = ref.rowId !== undefined ? Number(ref.rowId) : (typeof currentRowIndex === 'number' ? currentRowIndex : null);
         if (idx !== null && tableData[idx]) {
           val = tableData[idx][ref.fieldId];
@@ -90,7 +198,6 @@ export const evaluateFormula = (context: EvaluationContext, precision?: number):
         val = data[ref.sectionId]?.[ref.fieldId];
       }
 
-      // If value is empty or unparseable text, return 0 or null placeholder
       if (val === undefined || val === null || val === '') return '0';
       if (typeof val === 'boolean') return val ? '1' : '0';
       if (!isNaN(Number(val))) return String(val);
@@ -135,7 +242,10 @@ export const evaluateCondition = (context: EvaluationContext & { formula: string
   if (!formula || formula.trim() === '') return true;
 
   try {
-    let expression = formula;
+    let expression = formula.replace(/\{([^}]+)\}/g, (_, fieldRef) => {
+      const normalized = fieldRef.replace(/\[(\d+)\]/g, '.$1');
+      return `{${normalized}}`;
+    });
 
     // Resolve Variables
     const varRegex = /\{([^}]+)\}/g;
@@ -186,7 +296,11 @@ export const evaluateCondition = (context: EvaluationContext & { formula: string
   }
 };
 
-export const recomputeAllFormulas = (schema: WorksheetSchema, data: Record<string, any>): Record<string, any> => {
+export const recomputeAllFormulas = (
+  schema: WorksheetSchema,
+  data: Record<string, any>,
+  specimenStatuses?: any[]
+): Record<string, any> => {
   const nextData = JSON.parse(JSON.stringify(data));
   const maxPasses = 3;
   
@@ -200,7 +314,8 @@ export const recomputeAllFormulas = (schema: WorksheetSchema, data: Record<strin
              schema,
              data: nextData,
              currentSectionId: section.id,
-             currentRowIndex: null
+             currentRowIndex: null,
+             specimenStatuses
            }, f.precision);
         });
       } else if (section.type === 'DATA_TABLE' || section.type === 'GROUPED_TABLE') {
@@ -213,7 +328,8 @@ export const recomputeAllFormulas = (schema: WorksheetSchema, data: Record<strin
               schema,
               data: nextData,
               currentSectionId: section.id,
-              currentRowIndex: rowIndex
+              currentRowIndex: rowIndex,
+              specimenStatuses
             }, f.precision);
           });
         });
@@ -229,7 +345,8 @@ export const recomputeAllFormulas = (schema: WorksheetSchema, data: Record<strin
               schema,
               data: nextData,
               currentSectionId: section.id,
-              currentRowIndex: rh.id
+              currentRowIndex: rh.id,
+              specimenStatuses
             }, f.precision);
           });
         });
@@ -242,7 +359,8 @@ export const recomputeAllFormulas = (schema: WorksheetSchema, data: Record<strin
 
 export const runAllValidations = (
   schema: WorksheetSchema,
-  data: Record<string, any>
+  data: Record<string, any>,
+  specimenStatuses?: any[]
 ): Record<string, { message: string; severity: 'WARNING' | 'ERROR' }> => {
   const newErrors: Record<string, { message: string; severity: 'WARNING' | 'ERROR' }> = {};
 
@@ -250,7 +368,7 @@ export const runAllValidations = (
     if (section.type === 'SINGLE_VALUE') {
       (section.fields || []).forEach(f => {
         (f.validations || []).forEach(rule => {
-          if (!evaluateCondition({ formula: rule.rule, schema, data, currentSectionId: section.id, currentRowIndex: null })) {
+          if (!evaluateCondition({ formula: rule.rule, schema, data, currentSectionId: section.id, currentRowIndex: null, specimenStatuses })) {
             newErrors[`${section.id}.${f.id}`] = { message: rule.message, severity: rule.severity };
           }
         });
@@ -260,7 +378,7 @@ export const runAllValidations = (
       (data[section.id] || []).forEach((_row: any, rowIndex: number) => {
         fieldsWithRules.forEach(f => {
           for (const rule of f.validations!) {
-            if (!evaluateCondition({ formula: rule.rule, schema, data, currentSectionId: section.id, currentRowIndex: rowIndex })) {
+            if (!evaluateCondition({ formula: rule.rule, schema, data, currentSectionId: section.id, currentRowIndex: rowIndex, specimenStatuses })) {
               newErrors[`${section.id}.${rowIndex}.${f.id}`] = { message: rule.message, severity: rule.severity };
               break;
             }
@@ -272,7 +390,7 @@ export const runAllValidations = (
       section.rowHeaders?.forEach(rh => {
         fieldsWithRules.forEach(f => {
           for (const rule of f.validations!) {
-            if (!evaluateCondition({ formula: rule.rule, schema, data, currentSectionId: section.id, currentRowIndex: rh.id })) {
+            if (!evaluateCondition({ formula: rule.rule, schema, data, currentSectionId: section.id, currentRowIndex: rh.id, specimenStatuses })) {
               newErrors[`${section.id}.${rh.id}.${f.id}`] = { message: rule.message, severity: rule.severity };
               break;
             }

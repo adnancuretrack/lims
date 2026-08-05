@@ -60,8 +60,8 @@ export const useEngineStore = create<EngineState>((set) => ({
         [fieldId]: value
       }
     };
-    const nextData = recomputeAllFormulas(state.schema, newData);
-    const nextErrors = runAllValidations(state.schema, nextData);
+    const nextData = recomputeAllFormulas(state.schema, newData, state.specimenStatuses);
+    const nextErrors = runAllValidations(state.schema, nextData, state.specimenStatuses);
     return { data: nextData, errors: nextErrors };
   }),
 
@@ -76,8 +76,8 @@ export const useEngineStore = create<EngineState>((set) => ({
       [sectionId]: list
     };
     
-    const nextData = recomputeAllFormulas(state.schema, newData);
-    const nextErrors = runAllValidations(state.schema, nextData);
+    const nextData = recomputeAllFormulas(state.schema, newData, state.specimenStatuses);
+    const nextErrors = runAllValidations(state.schema, nextData, state.specimenStatuses);
     return { data: nextData, errors: nextErrors };
   }),
 
@@ -91,8 +91,8 @@ export const useEngineStore = create<EngineState>((set) => ({
       [sectionId]: list
     };
     
-    const nextData = recomputeAllFormulas(state.schema, newData);
-    const nextErrors = runAllValidations(state.schema, nextData);
+    const nextData = recomputeAllFormulas(state.schema, newData, state.specimenStatuses);
+    const nextErrors = runAllValidations(state.schema, nextData, state.specimenStatuses);
     return { data: nextData, errors: nextErrors };
   }),
 
@@ -106,8 +106,8 @@ export const useEngineStore = create<EngineState>((set) => ({
       [sectionId]: list
     };
     
-    const nextData = recomputeAllFormulas(state.schema, newData);
-    const nextErrors = runAllValidations(state.schema, nextData);
+    const nextData = recomputeAllFormulas(state.schema, newData, state.specimenStatuses);
+    const nextErrors = runAllValidations(state.schema, nextData, state.specimenStatuses);
     return { data: nextData, errors: nextErrors };
   }),
 
@@ -124,8 +124,8 @@ export const useEngineStore = create<EngineState>((set) => ({
       [sectionId]: sectionData
     };
     
-    const nextData = recomputeAllFormulas(state.schema, newData);
-    const nextErrors = runAllValidations(state.schema, nextData);
+    const nextData = recomputeAllFormulas(state.schema, newData, state.specimenStatuses);
+    const nextErrors = runAllValidations(state.schema, nextData, state.specimenStatuses);
     return { data: nextData, errors: nextErrors };
   })
 }));
