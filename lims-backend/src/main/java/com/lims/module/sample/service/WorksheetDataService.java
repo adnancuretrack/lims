@@ -167,7 +167,9 @@ public class WorksheetDataService {
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         // 1. Update WorksheetData data
-        wd.setData(request.getData());
+        Map<String, Object> data = request.getData() != null ? new HashMap<>(request.getData()) : new HashMap<>();
+        applyLateBindingSystemMappings(wd.getMethodDefinition().getSchemaDefinition(), data, currentUser);
+        wd.setData(data);
         wd.setCalculatedResults(request.getCalculatedResults());
         wd.setStatus(isFinal ? "SUBMITTED_FINAL" : "SUBMITTED");
         wd.setSubmittedBy(currentUser);
@@ -364,5 +366,54 @@ public class WorksheetDataService {
         ctx.put("currentUser.name", username);
         
         return ctx;
+    }
+
+    @SuppressWarnings("unchecked")
+    private void applyLateBindingSystemMappings(Map<String, Object> schema, Map<String, Object> data, User currentUser) {
+        if (schema == null || !(schema.get("sections") instanceof List)) {
+            return;
+        }
+        List<Map<String, Object>> sections = (List<Map<String, Object>>) schema.get("sections");
+        Instant now = Instant.now();
+
+        for (Map<String, Object> section : sections) {
+            String sectionId = (String) section.get("id");
+            if (sectionId == null) continue;
+
+            Map<String, Object> sectionData = (Map<String, Object>) data.get(sectionId);
+            if (sectionData == null) {
+                sectionData = new HashMap<>();
+                data.put(sectionId, sectionData);
+            }
+
+            if (section.get("fields") instanceof List) {
+                List<Map<String, Object>> fields = (List<Map<String, Object>>) section.get("fields");
+                for (Map<String, Object> field : fields) {
+                    String mapping = (String) field.get("systemMapping");
+                    if (mapping == null || mapping.isEmpty()) continue;
+
+                    String fieldId = (String) field.get("id");
+                    if (fieldId == null) continue;
+
+                    switch (mapping) {
+                        case "audit.testedBy.displayName":
+                            sectionData.put(fieldId, currentUser.getDisplayName());
+                            break;
+                        case "audit.testedBy.username":
+                            sectionData.put(fieldId, currentUser.getUsername());
+                            break;
+                        case "audit.testedAt.datetime":
+                            sectionData.put(fieldId, now.toString());
+                            break;
+                        case "audit.testedBy.signature":
+                            String sig = currentUser.getSignatureImagePath();
+                            sectionData.put(fieldId, sig != null ? sig : "Signed by " + currentUser.getDisplayName());
+                            break;
+                        default:
+                            break;
+                    }
+                }
+            }
+        }
     }
 }
