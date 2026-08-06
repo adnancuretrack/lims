@@ -146,10 +146,6 @@ export const PropertyEditor: React.FC = () => {
               />
             </Form.Item>
           )}
-          <Divider />
-          <Form.Item label="COA Final Result" help="Extract this field's value for the final report.">
-            <Switch checked={field.isFinalResult} onChange={v => handleUpdate({ isFinalResult: v })} />
-          </Form.Item>
         </Form>
       );
     }

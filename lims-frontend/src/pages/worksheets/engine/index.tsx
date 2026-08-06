@@ -4,7 +4,7 @@ import { Layout, Button, Space, Card, Typography, message, Modal, Spin } from 'a
 import { ArrowLeftOutlined, SaveOutlined, CheckCircleOutlined, FileExcelOutlined, HistoryOutlined } from '@ant-design/icons';
 import { useEngineStore } from './store';
 import { SectionRenderer } from './SectionRenderer';
-import { evaluateCondition, extractFinalResults } from './FormulaEngine';
+import { evaluateCondition } from './FormulaEngine';
 import { WorksheetService } from '../../../api/WorksheetService';
 import { WorksheetAuditDrawer } from './WorksheetAuditDrawer';
 
@@ -85,12 +85,9 @@ export const WorksheetEnginePage: React.FC = () => {
       content: 'Submitting will lock the data and push the calculated results downstream. This action cannot be undone.',
       onOk: async () => {
         try {
-          const finalResults = extractFinalResults(schema!, data);
-          
           await WorksheetService.submit(id!, {
             data,
-            calculatedResults: data, // Our engine merges calculated values into the main data map
-            finalResults
+            calculatedResults: data // Our engine merges calculated values into the main data map
           });
 
           localStorage.removeItem(`lims_worksheet_${id}_draft`);
@@ -120,7 +117,6 @@ export const WorksheetEnginePage: React.FC = () => {
         : 'This will lock the current batch of specimen results and send them for review. You can still add more specimens later.',
       onOk: async () => {
         try {
-          const finalResults = extractFinalResults(schema!, data);
           const specimenIndices: number[] = [];
           const specSection = schema?.sections?.find(s => s.hasSpecimens);
           if (specSection) {
@@ -142,15 +138,13 @@ export const WorksheetEnginePage: React.FC = () => {
             await WorksheetService.submitFinal(id!, {
               specimenIndices,
               data,
-              calculatedResults: data,
-              finalResults
+              calculatedResults: data
             });
           } else {
             await WorksheetService.submitInterim(id!, {
               specimenIndices,
               data,
-              calculatedResults: data,
-              finalResults
+              calculatedResults: data
             });
           }
 

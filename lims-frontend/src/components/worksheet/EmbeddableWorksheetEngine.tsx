@@ -3,7 +3,7 @@ import { Space, Card, message, Modal, Spin, Button } from 'antd';
 import { SaveOutlined, CheckCircleOutlined, FileExcelOutlined, HistoryOutlined } from '@ant-design/icons';
 import { useEngineStore } from '../../pages/worksheets/engine/store';
 import { SectionRenderer } from '../../pages/worksheets/engine/SectionRenderer';
-import { evaluateCondition, extractFinalResults } from '../../pages/worksheets/engine/FormulaEngine';
+import { evaluateCondition } from '../../pages/worksheets/engine/FormulaEngine';
 import { WorksheetService } from '../../api/WorksheetService';
 import { WorksheetAuditDrawer } from '../../pages/worksheets/engine/WorksheetAuditDrawer';
 
@@ -96,12 +96,9 @@ export const EmbeddableWorksheetEngine: React.FC<EmbeddableWorksheetEngineProps>
       content: 'Submitting will lock the data and push the calculated results downstream. This action cannot be undone.',
       onOk: async () => {
         try {
-          const finalResults = extractFinalResults(schema!, data);
-          
           await WorksheetService.submit(sampleTestId, {
             data,
-            calculatedResults: data, // Our engine merges calculated values into the main data map
-            finalResults
+            calculatedResults: data // Our engine merges calculated values into the main data map
           });
 
           localStorage.removeItem(`lims_worksheet_${sampleTestId}_draft`);
@@ -133,7 +130,6 @@ export const EmbeddableWorksheetEngine: React.FC<EmbeddableWorksheetEngineProps>
         : 'This will lock the current batch of specimen results and send them for review. You can still add more specimens later.',
       onOk: async () => {
         try {
-          const finalResults = extractFinalResults(schema!, data);
           const specimenIndices: number[] = [];
           const specSection = schema?.sections?.find(s => s.hasSpecimens);
           if (specSection) {
@@ -155,15 +151,13 @@ export const EmbeddableWorksheetEngine: React.FC<EmbeddableWorksheetEngineProps>
             await WorksheetService.submitFinal(sampleTestId, {
               specimenIndices,
               data,
-              calculatedResults: data,
-              finalResults
+              calculatedResults: data
             });
           } else {
             await WorksheetService.submitInterim(sampleTestId, {
               specimenIndices,
               data,
-              calculatedResults: data,
-              finalResults
+              calculatedResults: data
             });
           }
 

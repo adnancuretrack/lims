@@ -117,36 +117,7 @@ public class WorksheetDataService {
         result.setEnteredBy(currentUser);
         result.setEnteredAt(Instant.now());
 
-        // Extract final results from the map
-        if (request.getFinalResults() != null && !request.getFinalResults().isEmpty()) {
-            if (request.getFinalResults().size() == 1) {
-                Map.Entry<String, Object> entry = request.getFinalResults().entrySet().iterator().next();
-                Map<String, Object> valMap = (Map<String, Object>) entry.getValue();
-                Object val = valMap.get("value");
-                
-                if (val instanceof Number) {
-                    result.setNumericValue(new BigDecimal(val.toString()));
-                } else if (val != null) {
-                    result.setTextValue(val.toString());
-                }
-            } else {
-                // Concatenate multiple results
-                String combined = request.getFinalResults().values().stream()
-                    .map(obj -> {
-                        Map<String, Object> m = (Map<String, Object>) obj;
-                        return m.get("label") + ": " + m.get("value") + (m.get("unit") != null ? " " + m.get("unit") : "");
-                    })
-                    .collect(Collectors.joining(", "));
-                result.setTextValue(combined);
-                
-                // Use first numeric value as numericValue
-                request.getFinalResults().values().stream()
-                    .map(obj -> ((Map<String, Object>) obj).get("value"))
-                    .filter(v -> v instanceof Number)
-                    .findFirst()
-                    .ifPresent(v -> result.setNumericValue(new BigDecimal(v.toString())));
-            }
-        }
+
 
         testResultRepository.save(result);
 
@@ -231,50 +202,7 @@ public class WorksheetDataService {
             result.setEnteredBy(currentUser);
             result.setEnteredAt(Instant.now());
 
-            if (request.getFinalResults() != null) {
-                StringBuilder combinedText = new StringBuilder();
-                BigDecimal firstNumeric = null;
-                for (Map.Entry<String, Object> entry : request.getFinalResults().entrySet()) {
-                    Map<String, Object> valMap = (Map<String, Object>) entry.getValue();
-                    Object valObj = valMap.get("value");
-                    if (valObj instanceof List) {
-                        List<?> vals = (List<?>) valObj;
-                        if (index < vals.size()) {
-                            Object val = vals.get(index);
-                            if (val != null) {
-                                String label = (String) valMap.get("label");
-                                String unit = (String) valMap.get("unit");
-                                if (combinedText.length() > 0) {
-                                    combinedText.append(", ");
-                                }
-                                combinedText.append(label).append(": ").append(val).append(unit != null ? " " + unit : "");
-                                
-                                if (val instanceof Number && firstNumeric == null) {
-                                    firstNumeric = new BigDecimal(val.toString());
-                                } else if (firstNumeric == null) {
-                                    try {
-                                        firstNumeric = new BigDecimal(val.toString());
-                                    } catch (NumberFormatException ignored) {}
-                                }
-                            }
-                        }
-                    } else if (valObj != null) {
-                        if (combinedText.length() > 0) {
-                            combinedText.append(", ");
-                        }
-                        combinedText.append(valMap.get("label")).append(": ").append(valObj).append(valMap.get("unit") != null ? " " + valMap.get("unit") : "");
-                        if (valObj instanceof Number && firstNumeric == null) {
-                            firstNumeric = new BigDecimal(valObj.toString());
-                        }
-                    }
-                }
-                if (combinedText.length() > 0) {
-                    result.setTextValue(combinedText.toString());
-                }
-                if (firstNumeric != null) {
-                    result.setNumericValue(firstNumeric);
-                }
-            }
+
 
             testResultRepository.save(result);
         }

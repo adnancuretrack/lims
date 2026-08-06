@@ -3,7 +3,6 @@ import apiClient from './client';
 export interface WorksheetSubmitRequest {
   data: Record<string, any>;
   calculatedResults: Record<string, any>;
-  finalResults: Record<string, any>;
 }
 
 export const WorksheetService = {

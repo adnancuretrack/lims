@@ -12,6 +12,5 @@ public class SpecimenSubmitRequest {
     private List<Integer> specimenIndices; // 0-based column indices
     private Map<String, Object> data;
     private Map<String, Object> calculatedResults;
-    private Map<String, Object> finalResults;
     private boolean isFinalSubmission;
 }

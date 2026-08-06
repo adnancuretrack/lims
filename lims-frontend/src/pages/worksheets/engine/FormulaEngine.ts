@@ -401,39 +401,3 @@ export const runAllValidations = (
   });
   return newErrors;
 };
-
-export const extractFinalResults = (
-  schema: WorksheetSchema,
-  data: Record<string, any>
-): Record<string, { value: any, unit?: string, label: string }> => {
-  const finalResults: Record<string, { value: any, unit?: string, label: string }> = {};
-
-  (schema.sections || []).forEach(section => {
-    if (section.type === 'SINGLE_VALUE') {
-      (section.fields || []).filter(f => f.isFinalResult).forEach(f => {
-        const val = data[section.id]?.[f.id];
-        if (val != null && val !== '') {
-          finalResults[`${section.id}.${f.id}`] = { value: val, unit: f.unit, label: f.label };
-        }
-      });
-    } else if (section.type === 'DATA_TABLE' || section.type === 'GROUPED_TABLE') {
-      (section.columns || section.dataColumns || []).filter(c => c.isFinalResult).forEach(c => {
-        const values = (data[section.id] || []).map((row: any) => row[c.id]).filter((v: any) => v != null && v !== '');
-        if (values.length > 0) {
-          finalResults[`${section.id}.${c.id}`] = { value: values.length === 1 ? values[0] : values, unit: c.unit, label: c.label };
-        }
-      });
-    } else if (section.type === 'MATRIX_TABLE') {
-      (section.columns || []).filter(c => c.isFinalResult).forEach(c => {
-        const matrixData = data[section.id] || {};
-        const values = (section.rowHeaders || [])
-          .map(rh => matrixData[rh.id]?.[c.id])
-          .filter(v => v != null && v !== '');
-        if (values.length > 0) {
-          finalResults[`${section.id}.${c.id}`] = { value: values.length === 1 ? values[0] : values, unit: c.unit, label: c.label };
-        }
-      });
-    }
-  });
-  return finalResults;
-};

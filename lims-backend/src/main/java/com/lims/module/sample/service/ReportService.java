@@ -173,75 +173,7 @@ public class ReportService {
                     testData.add(map);
                 }
 
-                boolean hasCustomSummary = false;
-                if (t.getWorksheetData() != null && t.getWorksheetData().getCalculatedResults() != null) {
-                    WorksheetData wd = t.getWorksheetData();
-                    Map<String, Object> schema = wd.getMethodDefinition().getSchemaDefinition();
-                    Map<String, Object> calcResults = wd.getCalculatedResults();
-                    if (schema != null && schema.get("sections") instanceof List) {
-                        List<Map<String, Object>> sections = (List<Map<String, Object>>) schema.get("sections");
-                        List<Map<String, Object>> customFields = new ArrayList<>();
-                        for (Map<String, Object> section : sections) {
-                            String sectionId = (String) section.get("id");
-                            String sectionType = (String) section.get("type");
-                            if ("SINGLE_VALUE".equals(sectionType) && section.get("fields") instanceof List) {
-                                List<Map<String, Object>> fields = (List<Map<String, Object>>) section.get("fields");
-                                for (Map<String, Object> field : fields) {
-                                    if (Boolean.TRUE.equals(field.get("isFinalResult"))) {
-                                        customFields.add(field);
-                                    }
-                                }
-                            }
-                        }
-                        
-                        if (!customFields.isEmpty()) {
-                            List<Map<String, Object>> resolvedSummaries = new ArrayList<>();
-                            for (Map<String, Object> field : customFields) {
-                                String fieldId = (String) field.get("id");
-                                String sectionId = null;
-                                for (Map<String, Object> section : sections) {
-                                    if ("SINGLE_VALUE".equals(section.get("type")) && section.get("fields") instanceof List) {
-                                        List<Map<String, Object>> fields = (List<Map<String, Object>>) section.get("fields");
-                                        for (Map<String, Object> f : fields) {
-                                            if (fieldId.equals(f.get("id"))) {
-                                                sectionId = (String) section.get("id");
-                                                break;
-                                            }
-                                        }
-                                    }
-                                    if (sectionId != null) break;
-                                }
-                                
-                                if (sectionId != null && calcResults.get(sectionId) instanceof Map) {
-                                    Map<String, Object> sectionVals = (Map<String, Object>) calcResults.get(sectionId);
-                                    Object val = sectionVals.get(fieldId);
-                                    if (val != null && !val.toString().trim().isEmpty() && !"null".equals(val.toString())) {
-                                        Map<String, Object> summaryMap = new HashMap<>();
-                                        summaryMap.put("label", field.get("label"));
-                                        summaryMap.put("unit", field.get("unit"));
-                                        summaryMap.put("value", val.toString());
-                                        resolvedSummaries.add(summaryMap);
-                                    }
-                                }
-                            }
-                            
-                            if (!resolvedSummaries.isEmpty()) {
-                                hasCustomSummary = true;
-                                for (Map<String, Object> summary : resolvedSummaries) {
-                                    Map<String, Object> map = new HashMap<>();
-                                    map.put("testName", t.getTestMethod().getName() + " — " + summary.get("label"));
-                                    map.put("methodName", t.getTestMethod().getCode());
-                                    map.put("result", summary.get("value"));
-                                    map.put("units", summary.get("unit") != null ? summary.get("unit") : "As Spec.");
-                                    map.put("limits", "As Spec.");
-                                    testData.add(map);
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if (!hasCustomSummary && results.size() > 1) {
+                if (results.size() > 1) {
                     double sum = 0;
                     int count = 0;
                     for (TestResult tr : results) {

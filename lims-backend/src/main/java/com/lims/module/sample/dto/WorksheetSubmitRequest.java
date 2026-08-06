@@ -10,5 +10,4 @@ import java.util.Map;
 public class WorksheetSubmitRequest {
     private Map<String, Object> data;
     private Map<String, Object> calculatedResults;
-    private Map<String, Object> finalResults;
 }
