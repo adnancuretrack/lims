@@ -128,6 +128,10 @@ export const PropertyEditor: React.FC = () => {
                   { value: 'sample.job.poNumber', label: 'PO Number' },
                   { value: 'sample.sampledAt', label: 'Sampling Date' },
                   { value: 'sample.receivedAt', label: 'Received Date' },
+                  { value: 'audit.testedBy.displayName', label: 'Tested By (Full Name) [On Submit]' },
+                  { value: 'audit.testedBy.username', label: 'Tested By (Username) [On Submit]' },
+                  { value: 'audit.testedAt.datetime', label: 'Tested Date & Time [On Submit]' },
+                  { value: 'audit.testedBy.signature', label: 'Tested By Signature [On Submit]' },
                 ]}
               />
             </Form.Item>
