@@ -135,7 +135,27 @@ export const VariableCheatSheet: React.FC<VariableCheatSheetProps> = ({ schema, 
           onChange={e => setSearchText(e.target.value)}
         />
 
-        <div ref={contentRef} style={{ padding: '0 8px' }}>
+        <div ref={contentRef} style={{ padding: '0 8px' }} className="printable-cheat-sheet">
+          <style type="text/css" media="print">
+            {`
+              @page { size: A4 portrait; margin: 15mm; }
+              .print-only-title { display: block !important; margin-bottom: 20px; font-size: 20px; text-align: center; }
+              .printable-cheat-sheet ul {
+                column-count: 2;
+                column-gap: 24px;
+                padding: 0;
+              }
+              .printable-cheat-sheet li {
+                break-inside: avoid;
+                page-break-inside: avoid;
+                margin-bottom: 12px;
+                border: 1px solid #f0f0f0;
+                padding: 12px !important;
+                border-radius: 6px;
+              }
+              .printable-cheat-sheet button { display: none !important; }
+            `}
+          </style>
           <h2 style={{ display: 'none' }} className="print-only-title">Variable Cheat Sheet</h2>
           <List
             itemLayout="vertical"
