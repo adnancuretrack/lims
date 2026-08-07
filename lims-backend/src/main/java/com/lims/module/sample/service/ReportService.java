@@ -17,7 +17,12 @@ import net.sf.jasperreports.engine.data.JRBeanCollectionDataSource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import lombok.extern.slf4j.Slf4j;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -30,6 +35,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ReportService {
 
     private final SampleRepository sampleRepository;
@@ -87,163 +93,49 @@ public class ReportService {
         Sample sample = sampleRepository.findById(sampleId)
                 .orElseThrow(() -> new RuntimeException("Sample not found"));
 
-        long authorizedSpecimens = specimenRepository.countBySampleIdAndStatus(sampleId, "AUTHORIZED");
-        long totalSpecimens = specimenRepository.countBySampleId(sampleId);
-        
         List<SampleTest> tests = sampleTestRepository.findBySampleIdOrderBySortOrderAscIdAsc(sampleId);
-        boolean hasAuthorizedTests = tests.stream().anyMatch(t -> "AUTHORIZED".equals(t.getStatus()) || "INTERIM_AUTHORIZED".equals(t.getStatus()));
+        List<byte[]> pdfs = new ArrayList<>();
 
-        if (authorizedSpecimens == 0 && !hasAuthorizedTests && !"AUTHORIZED".equals(sample.getStatus())) {
-            throw new IllegalStateException("CoA requires at least one authorized result");
-        }
-
-        // Map Header Parameters (22 Fields)
-        Map<String, Object> params = new HashMap<>();
-        Job job = sample.getJob();
-        Client client = job.getClient();
-        Project project = job.getProject();
-
-        // Left Column
-        params.put("requestNo", sample.getSampleNumber());
-        params.put("client", client.getName());
-        params.put("postBox", client.getAddress() != null ? client.getAddress() : "N/A");
-        params.put("contactPerson", project != null && project.getContactPerson() != null ? project.getContactPerson() : (client.getContactPerson() != null ? client.getContactPerson() : "N/A"));
-        params.put("projectNo", project != null ? project.getProjectNumber() : "N/A");
-        params.put("projectName", project != null ? project.getName() : (job.getProjectName() != null ? job.getProjectName() : "N/A"));
-        params.put("consultant", project != null && project.getConsultant() != null ? project.getConsultant() : "N/A");
-        params.put("contractor", project != null && project.getContractor() != null ? project.getContractor() : "N/A");
-        params.put("projectLocation", project != null && project.getLocation() != null ? project.getLocation() : "N/A");
-        params.put("telephone", project != null && project.getPhone() != null ? project.getPhone() : (client.getPhone() != null ? client.getPhone() : "N/A"));
-        params.put("email", project != null && project.getEmail() != null ? project.getEmail() : (client.getEmail() != null ? client.getEmail() : "N/A"));
-
-        // Right Column
-        params.put("sampleType", sample.getProduct().getName());
-        params.put("sampleDescription", sample.getDescription() != null ? sample.getDescription() : "N/A");
-        params.put("sampleId", sample.getSampleNumber());
-        params.put("source", sample.getSamplingPoint() != null ? sample.getSamplingPoint() : "N/A");
-        params.put("sampledBy", sample.getSampledBy() != null ? sample.getSampledBy() : "N/A");
-        params.put("sampleFrom", sample.getSamplingPoint() != null ? sample.getSamplingPoint() : "N/A");
-        params.put("sampleCertNo", "N/A"); // Not in DB
-        params.put("deliveredBy", "N/A"); // Not in DB
-        params.put("sampledDateTime", sample.getSampledAt() != null ? sample.getSampledAt().toString() : "N/A");
-        params.put("dateReceived", sample.getReceivedAt() != null ? sample.getReceivedAt().toString() : "N/A");
-        params.put("quotationNo", job.getPoNumber() != null ? job.getPoNumber() : "N/A");
-
-        params.put("authorizedAt", sample.getUpdatedAt() != null ? sample.getUpdatedAt().toString() : "N/A");
-        
-        // Specimen Interim parameters
-        boolean isInterim = totalSpecimens > authorizedSpecimens;
-        params.put("isInterim", isInterim);
-        params.put("specimenSummary", authorizedSpecimens + " of " + totalSpecimens + " specimens tested");
-
-        // Footer Signatures
-        params.put("preparedBy", "Lab Registrar"); 
-        params.put("checkedBy", "Technical Manager");
-        params.put("approvedBy", "Lab Director");
-
-        // Map tests to beans for Jasper
-        List<Map<String, Object>> testData = new ArrayList<>();
         for (SampleTest t : tests) {
-            boolean testHasSpecimens = false;
-            if (t.getWorksheetData() != null) {
-                Map<String, Object> schema = t.getWorksheetData().getMethodDefinition().getSchemaDefinition();
-                if (schema != null && schema.get("sections") instanceof List) {
-                    List<Map<String, Object>> sections = (List<Map<String, Object>>) schema.get("sections");
-                    for (Map<String, Object> section : sections) {
-                        if (Boolean.TRUE.equals(section.get("hasSpecimens"))) {
-                            testHasSpecimens = true;
-                            break;
+            Optional<WorksheetData> wdOpt = worksheetDataRepository.findBySampleTestId(t.getId());
+            if (wdOpt.isPresent()) {
+                WorksheetData wd = wdOpt.get();
+                if (wd.getMethodDefinition() != null && wd.getMethodDefinition().getReportTemplatePath() != null) {
+                    String templatePath = wd.getMethodDefinition().getReportTemplatePath();
+                    if (templatePath != null && !templatePath.trim().isEmpty() && Files.exists(Path.of(templatePath))) {
+                        try {
+                            byte[] pdfBytes = generateWorksheetReport(t.getId());
+                            pdfs.add(pdfBytes);
+                        } catch (Exception e) {
+                            log.error("Failed to generate Excel-based COA report for test: {}", t.getId(), e);
                         }
                     }
                 }
-            }
-
-            if (testHasSpecimens) {
-                List<TestResult> results = testResultRepository.findBySampleTestIdOrderByEnteredAtDesc(t.getId())
-                        .stream().filter(tr -> tr.getSpecimen() != null && "AUTHORIZED".equals(tr.getSpecimen().getStatus()))
-                        .collect(Collectors.toList());
-                
-                for (TestResult tr : results) {
-                    Map<String, Object> map = new HashMap<>();
-                    map.put("testName", t.getTestMethod().getName() + " — " + (tr.getSpecimen().getLabel() != null ? tr.getSpecimen().getLabel() : "Specimen " + tr.getSpecimen().getSpecimenNumber()));
-                    map.put("methodName", t.getTestMethod().getCode());
-                    map.put("result", tr.getDisplayValue());
-                    map.put("units", "As Spec.");
-                    map.put("limits", "As Spec.");
-                    testData.add(map);
-                }
-
-                if (results.size() > 1) {
-                    double sum = 0;
-                    int count = 0;
-                    for (TestResult tr : results) {
-                        if (tr.getNumericValue() != null) {
-                            sum += tr.getNumericValue().doubleValue();
-                            count++;
-                        }
-                    }
-                    if (count > 0) {
-                        double avg = sum / count;
-                        Map<String, Object> map = new HashMap<>();
-                        map.put("testName", t.getTestMethod().getName() + " — AVERAGE");
-                        map.put("methodName", t.getTestMethod().getCode());
-                        map.put("result", String.format("%.2f", avg));
-                        map.put("units", "As Spec.");
-                        map.put("limits", "As Spec.");
-                        testData.add(map);
-                    }
-                }
-            } else {
-                Map<String, Object> map = new HashMap<>();
-                map.put("testName", t.getTestMethod().getName());
-                map.put("methodName", t.getTestMethod().getCode());
-                map.put("result", t.getLastResult() != null ? t.getLastResult().getDisplayValue() : "N/A");
-                map.put("units", "As Spec.");
-                map.put("limits", "As Spec.");
-                testData.add(map);
             }
         }
 
-        JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(testData);
+        if (pdfs.isEmpty()) {
+            throw new IllegalStateException("No Excel COA template configured or generated for the tests in this sample.");
+        }
 
-        // Convert attachments to images
-        List<Attachment> attachments = attachmentService.getBySample(sampleId);
-        List<Map<String, Object>> attachmentData = new ArrayList<>();
-        for (Attachment att : attachments) {
-            try {
-                Path filePath = Paths.get(att.getFilePath());
-                List<byte[]> images = documentConversionService.convertToImages(filePath, att.getFileType());
-                for (int i = 0; i < images.size(); i++) {
-                    Map<String, Object> imgMap = new HashMap<>();
-                    imgMap.put("imageData", images.get(i));
-                    imgMap.put("fileName", att.getFileName() + (images.size() > 1 ? " (Page " + (i + 1) + ")" : ""));
-                    attachmentData.add(imgMap);
+        byte[] finalPdf;
+        if (pdfs.size() == 1) {
+            finalPdf = pdfs.get(0);
+        } else {
+            try (PDDocument destination = new PDDocument()) {
+                for (byte[] pdfBytes : pdfs) {
+                    try (PDDocument src = Loader.loadPDF(pdfBytes)) {
+                        for (PDPage page : src.getPages()) {
+                            destination.addPage(page);
+                        }
+                    }
                 }
+                ByteArrayOutputStream mergedOut = new ByteArrayOutputStream();
+                destination.save(mergedOut);
+                finalPdf = mergedOut.toByteArray();
             } catch (Exception e) {
-                // Skip files that fail conversion
+                throw new RuntimeException("Failed to merge PDF COA reports", e);
             }
-        }
-
-        if (!attachmentData.isEmpty()) {
-            params.put("attachmentImages", new JRBeanCollectionDataSource(attachmentData));
-        }
-
-        // Compile subreport and add to params
-        try (InputStream subIs = resourceLoader.getResource("classpath:reports/coa_attachments_subreport.jrxml").getInputStream()) {
-            JasperReport subreport = JasperCompileManager.compileReport(subIs);
-            params.put("ATTACHMENT_SUBREPORT", subreport);
-        } catch (IOException e) {
-            // Subreport is optional
-        }
-
-        byte[] pdfBytes;
-        // Load template
-        try (InputStream is = resourceLoader.getResource("classpath:reports/coa_template.jrxml").getInputStream()) {
-            JasperReport jasperReport = JasperCompileManager.compileReport(is);
-            JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, params, dataSource);
-            pdfBytes = JasperExportManager.exportReportToPdf(jasperPrint);
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to load COA template", e);
         }
 
         // Save a snapshot of this CoA revision
@@ -262,10 +154,10 @@ public class ReportService {
             CoaRevision revision = CoaRevision.builder()
                     .sample(sample)
                     .revisionNumber(nextRev)
-                    .isInterim(isInterim)
-                    .specimensIncluded((int) authorizedSpecimens)
-                    .specimensTotal((int) totalSpecimens)
-                    .pdfSnapshot(pdfBytes)
+                    .isInterim(false)
+                    .specimensIncluded(0)
+                    .specimensTotal(0)
+                    .pdfSnapshot(finalPdf)
                     .generatedBy(currentUser)
                     .generatedAt(Instant.now())
                     .build();
@@ -274,7 +166,7 @@ public class ReportService {
             // Log and ignore to prevent blocking PDF download if audit saving fails
         }
 
-        return pdfBytes;
+        return finalPdf;
     }
 
     // ==================== TRF Report ====================
