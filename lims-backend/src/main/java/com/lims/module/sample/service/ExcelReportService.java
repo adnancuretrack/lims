@@ -15,6 +15,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -27,6 +29,7 @@ public class ExcelReportService {
 
     private final ReportPrintingConfig printingConfig;
     private static final Pattern TAG_PATTERN = Pattern.compile("\\{([^}]+)\\}");
+    private static final Pattern TABLE_TAG_PATTERN = Pattern.compile("\\{table:([^}]+)\\}");
 
     /**
      * Injects worksheet data into an Excel template.
@@ -51,25 +54,20 @@ public class ExcelReportService {
             prepareWorkbook(workbook);
 
             Sheet sheet = workbook.getSheetAt(0); // The target sheet is now at index 0 after preparation
-            // int maxCol = 0;
-            // int maxRow = 0;
+            // 1. Process dynamic table markers ({table:sectionId})
+            processTableMarkers(sheet, worksheetData);
 
-            // for (Row row : sheet) {
-            //     for (Cell cell : row) {
-            //         processCell(cell, worksheetData);
-                    
-            //         // Track the maximum bounds for the print area
-            //         if (cell.getCellType() != CellType.BLANK) {
-            //             maxCol = Math.max(maxCol, cell.getColumnIndex());
-            //             maxRow = Math.max(maxRow, row.getRowNum());
-            //         }
-            //     }
-            // }
-            
-            // // Set print area for the target sheet
-            // if (maxCol > 0) {
-            //     workbook.setPrintArea(0, 0, maxCol, 0, maxRow);
-            // }
+            // 2. Process scalar cells
+            for (int r = 0; r <= sheet.getLastRowNum(); r++) {
+                Row row = sheet.getRow(r);
+                if (row == null) continue;
+                for (int c = 0; c < row.getLastCellNum(); c++) {
+                    Cell cell = row.getCell(c);
+                    if (cell != null) {
+                        processCell(cell, worksheetData);
+                    }
+                }
+            }
 
             // Apply 'Fit to Width' scaling if enabled in the config module
             if (printingConfig.isFitToWidth()) {
@@ -235,6 +233,226 @@ public class ExcelReportService {
             // Remove everything that was originally after the target index
             while (workbook.getNumberOfSheets() > 1) {
                 workbook.removeSheetAt(1);
+            }
+        }
+    }
+
+    private void processTableMarkers(Sheet sheet, WorksheetData wd) {
+        if (wd.getSampleTest() == null || wd.getSampleTest().getTestMethod() == null) return;
+        if (wd.getMethodDefinition() == null || wd.getMethodDefinition().getSchemaDefinition() == null) return;
+
+        Map<String, Object> schemaDef = wd.getMethodDefinition().getSchemaDefinition();
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> sections = (List<Map<String, Object>>) schemaDef.get("sections");
+        if (sections == null || sections.isEmpty()) return;
+
+        boolean markerFound = true;
+        while (markerFound) {
+            markerFound = false;
+            for (int r = 0; r <= sheet.getLastRowNum(); r++) {
+                Row row = sheet.getRow(r);
+                if (row == null) continue;
+                for (int c = 0; c < row.getLastCellNum(); c++) {
+                    Cell cell = row.getCell(c);
+                    if (cell != null && cell.getCellType() == CellType.STRING) {
+                        String text = cell.getStringCellValue();
+                        if (text != null) {
+                            Matcher m = TABLE_TAG_PATTERN.matcher(text);
+                            if (m.find()) {
+                                String sectionId = m.group(1);
+                                renderTableSection(sheet, row.getRowNum(), cell.getColumnIndex(), sectionId, sections, wd);
+                                markerFound = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (markerFound) break;
+            }
+        }
+    }
+
+    private void renderTableSection(Sheet sheet, int startRow, int startCol, String sectionId, 
+                                    List<Map<String, Object>> sections, WorksheetData wd) {
+        Map<String, Object> targetSection = null;
+        for (Map<String, Object> sec : sections) {
+            if (sectionId.equals(sec.get("id"))) {
+                targetSection = sec;
+                break;
+            }
+        }
+
+        if (targetSection == null) return;
+
+        String sectionType = (String) targetSection.get("type");
+        Object rawData = wd.getData() != null ? wd.getData().get(sectionId) : null;
+
+        Row templateRow = sheet.getRow(startRow);
+        Cell templateCell = templateRow != null ? templateRow.getCell(startCol) : null;
+        CellStyle dataStyle = templateCell != null ? templateCell.getCellStyle() : null;
+
+        if (templateCell != null) {
+            templateCell.setCellValue("");
+        }
+
+        if ("DATA_TABLE".equals(sectionType) || "GROUPED_TABLE".equals(sectionType)) {
+            renderDataTable(sheet, startRow, startCol, targetSection, rawData, dataStyle);
+        } else if ("MATRIX_TABLE".equals(sectionType)) {
+            renderMatrixTable(sheet, startRow, startCol, targetSection, rawData, dataStyle);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void renderDataTable(Sheet sheet, int startRow, int startCol, 
+                                 Map<String, Object> section, Object rawData, CellStyle dataStyle) {
+        List<Map<String, Object>> columns = (List<Map<String, Object>>) section.get("columns");
+        if (columns == null || columns.isEmpty()) {
+            columns = (List<Map<String, Object>>) section.get("dataColumns");
+        }
+        if (columns == null || columns.isEmpty()) return;
+
+        List<Map<String, Object>> rowsData = new ArrayList<>();
+        if (rawData instanceof List) {
+            rowsData = (List<Map<String, Object>>) rawData;
+        }
+
+        int totalRowsToInsert = 1 + Math.max(rowsData.size(), 1);
+        int lastRow = sheet.getLastRowNum();
+
+        if (startRow < lastRow) {
+            sheet.shiftRows(startRow + 1, lastRow, totalRowsToInsert - 1, true, true);
+        }
+
+        Workbook wb = sheet.getWorkbook();
+        CellStyle headerStyle = wb.createCellStyle();
+        if (dataStyle != null) {
+            headerStyle.cloneStyleFrom(dataStyle);
+        }
+        Font headerFont = wb.createFont();
+        headerFont.setBold(true);
+        headerStyle.setFont(headerFont);
+        headerStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+        headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+
+        // 1. Header Row
+        Row headerRow = sheet.getRow(startRow);
+        if (headerRow == null) headerRow = sheet.createRow(startRow);
+
+        for (int i = 0; i < columns.size(); i++) {
+            Map<String, Object> col = columns.get(i);
+            Cell cell = headerRow.createCell(startCol + i);
+            String label = String.valueOf(col.getOrDefault("label", ""));
+            String unit = (String) col.get("unit");
+            if (unit != null && !unit.trim().isEmpty()) {
+                label += " (" + unit + ")";
+            }
+            cell.setCellValue(label);
+            cell.setCellStyle(headerStyle);
+        }
+
+        // 2. Data Rows
+        if (rowsData.isEmpty()) {
+            Row dataRow = sheet.getRow(startRow + 1);
+            if (dataRow == null) dataRow = sheet.createRow(startRow + 1);
+            Cell cell = dataRow.createCell(startCol);
+            cell.setCellValue("N/A");
+            if (dataStyle != null) cell.setCellStyle(dataStyle);
+        } else {
+            for (int r = 0; r < rowsData.size(); r++) {
+                Map<String, Object> rowMap = rowsData.get(r);
+                int currentRowIndex = startRow + 1 + r;
+                Row dataRow = sheet.getRow(currentRowIndex);
+                if (dataRow == null) dataRow = sheet.createRow(currentRowIndex);
+
+                for (int c = 0; c < columns.size(); c++) {
+                    Map<String, Object> col = columns.get(c);
+                    String colId = (String) col.get("id");
+                    Cell cell = dataRow.createCell(startCol + c);
+                    if (dataStyle != null) cell.setCellStyle(dataStyle);
+
+                    Object valObj = rowMap.get(colId);
+                    if (valObj != null) {
+                        setCellValueTyped(cell, valObj.toString());
+                    }
+                }
+            }
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void renderMatrixTable(Sheet sheet, int startRow, int startCol, 
+                                  Map<String, Object> section, Object rawData, CellStyle dataStyle) {
+        List<Map<String, Object>> columns = (List<Map<String, Object>>) section.get("columns");
+        List<Map<String, Object>> rowHeaders = (List<Map<String, Object>>) section.get("rowHeaders");
+
+        if (columns == null || columns.isEmpty() || rowHeaders == null || rowHeaders.isEmpty()) return;
+
+        Map<String, Object> matrixMap = (rawData instanceof Map) ? (Map<String, Object>) rawData : new HashMap<>();
+
+        int totalRowsToInsert = 1 + rowHeaders.size();
+        int lastRow = sheet.getLastRowNum();
+
+        if (startRow < lastRow) {
+            sheet.shiftRows(startRow + 1, lastRow, totalRowsToInsert - 1, true, true);
+        }
+
+        Workbook wb = sheet.getWorkbook();
+        CellStyle headerStyle = wb.createCellStyle();
+        if (dataStyle != null) {
+            headerStyle.cloneStyleFrom(dataStyle);
+        }
+        Font headerFont = wb.createFont();
+        headerFont.setBold(true);
+        headerStyle.setFont(headerFont);
+        headerStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+        headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+
+        // 1. Header Row
+        Row headerRow = sheet.getRow(startRow);
+        if (headerRow == null) headerRow = sheet.createRow(startRow);
+
+        Cell cornerCell = headerRow.createCell(startCol);
+        cornerCell.setCellValue("");
+        cornerCell.setCellStyle(headerStyle);
+
+        for (int c = 0; c < columns.size(); c++) {
+            Map<String, Object> col = columns.get(c);
+            Cell cell = headerRow.createCell(startCol + 1 + c);
+            String label = String.valueOf(col.getOrDefault("label", ""));
+            String unit = (String) col.get("unit");
+            if (unit != null && !unit.trim().isEmpty()) {
+                label += " (" + unit + ")";
+            }
+            cell.setCellValue(label);
+            cell.setCellStyle(headerStyle);
+        }
+
+        // 2. Matrix Data Rows
+        for (int r = 0; r < rowHeaders.size(); r++) {
+            Map<String, Object> rh = rowHeaders.get(r);
+            String rhId = (String) rh.get("id");
+            String rhLabel = String.valueOf(rh.getOrDefault("label", rhId));
+
+            int currentRowIndex = startRow + 1 + r;
+            Row dataRow = sheet.getRow(currentRowIndex);
+            if (dataRow == null) dataRow = sheet.createRow(currentRowIndex);
+
+            Cell labelCell = dataRow.createCell(startCol);
+            labelCell.setCellValue(rhLabel);
+            labelCell.setCellStyle(headerStyle);
+
+            Map<String, Object> rowVals = (matrixMap.get(rhId) instanceof Map) ? (Map<String, Object>) matrixMap.get(rhId) : new HashMap<>();
+
+            for (int c = 0; c < columns.size(); c++) {
+                Map<String, Object> col = columns.get(c);
+                String colId = (String) col.get("id");
+                Cell cell = dataRow.createCell(startCol + 1 + c);
+                if (dataStyle != null) cell.setCellStyle(dataStyle);
+
+                Object valObj = rowVals.get(colId);
+                if (valObj != null) {
+                    setCellValueTyped(cell, valObj.toString());
+                }
             }
         }
     }

@@ -35,35 +35,13 @@ export const VariableCheatSheet: React.FC<VariableCheatSheetProps> = ({ schema, 
             type: 'SINGLE'
           });
         });
-      } else if (section.type === 'DATA_TABLE' || section.type === 'GROUPED_TABLE') {
-        const columns = section.columns || section.dataColumns || [];
-        
-        if (section.orientation === 'COLUMNS_AS_TRIALS') {
-           columns.forEach(col => {
-             placeholders.push({
-               tag: `{${section.id}.0.${col.id}}`,
-               label: `${col.label} (Trial 1)`,
-               sectionName,
-               type: 'TABLE_COL'
-             });
-             placeholders.push({
-               tag: `{${section.id}.AVG.${col.id}}`,
-               label: `${col.label} (Average)`,
-               sectionName,
-               type: 'AGGREGATE'
-             });
-           });
-        } else {
-           // ROWS_AS_RECORDS
-           columns.forEach(col => {
-             placeholders.push({
-               tag: `{${section.id}.0.${col.id}}`,
-               label: `${col.label} (Row 1)`,
-               sectionName,
-               type: 'TABLE_ROW'
-             });
-           });
-        }
+      } else if (section.type === 'DATA_TABLE' || section.type === 'GROUPED_TABLE' || section.type === 'MATRIX_TABLE') {
+        placeholders.push({
+          tag: `{table:${section.id}}`,
+          label: `Full Dynamic Table (${sectionName})`,
+          sectionName,
+          type: 'FULL_TABLE'
+        });
       }
     });
 
@@ -115,6 +93,7 @@ export const VariableCheatSheet: React.FC<VariableCheatSheetProps> = ({ schema, 
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 12, color: '#8c8c8c', marginBottom: 4 }}>
                     {item.sectionName} 
+                    {item.type === 'FULL_TABLE' && <Tag style={{ marginLeft: 8 }} color="purple">Full Dynamic Table</Tag>}
                     {item.type === 'TABLE_ROW' && <Tag style={{ marginLeft: 8 }}>Table Row</Tag>}
                     {item.type === 'TABLE_COL' && <Tag style={{ marginLeft: 8 }}>Table Col</Tag>}
                     {item.type === 'AGGREGATE' && <Tag style={{ marginLeft: 8 }} color="blue">Aggregate</Tag>}
