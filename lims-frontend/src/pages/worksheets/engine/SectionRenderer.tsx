@@ -1,6 +1,6 @@
 import React from 'react';
 import { Form, Input, Table, Checkbox, Radio, InputNumber, Typography, Button, Space, message, Tag } from 'antd';
-import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
+import { DeleteOutlined, PlusOutlined, ApiOutlined, SearchOutlined } from '@ant-design/icons';
 import type { SectionSchema, FieldSchema } from '../../methods/designer/types';
 import { useEngineStore } from './store';
 import { evaluateCondition } from './FormulaEngine';
@@ -9,7 +9,7 @@ import { getGroupedColumns } from '../../methods/designer/utils';
 import { AdrCaptureModal } from '../../../components/instrument/AdrCaptureModal';
 import { NlCaptureModal } from '../../../components/instrument/NlCaptureModal';
 import { EquipmentSelectionModal } from '../../../components/instrument/EquipmentSelectionModal';
-import { ApiOutlined, SearchOutlined } from '@ant-design/icons';
+import { formatDateTime } from '../../../utils/dateUtils';
 
 const { Text } = Typography;
 
@@ -104,11 +104,14 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
       }
     }
     const isFieldDisabled = readOnly || isInstrumentLinked || isColumnFinalized;
+    const formattedValue = (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(value) || /^\d{2}\/\d{2}\/\d{4}/.test(value))
+      ? formatDateTime(value)
+      : value;
 
     let inputEl;
     switch (field.inputType) {
       case 'TEXTAREA':
-        inputEl = <Input.TextArea rows={2} value={value} onChange={e => onChange(e.target.value)} disabled={isFieldDisabled || field.required === false} />; break;
+        inputEl = <Input.TextArea rows={2} value={formattedValue} onChange={e => onChange(e.target.value)} disabled={isFieldDisabled || field.required === false} />; break;
       case 'CHECKBOX':
       case 'YES_NO':
         inputEl = <Checkbox checked={value} onChange={e => onChange(e.target.checked)} disabled={isFieldDisabled}>{field.label}</Checkbox>; break;
@@ -118,9 +121,9 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
       case 'NUMERIC':
         inputEl = <InputNumber value={value} onChange={onChange} style={{ width: '100%' }} disabled={isFieldDisabled} />; break;
       case 'CALCULATED':
-        inputEl = <Input disabled value={value} placeholder="Auto-calculated" style={{ backgroundColor: '#f5f5f5' }} />; break;
+        inputEl = <Input disabled value={formattedValue} placeholder="Auto-calculated" style={{ backgroundColor: '#f5f5f5' }} />; break;
       default:
-        inputEl = <Input value={value} onChange={e => onChange(e.target.value)} disabled={isFieldDisabled || field.inputType === 'READONLY'} />; break;
+        inputEl = <Input value={formattedValue} onChange={e => onChange(e.target.value)} disabled={isFieldDisabled || field.inputType === 'READONLY'} />; break;
     }
 
     if (field.instrumentSource && field.instrumentSource !== 'GENERIC_SERIAL' && !readOnly) {
@@ -200,7 +203,7 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
               const dateStr = spec.scheduledTestDate ? ` (${spec.scheduledTestDate})` : '';
               specTitle += dateStr;
               isFinalizedOrAuth = spec.status === 'FINALIZED' || spec.status === 'AUTHORIZED';
-              
+
               if (spec.status === 'FINALIZED') {
                 specBadge = <Tag color="orange" style={{ margin: 0 }}>FINALIZED</Tag>;
               } else if (spec.status === 'AUTHORIZED') {

@@ -19,6 +19,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,6 +29,8 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class WorksheetDataService {
+
+    private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").withZone(ZoneId.systemDefault());
 
     private final WorksheetDataRepository worksheetDataRepository;
     private final SampleTestRepository sampleTestRepository;
@@ -375,8 +379,8 @@ public class WorksheetDataService {
             case "sample.product.name": return s.getProduct() != null ? s.getProduct().getName() : null;
             case "sample.job.projectName": return j != null ? j.getProjectName() : null;
             case "sample.job.poNumber": return j != null ? j.getPoNumber() : null;
-            case "sample.sampledAt": return s.getSampledAt();
-            case "sample.receivedAt": return s.getReceivedAt();
+            case "sample.sampledAt": return s.getSampledAt() != null ? DATE_TIME_FORMATTER.format(s.getSampledAt()) : null;
+            case "sample.receivedAt": return s.getReceivedAt() != null ? DATE_TIME_FORMATTER.format(s.getReceivedAt()) : null;
             default: return null;
         }
     }
@@ -388,8 +392,8 @@ public class WorksheetDataService {
         
         ctx.put("sample.sampleNumber", s.getSampleNumber());
         ctx.put("sample.product.name", s.getProduct() != null ? s.getProduct().getName() : null);
-        ctx.put("sample.receivedAt", s.getReceivedAt());
-        ctx.put("sample.sampledAt", s.getSampledAt());
+        ctx.put("sample.receivedAt", s.getReceivedAt() != null ? DATE_TIME_FORMATTER.format(s.getReceivedAt()) : null);
+        ctx.put("sample.sampledAt", s.getSampledAt() != null ? DATE_TIME_FORMATTER.format(s.getSampledAt()) : null);
         
         if (j != null) {
             ctx.put("sample.job.jobNumber", j.getJobNumber());
@@ -413,6 +417,7 @@ public class WorksheetDataService {
         }
         List<Map<String, Object>> sections = (List<Map<String, Object>>) schema.get("sections");
         Instant now = Instant.now();
+        String formattedNow = DATE_TIME_FORMATTER.format(now);
 
         for (Map<String, Object> section : sections) {
             String sectionId = (String) section.get("id");
@@ -443,7 +448,7 @@ public class WorksheetDataService {
                             sectionData.put(fieldId, currentUser.getUsername());
                             break;
                         case "audit.testedAt.datetime":
-                            sectionData.put(fieldId, now.toString());
+                            sectionData.put(fieldId, formattedNow);
                             break;
                         case "audit.testedBy.signature":
                             String sig = currentUser.getSignatureImagePath();
@@ -487,7 +492,7 @@ public class WorksheetDataService {
                             rowData.put(colId, currentUser.getUsername());
                             break;
                         case "audit.testedAt.datetime":
-                            rowData.put(colId, now.toString());
+                            rowData.put(colId, formattedNow);
                             break;
                         case "audit.testedBy.signature":
                             String sig = currentUser.getSignatureImagePath();
