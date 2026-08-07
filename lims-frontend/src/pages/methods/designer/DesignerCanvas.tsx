@@ -1,12 +1,11 @@
 import React from 'react';
 import { useDroppable } from '@dnd-kit/core';
-import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { SortableContext, verticalListSortingStrategy, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Card, Typography, Button, Space, Input, Form, Row, Col, Tag } from 'antd';
 import { DeleteOutlined, SettingOutlined, PlusOutlined, MenuOutlined } from '@ant-design/icons';
 import { useDesignerStore } from './store';
-import type { SectionSchema, FieldSchema } from './types';
-import { horizontalListSortingStrategy } from '@dnd-kit/sortable';
+import type { SectionSchema, FieldSchema, RowHeaderSchema } from './types';
 
 const { Title, Text } = Typography;
 
@@ -111,7 +110,7 @@ const SortableSection = ({ section }: { section: SectionSchema }) => {
     backgroundColor: isSelected ? '#f0f7ff' : 'transparent'
   };
 
-  const fields = section.fields || section.columns || section.dataColumns || [];
+  const fields: FieldSchema[] = section.fields || section.columns || section.dataColumns || [];
 
   return (
     <div ref={setNodeRef} style={style} onClick={(e) => {
@@ -159,7 +158,7 @@ const SortableSection = ({ section }: { section: SectionSchema }) => {
                     </tr>
                 </thead>
                 <tbody>
-                    {(section.rowHeaders && section.rowHeaders.length > 0 ? section.rowHeaders : [{ id: 'e1', label: 'New Equipment' }]).map((rh) => (
+                    {(section.rowHeaders && section.rowHeaders.length > 0 ? section.rowHeaders : [{ id: 'e1', label: 'New Equipment' }]).map((rh: RowHeaderSchema) => (
                     <tr key={rh.id}>
                         <td style={{ border: '1px solid #d9d9d9', padding: '6px 8px', fontSize: 12, fontWeight: 500, backgroundColor: '#fff' }}>
                             {rh.label}
@@ -183,8 +182,8 @@ const SortableSection = ({ section }: { section: SectionSchema }) => {
                     <th style={{ border: '1px solid #d9d9d9', padding: '4px 8px', background: '#f5f5f5', width: 120, fontSize: 11, textAlign: 'left' }}>
                         Row \ Column
                     </th>
-                    <SortableContext items={fields.map(f => f.id)} strategy={horizontalListSortingStrategy}>
-                        {fields.map(f => (
+                    <SortableContext items={fields.map((f: FieldSchema) => f.id)} strategy={horizontalListSortingStrategy}>
+                        {fields.map((f: FieldSchema) => (
                             <th key={f.id} style={{ border: '1px solid #d9d9d9', padding: 4, minWidth: 100, backgroundColor: '#fff' }}>
                                 <SortableField sectionId={section.id} field={f} isCompact />
                             </th>
@@ -193,13 +192,13 @@ const SortableSection = ({ section }: { section: SectionSchema }) => {
                     </tr>
                 </thead>
                 <tbody>
-                    {(section.rowHeaders && section.rowHeaders.length > 0 ? section.rowHeaders : [{ id: 'p1', label: 'New Row' }]).map((rh) => (
+                    {(section.rowHeaders && section.rowHeaders.length > 0 ? section.rowHeaders : [{ id: 'p1', label: 'New Row' }]).map((rh: RowHeaderSchema) => (
                     <tr key={rh.id}>
                         <td style={{ border: '1px solid #d9d9d9', padding: '6px 8px', fontSize: 12, fontWeight: 500, backgroundColor: '#fff' }}>
                             {rh.label}
                             {rh.systemMapping && <span style={{ marginLeft: 4, fontSize: 10 }}>⚡</span>}
                         </td>
-                        {fields.map(f => {
+                        {fields.map((f: FieldSchema) => {
                           const cellKey = `${rh.id}_${f.id}`;
                           const cellMapping = section.cellMappings?.[cellKey];
                           return (
@@ -216,7 +215,7 @@ const SortableSection = ({ section }: { section: SectionSchema }) => {
                 <div style={{ display: 'flex', gap: 8 }}>
                     <Button 
                         type="dashed" 
-                        size="small"
+                        size="small" 
                         icon={<PlusOutlined />} 
                         onClick={(e) => { e.stopPropagation(); addField(section.id); }}
                         style={{ flex: 1 }}
@@ -225,7 +224,7 @@ const SortableSection = ({ section }: { section: SectionSchema }) => {
                     </Button>
                     <Button 
                         type="dashed" 
-                        size="small"
+                        size="small" 
                         icon={<PlusOutlined />} 
                         onClick={(e) => { e.stopPropagation(); useDesignerStore.getState().addRowHeader(section.id); }}
                         style={{ flex: 1 }}
@@ -236,13 +235,13 @@ const SortableSection = ({ section }: { section: SectionSchema }) => {
             </div>
           ) : (
             <>
-                <SortableContext items={fields.map(f => f.id)} strategy={verticalListSortingStrategy}>
+                <SortableContext items={fields.map((f: FieldSchema) => f.id)} strategy={verticalListSortingStrategy}>
                     {fields.length === 0 ? (
                     <div style={{ textAlign: 'center', color: '#bfbfbf', padding: '16px 0' }}>
                         No fields added
                     </div>
                     ) : (
-                    fields.map(f => (
+                    fields.map((f: FieldSchema) => (
                         <SortableField key={f.id} sectionId={section.id} field={f} />
                     ))
                     )}
@@ -284,7 +283,7 @@ export const DesignerCanvas: React.FC = () => {
         setSelectedSection(null);
       }}
     >
-      <div style={{ maxWidth: 800, margin: '0 auto' }}>
+      <div style={{ maxWidth: 1100, width: '100%', margin: '0 auto' }}>
         <Title level={4} style={{ marginBottom: 24 }}>Form Worksheet</Title>
 
         <Card size="small" style={{ marginBottom: 24, padding: 12, background: '#fafafa', border: '1px solid #d9d9d9', borderRadius: 8 }}>

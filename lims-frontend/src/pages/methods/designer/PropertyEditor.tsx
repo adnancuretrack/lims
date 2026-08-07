@@ -1,7 +1,7 @@
 import React from 'react';
 import { useParams } from 'react-router-dom';
-import { Form, Input, Select, InputNumber, Switch, Typography, Divider, Button, Upload, message, Space, Card, Modal } from 'antd';
-import { UploadOutlined, BookOutlined, FileExcelOutlined, CloseOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
+import { Form, Input, Select, InputNumber, Switch, Typography, Divider, Button, Upload, message, Space, Card, Modal, Tooltip } from 'antd';
+import { UploadOutlined, BookOutlined, FileExcelOutlined, CloseOutlined, DeleteOutlined, PlusOutlined, MenuFoldOutlined } from '@ant-design/icons';
 import { useDesignerStore } from './store';
 import type { InputType, TableOrientation, FieldSchema, SectionType } from './types';
 import { ColumnGroupEditor } from './ColumnGroupEditor';
@@ -27,7 +27,11 @@ const INPUT_TYPES: { value: InputType, label: string }[] = [
   { value: 'READONLY', label: 'Read-only Reference' },
 ];
 
-export const PropertyEditor: React.FC = () => {
+interface PropertyEditorProps {
+  onCollapse?: () => void;
+}
+
+export const PropertyEditor: React.FC<PropertyEditorProps> = ({ onCollapse }) => {
   const { id } = useParams<{ id: string }>();
   const { 
     schema, selectedSectionId, selectedFieldId, 
@@ -510,8 +514,21 @@ export const PropertyEditor: React.FC = () => {
   };
 
   return (
-    <div style={{ width: 320, padding: 16, borderLeft: '1px solid #f0f0f0', background: '#fafafa', overflowY: 'auto' }}>
-      <Title level={5}>Properties</Title>
+    <div style={{ width: 320, minWidth: 320, height: '100%', padding: 16, borderLeft: '1px solid #f0f0f0', background: '#fafafa', overflowY: 'auto', boxSizing: 'border-box' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <Title level={5} style={{ margin: 0 }}>Properties</Title>
+        {onCollapse && (
+          <Tooltip title="Collapse Properties">
+            <Button 
+              type="text" 
+              size="small" 
+              icon={<MenuFoldOutlined />} 
+              onClick={onCollapse} 
+              style={{ color: '#8c8c8c' }}
+            />
+          </Tooltip>
+        )}
+      </div>
       {renderContent()}
     </div>
   );

@@ -10,8 +10,8 @@ import {
 } from '@dnd-kit/core';
 import type { DragStartEvent, DragEndEvent } from '@dnd-kit/core';
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
-import { Layout, Button, Space, message, Modal, Tag, Typography, Upload, Tabs } from 'antd';
-import { SaveOutlined, ArrowLeftOutlined, RocketOutlined, UploadOutlined } from '@ant-design/icons';
+import { Layout, Button, Space, message, Modal, Tag, Typography, Upload, Tabs, Tooltip } from 'antd';
+import { SaveOutlined, ArrowLeftOutlined, RocketOutlined, UploadOutlined, AppstoreOutlined, SettingOutlined } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import { useDesignerStore } from './store';
@@ -41,6 +41,8 @@ export const MethodDesignerPage: React.FC = () => {
     schema, 
     setSchema, 
     setReportTemplatePath, 
+    selectedSectionId,
+    selectedFieldId,
     reset 
   } = useDesignerStore();
   
@@ -53,6 +55,16 @@ export const MethodDesignerPage: React.FC = () => {
   const [postPublishModalOpen, setPostPublishModalOpen] = useState(false);
   const [targetPublishId, setTargetPublishId] = useState<string | null>(null);
   const [isUploadingTemplate, setIsUploadingTemplate] = useState(false);
+
+  const [leftCollapsed, setLeftCollapsed] = useState(false);
+  const [rightCollapsed, setRightCollapsed] = useState(false);
+
+  // Auto-expand properties panel when an element is selected (Option A)
+  useEffect(() => {
+    if (selectedSectionId || selectedFieldId) {
+      setRightCollapsed(false);
+    }
+  }, [selectedSectionId, selectedFieldId]);
 
   // Reset store on mount if it's a new method
   useEffect(() => {
@@ -268,7 +280,7 @@ export const MethodDesignerPage: React.FC = () => {
               key: 'sections',
               label: 'Layout & Fields',
               children: (
-                <div style={{ display: 'flex', height: 'calc(100vh - 120px)' }}>
+                <div style={{ display: 'flex', height: 'calc(100vh - 120px)', position: 'relative', overflow: 'hidden' }}>
                   <DndContext 
                     sensors={sensors}
                     collisionDetection={closestCenter}
@@ -276,9 +288,84 @@ export const MethodDesignerPage: React.FC = () => {
                     onDragOver={handleDragOver}
                     onDragEnd={handleDragEnd}
                   >
-                    <SectionPalette />
-                    <DesignerCanvas />
-                    <PropertyEditor />
+                    {/* Left Sidebar: Building Blocks Palette */}
+                    <div
+                      style={{
+                        width: leftCollapsed ? 0 : 280,
+                        minWidth: leftCollapsed ? 0 : 280,
+                        maxWidth: leftCollapsed ? 0 : 280,
+                        height: '100%',
+                        transition: 'all 0.25s ease-in-out',
+                        overflow: 'hidden',
+                        visibility: leftCollapsed ? 'hidden' : 'visible'
+                      }}
+                    >
+                      <SectionPalette onCollapse={() => setLeftCollapsed(true)} />
+                    </div>
+
+                    {/* Center Canvas Area with Collapsed Floating Toggles */}
+                    <div style={{ flex: 1, position: 'relative', display: 'flex', height: '100%', overflow: 'hidden' }}>
+                      {leftCollapsed && (
+                        <Tooltip title="Expand Building Blocks" placement="right">
+                          <Button
+                            type="default"
+                            size="middle"
+                            icon={<AppstoreOutlined />}
+                            onClick={() => setLeftCollapsed(false)}
+                            style={{
+                              position: 'absolute',
+                              top: 14,
+                              left: 14,
+                              zIndex: 100,
+                              background: '#fff',
+                              boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                              borderRadius: 6
+                            }}
+                          >
+                            Blocks
+                          </Button>
+                        </Tooltip>
+                      )}
+
+                      <DesignerCanvas />
+
+                      {rightCollapsed && (
+                        <Tooltip title="Expand Properties" placement="left">
+                          <Button
+                            type="default"
+                            size="middle"
+                            icon={<SettingOutlined />}
+                            onClick={() => setRightCollapsed(false)}
+                            style={{
+                              position: 'absolute',
+                              top: 14,
+                              right: 14,
+                              zIndex: 100,
+                              background: '#fff',
+                              boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                              borderRadius: 6
+                            }}
+                          >
+                            Properties
+                          </Button>
+                        </Tooltip>
+                      )}
+                    </div>
+
+                    {/* Right Sidebar: Properties Editor */}
+                    <div
+                      style={{
+                        width: rightCollapsed ? 0 : 320,
+                        minWidth: rightCollapsed ? 0 : 320,
+                        maxWidth: rightCollapsed ? 0 : 320,
+                        height: '100%',
+                        transition: 'all 0.25s ease-in-out',
+                        overflow: 'hidden',
+                        visibility: rightCollapsed ? 'hidden' : 'visible'
+                      }}
+                    >
+                      <PropertyEditor onCollapse={() => setRightCollapsed(true)} />
+                    </div>
                     <DragOverlay>
                       {activeId ? (
                         <div 

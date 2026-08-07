@@ -13,7 +13,8 @@ import {
   UnorderedListOutlined,
   BookOutlined,
   PlusOutlined,
-  BorderOutlined
+  BorderOutlined,
+  MenuFoldOutlined
 } from '@ant-design/icons';
 import { ExcelImporter } from './ExcelImporter';
 import type { SectionType } from './types';
@@ -66,7 +67,11 @@ const DraggableSectionItem = ({ type, label, icon, description, isTemplate, temp
   );
 };
 
-export const SectionPalette: React.FC = () => {
+interface SectionPaletteProps {
+  onCollapse?: () => void;
+}
+
+export const SectionPalette: React.FC<SectionPaletteProps> = ({ onCollapse }) => {
   const [templates, setTemplates] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -129,7 +134,22 @@ export const SectionPalette: React.FC = () => {
   ];
 
   return (
-    <div style={{ width: 280, padding: 12, borderRight: '1px solid #f0f0f0', background: '#fafafa', overflowY: 'auto' }}>
+    <div style={{ width: 280, minWidth: 280, height: '100%', padding: 12, borderRight: '1px solid #f0f0f0', background: '#fafafa', overflowY: 'auto', boxSizing: 'border-box' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+        <Text strong style={{ fontSize: 13, textTransform: 'uppercase', color: '#8c8c8c' }}>Building Blocks</Text>
+        {onCollapse && (
+          <Tooltip title="Collapse Building Blocks">
+            <Button 
+              type="text" 
+              size="small" 
+              icon={<MenuFoldOutlined />} 
+              onClick={onCollapse} 
+              style={{ color: '#8c8c8c' }}
+            />
+          </Tooltip>
+        )}
+      </div>
+
       <Tabs defaultActiveKey="blocks" items={items} size="small" />
 
       <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid #f0f0f0' }}>
