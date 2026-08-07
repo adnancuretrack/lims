@@ -132,6 +132,10 @@ export const PropertyEditor: React.FC = () => {
                   { value: 'audit.testedBy.username', label: 'Tested By (Username) [On Submit]' },
                   { value: 'audit.testedAt.datetime', label: 'Tested Date & Time [On Submit]' },
                   { value: 'audit.testedBy.signature', label: 'Tested By Signature [On Submit]' },
+                  { value: 'audit.authorizedBy.displayName', label: 'Authorized By (Full Name) [On Authorize]' },
+                  { value: 'audit.authorizedBy.username', label: 'Authorized By (Username) [On Authorize]' },
+                  { value: 'audit.authorizedAt.datetime', label: 'Authorized Date & Time [On Authorize]' },
+                  { value: 'audit.authorizedBy.signature', label: 'Authorized By Signature [On Authorize]' },
                 ]}
               />
             </Form.Item>
@@ -190,6 +194,10 @@ export const PropertyEditor: React.FC = () => {
                         { value: 'audit.testedBy.username', label: 'Tested By (Username) [On Submit]' },
                         { value: 'audit.testedAt.datetime', label: 'Tested Date & Time [On Submit]' },
                         { value: 'audit.testedBy.signature', label: 'Tested By Signature [On Submit]' },
+                        { value: 'audit.authorizedBy.displayName', label: 'Authorized By (Full Name) [On Authorize]' },
+                        { value: 'audit.authorizedBy.username', label: 'Authorized By (Username) [On Authorize]' },
+                        { value: 'audit.authorizedAt.datetime', label: 'Authorized Date & Time [On Authorize]' },
+                        { value: 'audit.authorizedBy.signature', label: 'Authorized By Signature [On Authorize]' },
                       ]}
                     />
                   </div>
@@ -391,6 +399,10 @@ export const PropertyEditor: React.FC = () => {
                             { value: 'audit.testedBy.username', label: 'Tested By (Username) [On Submit]' },
                             { value: 'audit.testedAt.datetime', label: 'Tested Date & Time [On Submit]' },
                             { value: 'audit.testedBy.signature', label: 'Tested By Signature [On Submit]' },
+                            { value: 'audit.authorizedBy.displayName', label: 'Authorized By (Full Name) [On Authorize]' },
+                            { value: 'audit.authorizedBy.username', label: 'Authorized By (Username) [On Authorize]' },
+                            { value: 'audit.authorizedAt.datetime', label: 'Authorized Date & Time [On Authorize]' },
+                            { value: 'audit.authorizedBy.signature', label: 'Authorized By Signature [On Authorize]' },
                           ]}
                         />
                       </div>

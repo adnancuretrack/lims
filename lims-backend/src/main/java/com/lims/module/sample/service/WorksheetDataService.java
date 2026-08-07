@@ -172,7 +172,7 @@ public class WorksheetDataService {
 
         // 1. Update WorksheetData data
         Map<String, Object> data = request.getData() != null ? new HashMap<>(request.getData()) : new HashMap<>();
-        applyLateBindingSystemMappings(wd.getMethodDefinition().getSchemaDefinition(), data, currentUser);
+        applyLateBindingSystemMappings(wd.getMethodDefinition().getSchemaDefinition(), data, currentUser, false);
         wd.setData(data);
         wd.setCalculatedResults(request.getCalculatedResults());
         wd.setStatus(isFinal ? "SUBMITTED_FINAL" : "SUBMITTED");
@@ -411,7 +411,7 @@ public class WorksheetDataService {
     }
 
     @SuppressWarnings("unchecked")
-    private void applyLateBindingSystemMappings(Map<String, Object> schema, Map<String, Object> data, User currentUser) {
+    private void applyLateBindingSystemMappings(Map<String, Object> schema, Map<String, Object> data, User currentUser, boolean isAuthorizationPass) {
         if (schema == null || !(schema.get("sections") instanceof List) || data == null) {
             return;
         }
@@ -440,22 +440,44 @@ public class WorksheetDataService {
                         data.put(sectionId, sectionData);
                     }
 
-                    switch (mapping) {
-                        case "audit.testedBy.displayName":
-                            sectionData.put(fieldId, currentUser.getDisplayName());
-                            break;
-                        case "audit.testedBy.username":
-                            sectionData.put(fieldId, currentUser.getUsername());
-                            break;
-                        case "audit.testedAt.datetime":
-                            sectionData.put(fieldId, formattedNow);
-                            break;
-                        case "audit.testedBy.signature":
-                            String sig = currentUser.getSignatureImagePath();
-                            sectionData.put(fieldId, sig != null ? sig : "Signed by " + currentUser.getDisplayName());
-                            break;
-                        default:
-                            break;
+                    if (!isAuthorizationPass) {
+                        // Tester submission scope
+                        switch (mapping) {
+                            case "audit.testedBy.displayName":
+                                sectionData.put(fieldId, currentUser.getDisplayName());
+                                break;
+                            case "audit.testedBy.username":
+                                sectionData.put(fieldId, currentUser.getUsername());
+                                break;
+                            case "audit.testedAt.datetime":
+                                sectionData.put(fieldId, formattedNow);
+                                break;
+                            case "audit.testedBy.signature":
+                                String sig = currentUser.getSignatureImagePath();
+                                sectionData.put(fieldId, sig != null ? sig : "Signed by " + currentUser.getDisplayName());
+                                break;
+                            default:
+                                break;
+                        }
+                    } else {
+                        // Authorizer scope
+                        switch (mapping) {
+                            case "audit.authorizedBy.displayName":
+                                sectionData.put(fieldId, currentUser.getDisplayName());
+                                break;
+                            case "audit.authorizedBy.username":
+                                sectionData.put(fieldId, currentUser.getUsername());
+                                break;
+                            case "audit.authorizedAt.datetime":
+                                sectionData.put(fieldId, formattedNow);
+                                break;
+                            case "audit.authorizedBy.signature":
+                                String sig = currentUser.getSignatureImagePath();
+                                sectionData.put(fieldId, sig != null ? sig : "Signed by " + currentUser.getDisplayName());
+                                break;
+                            default:
+                                break;
+                        }
                     }
                 }
             }
@@ -484,25 +506,56 @@ public class WorksheetDataService {
                             : new HashMap<>();
                     sectionData.put(rowId, rowData);
 
-                    switch (mapping) {
-                        case "audit.testedBy.displayName":
-                            rowData.put(colId, currentUser.getDisplayName());
-                            break;
-                        case "audit.testedBy.username":
-                            rowData.put(colId, currentUser.getUsername());
-                            break;
-                        case "audit.testedAt.datetime":
-                            rowData.put(colId, formattedNow);
-                            break;
-                        case "audit.testedBy.signature":
-                            String sig = currentUser.getSignatureImagePath();
-                            rowData.put(colId, sig != null ? sig : "Signed by " + currentUser.getDisplayName());
-                            break;
-                        default:
-                            break;
+                    if (!isAuthorizationPass) {
+                        // Tester submission scope
+                        switch (mapping) {
+                            case "audit.testedBy.displayName":
+                                rowData.put(colId, currentUser.getDisplayName());
+                                break;
+                            case "audit.testedBy.username":
+                                rowData.put(colId, currentUser.getUsername());
+                                break;
+                            case "audit.testedAt.datetime":
+                                rowData.put(colId, formattedNow);
+                                break;
+                            case "audit.testedBy.signature":
+                                String sig = currentUser.getSignatureImagePath();
+                                rowData.put(colId, sig != null ? sig : "Signed by " + currentUser.getDisplayName());
+                                break;
+                            default:
+                                break;
+                        }
+                    } else {
+                        // Authorizer scope
+                        switch (mapping) {
+                            case "audit.authorizedBy.displayName":
+                                rowData.put(colId, currentUser.getDisplayName());
+                                break;
+                            case "audit.authorizedBy.username":
+                                rowData.put(colId, currentUser.getUsername());
+                                break;
+                            case "audit.authorizedAt.datetime":
+                                rowData.put(colId, formattedNow);
+                                break;
+                            case "audit.authorizedBy.signature":
+                                String sig = currentUser.getSignatureImagePath();
+                                rowData.put(colId, sig != null ? sig : "Signed by " + currentUser.getDisplayName());
+                                break;
+                            default:
+                                break;
+                        }
                     }
                 }
             }
         }
+    }
+
+    @Transactional
+    public void applyAuthorizationMappings(WorksheetData wd, User currentUser) {
+        if (wd == null || wd.getMethodDefinition() == null) return;
+        Map<String, Object> data = wd.getData() != null ? new HashMap<>(wd.getData()) : new HashMap<>();
+        applyLateBindingSystemMappings(wd.getMethodDefinition().getSchemaDefinition(), data, currentUser, true);
+        wd.setData(data);
+        worksheetDataRepository.save(wd);
     }
 }

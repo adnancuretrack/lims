@@ -41,6 +41,7 @@ public class ReviewService {
     private final DataSyncService dataSyncService;
     private final SpecimenRepository specimenRepository;
     private final WorksheetDataRepository worksheetDataRepository;
+    private final WorksheetDataService worksheetDataService;
 
     @Transactional
     public void reviewResult(ResultReviewRequest request) {
@@ -96,6 +97,9 @@ public class ReviewService {
             }
 
             if ("AUTHORIZE".equals(request.getAction())) {
+                if (wd != null) {
+                    worksheetDataService.applyAuthorizationMappings(wd, currentUser);
+                }
                 if (wd != null && wd.isInterimSubmission()) {
                     st.setStatus("INTERIM_AUTHORIZED");
                     wd.setStatus("INTERIM_AUTHORIZED");
@@ -120,6 +124,9 @@ public class ReviewService {
             }
         } else {
             if ("AUTHORIZE".equals(request.getAction())) {
+                if (wd != null) {
+                    worksheetDataService.applyAuthorizationMappings(wd, currentUser);
+                }
                 st.setStatus("AUTHORIZED");
                 if (wd != null) {
                     wd.setStatus("FINALIZED");
