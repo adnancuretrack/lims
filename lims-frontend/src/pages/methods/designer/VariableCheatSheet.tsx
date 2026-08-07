@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Drawer, Input, List, Typography, Space, Button, message, Tooltip, Tag } from 'antd';
-import { CopyOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { CopyOutlined, InfoCircleOutlined, PrinterOutlined } from '@ant-design/icons';
+import { useReactToPrint } from 'react-to-print';
 import type { WorksheetSchema } from './types';
 
 const { Text } = Typography;
@@ -13,6 +14,12 @@ interface VariableCheatSheetProps {
 
 export const VariableCheatSheet: React.FC<VariableCheatSheetProps> = ({ schema, isOpen, onClose }) => {
   const [searchText, setSearchText] = useState('');
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  const handlePrint = useReactToPrint({
+    contentRef,
+    documentTitle: `COA_Variables_${schema.metadata?.code || 'Draft'}`
+  });
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -106,6 +113,9 @@ export const VariableCheatSheet: React.FC<VariableCheatSheetProps> = ({ schema, 
       open={isOpen}
       extra={
         <Space>
+           <Tooltip title="Print Cheat Sheet">
+             <Button type="text" icon={<PrinterOutlined />} onClick={() => handlePrint()} />
+           </Tooltip>
            <Tooltip title="Use these tags in your Excel COA templates to inject live worksheet data.">
              <InfoCircleOutlined style={{ color: '#1677ff' }} />
            </Tooltip>
@@ -125,51 +135,54 @@ export const VariableCheatSheet: React.FC<VariableCheatSheetProps> = ({ schema, 
           onChange={e => setSearchText(e.target.value)}
         />
 
-        <List
-          itemLayout="vertical"
-          dataSource={placeholders}
-          renderItem={item => (
-            <List.Item
-              key={item.tag}
-              style={{ padding: '12px 8px', borderRadius: '4px', borderBottom: '1px solid #f0f0f0' }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 12, color: '#8c8c8c', marginBottom: 4 }}>
-                    {item.sectionName} 
-                    {item.type === 'FULL_TABLE' && <Tag style={{ marginLeft: 8 }} color="purple">Full Dynamic Table</Tag>}
-                    {item.type === 'TABLE_CELL' && <Tag style={{ marginLeft: 8 }} color="blue">Table Cell</Tag>}
-                    {item.type === 'MATRIX_CELL' && <Tag style={{ marginLeft: 8 }} color="cyan">Matrix Cell</Tag>}
-                    {item.type === 'COUNT' && <Tag style={{ marginLeft: 8 }} color="green">Count</Tag>}
-                    {item.type === 'COMPUTED' && <Tag style={{ marginLeft: 8 }} color="gold">Computed</Tag>}
-                    {item.mapping && (
-                      <Tag style={{ marginLeft: 8 }} color="cyan">Mapped: {item.mapping}</Tag>
-                    )}
+        <div ref={contentRef} style={{ padding: '0 8px' }}>
+          <h2 style={{ display: 'none' }} className="print-only-title">Variable Cheat Sheet</h2>
+          <List
+            itemLayout="vertical"
+            dataSource={placeholders}
+            renderItem={item => (
+              <List.Item
+                key={item.tag}
+                style={{ padding: '12px 8px', borderRadius: '4px', borderBottom: '1px solid #f0f0f0' }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 12, color: '#8c8c8c', marginBottom: 4 }}>
+                      {item.sectionName} 
+                      {item.type === 'FULL_TABLE' && <Tag style={{ marginLeft: 8 }} color="purple">Full Dynamic Table</Tag>}
+                      {item.type === 'TABLE_CELL' && <Tag style={{ marginLeft: 8 }} color="blue">Table Cell</Tag>}
+                      {item.type === 'MATRIX_CELL' && <Tag style={{ marginLeft: 8 }} color="cyan">Matrix Cell</Tag>}
+                      {item.type === 'COUNT' && <Tag style={{ marginLeft: 8 }} color="green">Count</Tag>}
+                      {item.type === 'COMPUTED' && <Tag style={{ marginLeft: 8 }} color="gold">Computed</Tag>}
+                      {item.mapping && (
+                        <Tag style={{ marginLeft: 8 }} color="cyan">Mapped: {item.mapping}</Tag>
+                      )}
+                    </div>
+                    <div style={{ fontWeight: 500, marginBottom: 8 }}>{item.label}</div>
+                    <div 
+                      style={{ 
+                        backgroundColor: '#f5f5f5', 
+                        padding: '4px 8px', 
+                        borderRadius: '4px', 
+                        fontFamily: 'monospace',
+                        color: '#c41d7f',
+                        fontSize: 14,
+                        display: 'inline-block'
+                      }}
+                    >
+                      {item.tag}
+                    </div>
                   </div>
-                  <div style={{ fontWeight: 500, marginBottom: 8 }}>{item.label}</div>
-                  <div 
-                    style={{ 
-                      backgroundColor: '#f5f5f5', 
-                      padding: '4px 8px', 
-                      borderRadius: '4px', 
-                      fontFamily: 'monospace',
-                      color: '#c41d7f',
-                      fontSize: 14,
-                      display: 'inline-block'
-                    }}
-                  >
-                    {item.tag}
-                  </div>
+                  <Button 
+                    type="text" 
+                    icon={<CopyOutlined />} 
+                    onClick={() => copyToClipboard(item.tag)}
+                  />
                 </div>
-                <Button 
-                  type="text" 
-                  icon={<CopyOutlined />} 
-                  onClick={() => copyToClipboard(item.tag)}
-                />
-              </div>
-            </List.Item>
-          )}
-        />
+              </List.Item>
+            )}
+          />
+        </div>
       </Space>
     </Drawer>
   );
