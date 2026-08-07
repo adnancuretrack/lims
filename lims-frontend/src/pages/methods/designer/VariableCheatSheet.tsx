@@ -96,6 +96,13 @@ export const VariableCheatSheet: React.FC<VariableCheatSheetProps> = ({ schema, 
       });
     }
 
+    placeholders.push({
+      tag: '{qr:coa}',
+      label: 'Digital COA QR Code (links to Dashboard)',
+      sectionName: 'System / QR Code',
+      type: 'QR_CODE'
+    });
+
     return placeholders.filter(p => 
       p.label.toLowerCase().includes(searchText.toLowerCase()) || 
       p.tag.toLowerCase().includes(searchText.toLowerCase())
@@ -174,6 +181,7 @@ export const VariableCheatSheet: React.FC<VariableCheatSheetProps> = ({ schema, 
                       {item.type === 'MATRIX_CELL' && <Tag style={{ marginLeft: 8 }} color="cyan">Matrix Cell</Tag>}
                       {item.type === 'COUNT' && <Tag style={{ marginLeft: 8 }} color="green">Count</Tag>}
                       {item.type === 'COMPUTED' && <Tag style={{ marginLeft: 8 }} color="gold">Computed</Tag>}
+                      {item.type === 'QR_CODE' && <Tag style={{ marginLeft: 8 }} color="volcano">QR Code</Tag>}
                       {item.mapping && (
                         <Tag style={{ marginLeft: 8 }} color="cyan">Mapped: {item.mapping}</Tag>
                       )}

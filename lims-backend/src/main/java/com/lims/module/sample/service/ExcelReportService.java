@@ -8,6 +8,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.apache.poi.xssf.usermodel.XSSFPrintSetup;
+import org.apache.poi.ss.util.CellRangeAddress;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.FileInputStream;
@@ -29,6 +31,11 @@ public class ExcelReportService {
 
     private final ReportPrintingConfig printingConfig;
     private final ComputedVariableEvaluator computedVariableEvaluator;
+    private final QrCodeService qrCodeService;
+
+    @Value("${lims.app-url:http://localhost:5173}")
+    private String appUrl;
+
     private static final Pattern TAG_PATTERN = Pattern.compile("\\{([^}]+)\\}");
     private static final Pattern TABLE_TAG_PATTERN = Pattern.compile("\\{table:([^}]+)\\}");
 
@@ -69,6 +76,13 @@ public class ExcelReportService {
                 for (int c = 0; c < row.getLastCellNum(); c++) {
                     Cell cell = row.getCell(c);
                     if (cell != null) {
+                        if (cell.getCellType() == CellType.STRING) {
+                            String val = cell.getStringCellValue();
+                            if (val != null && (val.trim().equalsIgnoreCase("{qr}") || val.trim().equalsIgnoreCase("{qr:coa}"))) {
+                                embedQrCode(sheet, workbook, cell, worksheetData);
+                                continue;
+                            }
+                        }
                         processCellWithMap(cell, resolutionMap);
                     }
                 }
@@ -476,6 +490,58 @@ public class ExcelReportService {
                     setCellValueTyped(cell, valObj.toString());
                 }
             }
+        }
+    }
+
+    private void embedQrCode(Sheet sheet, Workbook workbook, Cell cell, WorksheetData worksheetData) {
+        Long sampleId = null;
+        if (worksheetData.getSampleTest() != null && worksheetData.getSampleTest().getSample() != null) {
+            sampleId = worksheetData.getSampleTest().getSample().getId();
+        }
+
+        String targetUrl;
+        String baseUrl = (appUrl != null && !appUrl.isBlank()) ? appUrl.replaceAll("/$", "") : "http://localhost:5173";
+        if (sampleId != null) {
+            targetUrl = baseUrl + "/samples/" + sampleId;
+        } else {
+            targetUrl = baseUrl;
+        }
+
+        try {
+            byte[] qrBytes = qrCodeService.generateQrCodePng(targetUrl);
+            int pictureIdx = workbook.addPicture(qrBytes, Workbook.PICTURE_TYPE_PNG);
+
+            int startCol = cell.getColumnIndex();
+            int startRow = cell.getRowIndex();
+            int endCol = startCol + 1;
+            int endRow = startRow + 1;
+
+            // Check if cell is in a merged region to cover the full merged area
+            for (int i = 0; i < sheet.getNumMergedRegions(); i++) {
+                CellRangeAddress range = sheet.getMergedRegion(i);
+                if (range.isInRange(startRow, startCol)) {
+                    startCol = range.getFirstColumn();
+                    startRow = range.getFirstRow();
+                    endCol = range.getLastColumn() + 1;
+                    endRow = range.getLastRow() + 1;
+                    break;
+                }
+            }
+
+            Drawing<?> drawing = sheet.createDrawingPatriarch();
+            CreationHelper helper = workbook.getCreationHelper();
+            ClientAnchor anchor = helper.createClientAnchor();
+            anchor.setCol1(startCol);
+            anchor.setRow1(startRow);
+            anchor.setCol2(endCol);
+            anchor.setRow2(endRow);
+            anchor.setAnchorType(ClientAnchor.AnchorType.MOVE_AND_RESIZE);
+
+            drawing.createPicture(anchor, pictureIdx);
+            cell.setBlank();
+        } catch (Exception e) {
+            log.error("Failed to embed QR code in Excel report", e);
+            cell.setCellValue("");
         }
     }
 }
