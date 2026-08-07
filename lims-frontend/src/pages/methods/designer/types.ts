@@ -86,10 +86,18 @@ export interface WorksheetMetadata {
   issueDate?: string;
 }
 
+export interface ComputedVariable {
+  id: string;
+  label: string;
+  expression: string;
+  format?: string;
+}
+
 export interface WorksheetSchema {
   id: string;
   version?: string;
   metadata?: WorksheetMetadata;
   sections: SectionSchema[];
+  computedVariables?: ComputedVariable[];
   reportTemplatePath?: string;
 }

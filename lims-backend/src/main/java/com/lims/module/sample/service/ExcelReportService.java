@@ -28,6 +28,7 @@ import java.util.regex.Pattern;
 public class ExcelReportService {
 
     private final ReportPrintingConfig printingConfig;
+    private final ComputedVariableEvaluator computedVariableEvaluator;
     private static final Pattern TAG_PATTERN = Pattern.compile("\\{([^}]+)\\}");
     private static final Pattern TABLE_TAG_PATTERN = Pattern.compile("\\{table:([^}]+)\\}");
 
@@ -50,35 +51,37 @@ public class ExcelReportService {
             log.info("Generating Excel report for SampleTest: {} using template: {}", 
                 worksheetData.getSampleTest().getId(), templatePath);
 
-            // Use the new configuration module to select and prepare the correct sheet
+            // Phase 1: Prepare workbook
             prepareWorkbook(workbook);
 
             Sheet sheet = workbook.getSheetAt(0); // The target sheet is now at index 0 after preparation
-            // 1. Process dynamic table markers ({table:sectionId})
+            
+            // Phase 2: Process legacy dynamic table markers ({table:sectionId})
             processTableMarkers(sheet, worksheetData);
 
-            // 2. Process scalar cells
+            // Phase 3 & 4: Build Variable Resolution Map (Scalars, Indexed, Matrix, Count, Computed)
+            Map<String, String> resolutionMap = buildResolutionMap(worksheetData);
+
+            // Phase 5: Process scalar cells and substitutions
             for (int r = 0; r <= sheet.getLastRowNum(); r++) {
                 Row row = sheet.getRow(r);
                 if (row == null) continue;
                 for (int c = 0; c < row.getLastCellNum(); c++) {
                     Cell cell = row.getCell(c);
                     if (cell != null) {
-                        processCell(cell, worksheetData);
+                        processCellWithMap(cell, resolutionMap);
                     }
                 }
             }
 
-            // Apply 'Fit to Width' scaling if enabled in the config module
+            // Phase 6: Apply 'Fit to Width' scaling and recalculate
             if (printingConfig.isFitToWidth()) {
-                        
                 PrintSetup ps = sheet.getPrintSetup();
                 sheet.setFitToPage(true);
                 sheet.setAutobreaks(true);
                 ps.setPaperSize(XSSFPrintSetup.A4_PAPERSIZE);
                 ps.setFitWidth((short) 1);  // Force to 1 page wide
                 ps.setFitHeight((short) 0); // Allow as many pages long as needed
-                
             }
 
             // Force formula recalculation
@@ -95,17 +98,103 @@ public class ExcelReportService {
         }
     }
 
-    private void processCell(Cell cell, WorksheetData wd) {
+    private Map<String, String> buildResolutionMap(WorksheetData wd) {
+        Map<String, String> map = new HashMap<>();
+        
+        // 1. Header Resolution
+        Sample sample = wd.getSampleTest().getSample();
+        map.put("header.sampleId", sample.getSampleNumber());
+        if (sample.getJob() != null && sample.getJob().getClient() != null) {
+            map.put("header.customer", sample.getJob().getClient().getName());
+        } else {
+            map.put("header.customer", "");
+        }
+        map.put("header.testMethod", wd.getSampleTest().getTestMethod().getName());
+        map.put("header.receivedAt", sample.getReceivedAt() != null ? sample.getReceivedAt().toString() : "");
+
+        // 2. Data Resolution (Scalars, Indexed Tables, Matrix)
+        Map<String, Object> data = wd.getData();
+        if (data != null) {
+            for (Map.Entry<String, Object> sectionEntry : data.entrySet()) {
+                String sectionId = sectionEntry.getKey();
+                Object sectionData = sectionEntry.getValue();
+
+                if (sectionData instanceof Map) {
+                    // Scalar section OR Matrix section
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> mapData = (Map<String, Object>) sectionData;
+                    for (Map.Entry<String, Object> fieldEntry : mapData.entrySet()) {
+                        String key = fieldEntry.getKey();
+                        Object val = fieldEntry.getValue();
+                        
+                        if (val instanceof Map) {
+                            // Matrix row: mapData is rows, val is columns
+                            @SuppressWarnings("unchecked")
+                            Map<String, Object> rowMap = (Map<String, Object>) val;
+                            for (Map.Entry<String, Object> cellEntry : rowMap.entrySet()) {
+                                // {section.rowKey.colKey}
+                                map.put(sectionId + "." + key + "." + cellEntry.getKey(), String.valueOf(cellEntry.getValue()));
+                            }
+                        } else {
+                            // Scalar field {section.field}
+                            map.put(sectionId + "." + key, String.valueOf(val));
+                        }
+                    }
+                    map.put("count:" + sectionId, String.valueOf(mapData.size()));
+                } else if (sectionData instanceof List) {
+                    // Data Table (List of rows)
+                    @SuppressWarnings("unchecked")
+                    List<Map<String, Object>> listData = (List<Map<String, Object>>) sectionData;
+                    map.put("count:" + sectionId, String.valueOf(listData.size()));
+                    
+                    for (int i = 0; i < listData.size(); i++) {
+                        Map<String, Object> rowMap = listData.get(i);
+                        if (rowMap != null) {
+                            for (Map.Entry<String, Object> entry : rowMap.entrySet()) {
+                                // {section.field.N} -> user requested format!
+                                map.put(sectionId + "." + entry.getKey() + "." + i, String.valueOf(entry.getValue()));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Phase 4: Evaluate Computed Variables
+        if (wd.getMethodDefinition() != null) {
+            Map<String, Object> schemaDef = wd.getMethodDefinition().getSchemaDefinition();
+            if (schemaDef != null && schemaDef.containsKey("computedVariables")) {
+                Object cvObj = schemaDef.get("computedVariables");
+                if (cvObj instanceof List) {
+                    @SuppressWarnings("unchecked")
+                    List<Map<String, Object>> computedVars = (List<Map<String, Object>>) cvObj;
+                    for (Map<String, Object> cv : computedVars) {
+                        String id = (String) cv.get("id");
+                        String expression = (String) cv.get("expression");
+                        String format = (String) cv.get("format");
+                        
+                        if (id != null && expression != null && computedVariableEvaluator != null) {
+                            String result = computedVariableEvaluator.evaluate(expression, format, map);
+                            map.put("calc:" + id, result);
+                        }
+                    }
+                }
+            }
+        }
+        return map;
+    }
+
+    private void processCellWithMap(Cell cell, Map<String, String> resolutionMap) {
         if (cell.getCellType() != CellType.STRING) return;
 
         String originalValue = cell.getStringCellValue();
         if (originalValue == null || !originalValue.contains("{")) return;
 
-        // Case 1: Entire cell is a single tag (e.g. "{table.0.mass}")
+        // Case 1: Entire cell is a single tag (e.g. "{results.value.0}")
         // We do this to preserve data types (Numeric/Boolean) for Excel formulas
         if (originalValue.matches("^\\{[^}]+\\}$")) {
             String tag = originalValue.substring(1, originalValue.length() - 1);
-            String replacement = resolveTag(tag, wd);
+            String replacement = resolutionMap.getOrDefault(tag, "");
             setCellValueTyped(cell, replacement);
             return;
         }
@@ -120,7 +209,7 @@ public class ExcelReportService {
             found = true;
             sb.append(originalValue, lastEnd, matcher.start());
             String tag = matcher.group(1);
-            sb.append(resolveTag(tag, wd));
+            sb.append(resolutionMap.getOrDefault(tag, ""));
             lastEnd = matcher.end();
         }
         
@@ -146,73 +235,6 @@ public class ExcelReportService {
         } catch (NumberFormatException e) {
             cell.setCellValue(value);
         }
-    }
-
-    private String resolveTag(String tag, WorksheetData wd) {
-        try {
-            // 1. Header resolution
-            if (tag.startsWith("header.")) {
-                String field = tag.substring(7);
-                Sample sample = wd.getSampleTest().getSample();
-                switch (field) {
-                    case "sampleId": return sample.getSampleNumber();
-                    case "customer": return (sample.getJob() != null && sample.getJob().getClient() != null) 
-                        ? sample.getJob().getClient().getName() : "";
-                    case "testMethod": return wd.getSampleTest().getTestMethod().getName();
-                    case "receivedAt": return sample.getReceivedAt() != null ? sample.getReceivedAt().toString() : "";
-                    default: return "";
-                }
-            }
-
-            // 2. Data resolution (Nested lookup)
-            // Expecting: sectionId.fieldId OR sectionId.rowIndex.fieldId
-            String[] parts = tag.split("\\.");
-            if (parts.length < 2) return "";
-
-            Object sectionData = wd.getData().get(parts[0]);
-            if (sectionData == null) return "";
-
-            if (parts.length == 2) {
-                // {section.field}
-                if (sectionData instanceof Map) {
-                    @SuppressWarnings("unchecked")
-                    Map<String, Object> map = (Map<String, Object>) sectionData;
-                    return String.valueOf(map.getOrDefault(parts[1], ""));
-                }
-            } else if (parts.length == 3) {
-                // {section.index_or_rowId.field}
-                if (sectionData instanceof List) {
-                    // Standard Data Table: use numeric index
-                    try {
-                        int index = Integer.parseInt(parts[1]);
-                        List<?> list = (List<?>) sectionData;
-                        if (index >= 0 && index < list.size()) {
-                            Object rowData = list.get(index);
-                            if (rowData instanceof Map) {
-                                @SuppressWarnings("unchecked")
-                                Map<String, Object> map = (Map<String, Object>) rowData;
-                                return String.valueOf(map.getOrDefault(parts[2], ""));
-                            }
-                        }
-                    } catch (NumberFormatException e) {
-                        return "";
-                    }
-                } else if (sectionData instanceof Map) {
-                    // Matrix Table: use string rowId
-                    @SuppressWarnings("unchecked")
-                    Map<String, Object> matrix = (Map<String, Object>) sectionData;
-                    Object rowData = matrix.get(parts[1]); 
-                    if (rowData instanceof Map) {
-                        @SuppressWarnings("unchecked")
-                        Map<String, Object> rowMap = (Map<String, Object>) rowData;
-                        return String.valueOf(rowMap.getOrDefault(parts[2], ""));
-                    }
-                }
-            }
-        } catch (Exception e) {
-            log.warn("Failed to resolve tag: {} - {}", tag, e.getMessage());
-        }
-        return "";
     }
 
     /**

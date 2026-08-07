@@ -10,7 +10,7 @@ import {
 } from '@dnd-kit/core';
 import type { DragStartEvent, DragEndEvent } from '@dnd-kit/core';
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
-import { Layout, Button, Space, message, Modal, Tag, Typography, Upload } from 'antd';
+import { Layout, Button, Space, message, Modal, Tag, Typography, Upload, Tabs } from 'antd';
 import { SaveOutlined, ArrowLeftOutlined, RocketOutlined, UploadOutlined } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 
@@ -20,6 +20,7 @@ import { DesignerCanvas } from './DesignerCanvas';
 import { PropertyEditor } from './PropertyEditor';
 import { WorksheetPreview } from './WorksheetPreview';
 import { VariableCheatSheet } from './VariableCheatSheet';
+import { ComputedVariablesEditor } from './ComputedVariablesEditor';
 import type { SectionType } from './types';
 import { LookupService } from '../../../api/LookupService';
 import { MethodDefinitionService } from '../../../api/MethodDefinitionService';
@@ -260,39 +261,56 @@ export const MethodDesignerPage: React.FC = () => {
           <Button type="primary" onClick={publishSchema} loading={isPublishing}>Publish</Button>
         </Space>
       </Header>
-      <Content style={{ display: 'flex', height: 'calc(100vh - 64px)' }}>
-        <DndContext 
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragStart={handleDragStart}
-          onDragOver={handleDragOver}
-          onDragEnd={handleDragEnd}
-        >
-          <SectionPalette />
-          <DesignerCanvas />
-          <PropertyEditor />
-          <DragOverlay>
-            {activeId ? (
-              <div 
-                style={{ 
-                  padding: '12px 20px', 
-                  background: '#fff', 
-                  border: '1px solid #1677ff', 
-                  borderRadius: 6, 
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                  cursor: 'grabbing',
-                  minWidth: 200
-                }}
-              >
-                <Typography.Text strong color="primary">
-                    {schema.sections.find(s => s.id === activeId)?.title || 'Moving Item...'}
-                </Typography.Text>
-              </div>
-            ) : null}
-          </DragOverlay>
-        </DndContext>
+      <Content style={{ height: 'calc(100vh - 64px)' }}>
+        <Tabs 
+          items={[
+            {
+              key: 'sections',
+              label: 'Layout & Fields',
+              children: (
+                <div style={{ display: 'flex', height: 'calc(100vh - 120px)' }}>
+                  <DndContext 
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragStart={handleDragStart}
+                    onDragOver={handleDragOver}
+                    onDragEnd={handleDragEnd}
+                  >
+                    <SectionPalette />
+                    <DesignerCanvas />
+                    <PropertyEditor />
+                    <DragOverlay>
+                      {activeId ? (
+                        <div 
+                          style={{ 
+                            padding: '12px 20px', 
+                            background: '#fff', 
+                            border: '1px solid #1677ff', 
+                            borderRadius: 6, 
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                            cursor: 'grabbing',
+                            minWidth: 200
+                          }}
+                        >
+                          <Typography.Text strong color="primary">
+                              {schema.sections.find(s => s.id === activeId)?.title || 'Moving Item...'}
+                          </Typography.Text>
+                        </div>
+                      ) : null}
+                    </DragOverlay>
+                  </DndContext>
+                </div>
+              )
+            },
+            {
+              key: 'computed',
+              label: 'Computed Variables',
+              children: <ComputedVariablesEditor />
+            }
+          ]} 
+          style={{ width: '100%' }}
+        />
       </Content>
-
       <Modal
         title="Next Step: Upload COA Template"
         open={postPublishModalOpen}

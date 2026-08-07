@@ -22,7 +22,6 @@ export const VariableCheatSheet: React.FC<VariableCheatSheetProps> = ({ schema, 
   const getPlaceholders = () => {
     const placeholders: { tag: string; label: string; sectionName: string; type: string; mapping?: string }[] = [];
 
-    // Sections
     schema.sections.forEach(section => {
       const sectionName = section.title || section.id;
 
@@ -42,8 +41,53 @@ export const VariableCheatSheet: React.FC<VariableCheatSheetProps> = ({ schema, 
           sectionName,
           type: 'FULL_TABLE'
         });
+        
+        placeholders.push({
+          tag: `{count:${section.id}}`,
+          label: `Total row count`,
+          sectionName,
+          type: 'COUNT'
+        });
+
+        if (section.type === 'MATRIX_TABLE') {
+          const rowHeaders = section.rowHeaders || [];
+          const columns = section.columns || [];
+          
+          rowHeaders.forEach(rh => {
+            columns.forEach(col => {
+              placeholders.push({
+                tag: `{${section.id}.${col.id}.${rh.id}}`,
+                label: `${rh.label} - ${col.label}`,
+                sectionName,
+                type: 'MATRIX_CELL'
+              });
+            });
+          });
+        } else {
+          // DATA_TABLE or GROUPED_TABLE
+          const cols = section.columns || section.dataColumns || [];
+          cols.forEach(col => {
+            placeholders.push({
+              tag: `{${section.id}.${col.id}.N}`,
+              label: `${col.label} (Replace N with row index 0, 1, 2...)`,
+              sectionName,
+              type: 'TABLE_CELL'
+            });
+          });
+        }
       }
     });
+
+    if (schema.computedVariables) {
+      schema.computedVariables.forEach(cv => {
+        placeholders.push({
+          tag: `{calc:${cv.id}}`,
+          label: cv.label,
+          sectionName: 'Computed Variables',
+          type: 'COMPUTED'
+        });
+      });
+    }
 
     return placeholders.filter(p => 
       p.label.toLowerCase().includes(searchText.toLowerCase()) || 
@@ -94,9 +138,10 @@ export const VariableCheatSheet: React.FC<VariableCheatSheetProps> = ({ schema, 
                   <div style={{ fontSize: 12, color: '#8c8c8c', marginBottom: 4 }}>
                     {item.sectionName} 
                     {item.type === 'FULL_TABLE' && <Tag style={{ marginLeft: 8 }} color="purple">Full Dynamic Table</Tag>}
-                    {item.type === 'TABLE_ROW' && <Tag style={{ marginLeft: 8 }}>Table Row</Tag>}
-                    {item.type === 'TABLE_COL' && <Tag style={{ marginLeft: 8 }}>Table Col</Tag>}
-                    {item.type === 'AGGREGATE' && <Tag style={{ marginLeft: 8 }} color="blue">Aggregate</Tag>}
+                    {item.type === 'TABLE_CELL' && <Tag style={{ marginLeft: 8 }} color="blue">Table Cell</Tag>}
+                    {item.type === 'MATRIX_CELL' && <Tag style={{ marginLeft: 8 }} color="cyan">Matrix Cell</Tag>}
+                    {item.type === 'COUNT' && <Tag style={{ marginLeft: 8 }} color="green">Count</Tag>}
+                    {item.type === 'COMPUTED' && <Tag style={{ marginLeft: 8 }} color="gold">Computed</Tag>}
                     {item.mapping && (
                       <Tag style={{ marginLeft: 8 }} color="cyan">Mapped: {item.mapping}</Tag>
                     )}
