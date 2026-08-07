@@ -318,12 +318,50 @@ public class WorksheetDataService {
                 // For now, mapping usually applies to SINGLE_VALUE fields)
                 // But let's handle it for consistency if they map a field in a single-row table.
 
+                // Scan cellMappings for MATRIX_TABLE
+                if (section.get("cellMappings") instanceof Map) {
+                    Map<String, String> cellMappings = (Map<String, String>) section.get("cellMappings");
+                    for (Map.Entry<String, String> entry : cellMappings.entrySet()) {
+                        String cellKey = entry.getKey();
+                        String mapping = entry.getValue();
+                        if (mapping != null && !mapping.isEmpty()) {
+                            String[] parts = parseCellKey(cellKey, section);
+                            if (parts != null && parts.length == 2) {
+                                Object value = resolveSystemValue(st, mapping);
+                                if (value != null) {
+                                    String rowId = parts[0];
+                                    String colId = parts[1];
+                                    Map<String, Object> rowData = (Map<String, Object>) sectionData.computeIfAbsent(rowId, k -> new HashMap<>());
+                                    rowData.put(colId, value);
+                                }
+                            }
+                        }
+                    }
+                }
+
                 if (!sectionData.isEmpty()) {
                     data.put(sectionId, sectionData);
                 }
             }
         }
         return data;
+    }
+
+    @SuppressWarnings("unchecked")
+    private String[] parseCellKey(String cellKey, Map<String, Object> section) {
+        if (cellKey == null || !cellKey.contains("_")) return null;
+
+        if (section != null && section.get("rowHeaders") instanceof List) {
+            List<Map<String, Object>> rowHeaders = (List<Map<String, Object>>) section.get("rowHeaders");
+            for (Map<String, Object> rh : rowHeaders) {
+                String rId = (String) rh.get("id");
+                if (rId != null && cellKey.startsWith(rId + "_")) {
+                    String colId = cellKey.substring(rId.length() + 1);
+                    return new String[]{ rId, colId };
+                }
+            }
+        }
+        return cellKey.split("_", 2);
     }
 
     private Object resolveSystemValue(SampleTest st, String mapping) {
@@ -370,7 +408,7 @@ public class WorksheetDataService {
 
     @SuppressWarnings("unchecked")
     private void applyLateBindingSystemMappings(Map<String, Object> schema, Map<String, Object> data, User currentUser) {
-        if (schema == null || !(schema.get("sections") instanceof List)) {
+        if (schema == null || !(schema.get("sections") instanceof List) || data == null) {
             return;
         }
         List<Map<String, Object>> sections = (List<Map<String, Object>>) schema.get("sections");
@@ -380,11 +418,8 @@ public class WorksheetDataService {
             String sectionId = (String) section.get("id");
             if (sectionId == null) continue;
 
-            Map<String, Object> sectionData = (Map<String, Object>) data.get(sectionId);
-            if (sectionData == null) {
-                sectionData = new HashMap<>();
-                data.put(sectionId, sectionData);
-            }
+            Object rawSecData = data.get(sectionId);
+            Map<String, Object> sectionData = (rawSecData instanceof Map) ? (Map<String, Object>) rawSecData : null;
 
             if (section.get("fields") instanceof List) {
                 List<Map<String, Object>> fields = (List<Map<String, Object>>) section.get("fields");
@@ -394,6 +429,11 @@ public class WorksheetDataService {
 
                     String fieldId = (String) field.get("id");
                     if (fieldId == null) continue;
+
+                    if (sectionData == null) {
+                        sectionData = new HashMap<>();
+                        data.put(sectionId, sectionData);
+                    }
 
                     switch (mapping) {
                         case "audit.testedBy.displayName":
@@ -408,6 +448,50 @@ public class WorksheetDataService {
                         case "audit.testedBy.signature":
                             String sig = currentUser.getSignatureImagePath();
                             sectionData.put(fieldId, sig != null ? sig : "Signed by " + currentUser.getDisplayName());
+                            break;
+                        default:
+                            break;
+                    }
+                }
+            }
+
+            if (section.get("cellMappings") instanceof Map) {
+                Map<String, String> cellMappings = (Map<String, String>) section.get("cellMappings");
+                for (Map.Entry<String, String> entry : cellMappings.entrySet()) {
+                    String cellKey = entry.getKey();
+                    String mapping = entry.getValue();
+                    if (mapping == null || mapping.isEmpty()) continue;
+
+                    String[] parts = parseCellKey(cellKey, section);
+                    if (parts == null || parts.length != 2) continue;
+
+                    String rowId = parts[0];
+                    String colId = parts[1];
+
+                    if (sectionData == null) {
+                        sectionData = new HashMap<>();
+                        data.put(sectionId, sectionData);
+                    }
+
+                    Object rawRowData = sectionData.get(rowId);
+                    Map<String, Object> rowData = (rawRowData instanceof Map)
+                            ? (Map<String, Object>) rawRowData
+                            : new HashMap<>();
+                    sectionData.put(rowId, rowData);
+
+                    switch (mapping) {
+                        case "audit.testedBy.displayName":
+                            rowData.put(colId, currentUser.getDisplayName());
+                            break;
+                        case "audit.testedBy.username":
+                            rowData.put(colId, currentUser.getUsername());
+                            break;
+                        case "audit.testedAt.datetime":
+                            rowData.put(colId, now.toString());
+                            break;
+                        case "audit.testedBy.signature":
+                            String sig = currentUser.getSignatureImagePath();
+                            rowData.put(colId, sig != null ? sig : "Signed by " + currentUser.getDisplayName());
                             break;
                         default:
                             break;

@@ -150,6 +150,53 @@ export const PropertyEditor: React.FC = () => {
               />
             </Form.Item>
           )}
+          {section?.type === 'MATRIX_TABLE' && (
+            <>
+              <Divider>Cell System Mappings</Divider>
+              <AntText type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 8 }}>
+                Map cells in column "{field.label || field.id}" to system data for each row header.
+              </AntText>
+              {(section.rowHeaders || []).map(rh => {
+                const cellKey = `${rh.id}_${field.id}`;
+                const currentMapping = section.cellMappings?.[cellKey];
+                return (
+                  <div key={rh.id} style={{ marginBottom: 8, padding: 8, background: '#f9f9f9', borderRadius: 4 }}>
+                    <AntText strong style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>Row: {rh.label}</AntText>
+                    <Select
+                      size="small"
+                      allowClear
+                      placeholder="No System Mapping"
+                      style={{ width: '100%' }}
+                      value={currentMapping}
+                      onChange={(v) => {
+                        const newCellMappings = { ...(section.cellMappings || {}) };
+                        if (v) {
+                          newCellMappings[cellKey] = v;
+                        } else {
+                          delete newCellMappings[cellKey];
+                        }
+                        updateSection(section.id, { cellMappings: newCellMappings });
+                      }}
+                      options={[
+                        { value: 'sample.sampleNumber', label: 'Sample Number' },
+                        { value: 'sample.job.jobNumber', label: 'Job Number' },
+                        { value: 'sample.job.client.name', label: 'Client Name' },
+                        { value: 'sample.product.name', label: 'Product Name' },
+                        { value: 'sample.job.projectName', label: 'Project Name' },
+                        { value: 'sample.job.poNumber', label: 'PO Number' },
+                        { value: 'sample.sampledAt', label: 'Sampling Date' },
+                        { value: 'sample.receivedAt', label: 'Received Date' },
+                        { value: 'audit.testedBy.displayName', label: 'Tested By (Full Name) [On Submit]' },
+                        { value: 'audit.testedBy.username', label: 'Tested By (Username) [On Submit]' },
+                        { value: 'audit.testedAt.datetime', label: 'Tested Date & Time [On Submit]' },
+                        { value: 'audit.testedBy.signature', label: 'Tested By Signature [On Submit]' },
+                      ]}
+                    />
+                  </div>
+                );
+              })}
+            </>
+          )}
         </Form>
       );
     }
@@ -302,6 +349,55 @@ export const PropertyEditor: React.FC = () => {
                 <Button type="default" block onClick={() => setGrouperOpen(true)}>Configure Merged Headers</Button>
                 {grouperOpen && <ColumnGroupEditor sectionId={section.id} isOpen={grouperOpen} onClose={() => setGrouperOpen(false)} />}
               </Form.Item>
+
+              <Divider>Cell System Mappings</Divider>
+              <AntText type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 8 }}>
+                Map specific matrix cells to system data.
+              </AntText>
+              {(section.rowHeaders || []).map(rh => (
+                <div key={rh.id} style={{ marginBottom: 12, padding: 8, background: '#f9f9f9', borderRadius: 4 }}>
+                  <AntText strong style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>Row: {rh.label}</AntText>
+                  {(section.columns || []).map(col => {
+                    const cellKey = `${rh.id}_${col.id}`;
+                    const currentMapping = section.cellMappings?.[cellKey];
+                    return (
+                      <div key={cellKey} style={{ marginBottom: 6 }}>
+                        <div style={{ fontSize: 11, color: '#555', marginBottom: 2 }}>Column: {col.label}</div>
+                        <Select
+                          size="small"
+                          allowClear
+                          placeholder="No System Mapping"
+                          style={{ width: '100%' }}
+                          value={currentMapping}
+                          onChange={(v) => {
+                            const newCellMappings = { ...(section.cellMappings || {}) };
+                            if (v) {
+                              newCellMappings[cellKey] = v;
+                            } else {
+                              delete newCellMappings[cellKey];
+                            }
+                            updateSection(section.id, { cellMappings: newCellMappings });
+                          }}
+                          options={[
+                            { value: 'sample.sampleNumber', label: 'Sample Number' },
+                            { value: 'sample.job.jobNumber', label: 'Job Number' },
+                            { value: 'sample.job.client.name', label: 'Client Name' },
+                            { value: 'sample.product.name', label: 'Product Name' },
+                            { value: 'sample.job.projectName', label: 'Project Name' },
+                            { value: 'sample.job.poNumber', label: 'PO Number' },
+                            { value: 'sample.sampledAt', label: 'Sampling Date' },
+                            { value: 'sample.receivedAt', label: 'Received Date' },
+                            { value: 'audit.testedBy.displayName', label: 'Tested By (Full Name) [On Submit]' },
+                            { value: 'audit.testedBy.username', label: 'Tested By (Username) [On Submit]' },
+                            { value: 'audit.testedAt.datetime', label: 'Tested Date & Time [On Submit]' },
+                            { value: 'audit.testedBy.signature', label: 'Tested By Signature [On Submit]' },
+                          ]}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
             </>
           )}
 

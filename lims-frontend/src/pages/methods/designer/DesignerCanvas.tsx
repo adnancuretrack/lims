@@ -199,11 +199,16 @@ const SortableSection = ({ section }: { section: SectionSchema }) => {
                             {rh.label}
                             {rh.systemMapping && <span style={{ marginLeft: 4, fontSize: 10 }}>⚡</span>}
                         </td>
-                        {fields.map(f => (
-                        <td key={f.id} style={{ border: '1px solid #d9d9d9', padding: '6px 8px', textAlign: 'center', backgroundColor: '#fdfdfd' }}>
-                            <Tag style={{ fontSize: 9, margin: 0 }}>{f.inputType}</Tag>
-                        </td>
-                        ))}
+                        {fields.map(f => {
+                          const cellKey = `${rh.id}_${f.id}`;
+                          const cellMapping = section.cellMappings?.[cellKey];
+                          return (
+                            <td key={f.id} style={{ border: '1px solid #d9d9d9', padding: '6px 8px', textAlign: 'center', backgroundColor: cellMapping ? '#e6f4ff' : '#fdfdfd' }}>
+                              <Tag style={{ fontSize: 9, margin: 0 }}>{f.inputType}</Tag>
+                              {cellMapping && <span style={{ marginLeft: 4, fontSize: 10 }} title={`Mapped: ${cellMapping}`}>⚡</span>}
+                            </td>
+                          );
+                        })}
                     </tr>
                     ))}
                 </tbody>

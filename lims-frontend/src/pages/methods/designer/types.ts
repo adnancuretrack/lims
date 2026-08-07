@@ -66,6 +66,7 @@ export interface SectionSchema {
   rowHeaders?: RowHeaderSchema[];
   visibilityCondition?: string;
   hasSpecimens?: boolean;
+  cellMappings?: Record<string, string>; // For MATRIX_TABLE: cellKey ("rowId_colId") -> systemMapping
 
   // Charting Configuration
   chartType?: 'SCATTER' | 'LINE';
