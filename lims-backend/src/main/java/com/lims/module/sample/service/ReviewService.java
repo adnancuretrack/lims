@@ -167,7 +167,12 @@ public class ReviewService {
                 if (anyActive) {
                     sample.setStatus("IN_PROGRESS");
                 } else {
-                    sample.setStatus("COMPLETED");
+                    boolean anyUnderReview = tests.stream().anyMatch(t -> "UNDER_REVIEW".equals(t.getStatus()));
+                    if (anyUnderReview) {
+                        sample.setStatus("UNDER_REVIEW");
+                    } else {
+                        sample.setStatus("COMPLETED");
+                    }
                 }
             }
         }

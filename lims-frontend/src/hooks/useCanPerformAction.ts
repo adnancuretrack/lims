@@ -26,7 +26,7 @@ export const useCanPerformAction = (sampleStatus: string) => {
         canReceive: sampleStatus === 'REGISTERED' && canReceiveRoles,
         canReject: sampleStatus === 'REGISTERED' && canReceiveRoles,
         canEnterResults: (sampleStatus === 'RECEIVED' || sampleStatus === 'IN_PROGRESS') && canEnterResultsRoles,
-        canReview: sampleStatus === 'COMPLETED' && canReviewRoles,
+        canReview: (sampleStatus === 'COMPLETED' || sampleStatus === 'UNDER_REVIEW') && canReviewRoles,
         canDelete: canDeleteRoles,
     };
 };

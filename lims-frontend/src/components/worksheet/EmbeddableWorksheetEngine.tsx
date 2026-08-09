@@ -93,7 +93,7 @@ export const EmbeddableWorksheetEngine: React.FC<EmbeddableWorksheetEngineProps>
 
     Modal.confirm({
       title: 'Submit Worksheet For Review?',
-      content: 'Submitting will lock the data and push the calculated results downstream. This action cannot be undone.',
+      content: 'Submitting will lock the data and push it for finalization by a Reviewer. This action cannot be undone.',
       onOk: async () => {
         try {
           await WorksheetService.submit(sampleTestId, {
@@ -102,7 +102,7 @@ export const EmbeddableWorksheetEngine: React.FC<EmbeddableWorksheetEngineProps>
           });
 
           localStorage.removeItem(`lims_worksheet_${sampleTestId}_draft`);
-          message.success('Worksheet locked and submitted.');
+          message.success('Worksheet locked and submitted for review.');
           if (onSubmitSuccess) {
             onSubmitSuccess();
           }
@@ -124,9 +124,9 @@ export const EmbeddableWorksheetEngine: React.FC<EmbeddableWorksheetEngineProps>
     }
 
     Modal.confirm({
-      title: isFinal ? 'Final Submission?' : 'Submit for Interim Authorization?',
+      title: isFinal ? 'Submit Specimens for Review?' : 'Submit for Interim Authorization?',
       content: isFinal 
-        ? 'This will lock all data and push the final calculated results downstream. You will not be able to add more specimens.'
+        ? 'This will lock all data and push the calculated results for finalization by a Reviewer. You will not be able to add more specimens.'
         : 'This will lock the current batch of specimen results and send them for review. You can still add more specimens later.',
       onOk: async () => {
         try {
@@ -211,11 +211,11 @@ export const EmbeddableWorksheetEngine: React.FC<EmbeddableWorksheetEngineProps>
                 icon={<CheckCircleOutlined />} 
                 onClick={() => handleSubmitSpecimens(true)}
               >
-                Final Submission
+                Submit Specimens for Review
               </Button>
             </>
           ) : (
-            <Button size="small" type="primary" icon={<CheckCircleOutlined />} onClick={handleComplete}>Finalize</Button>
+            <Button size="small" type="primary" icon={<CheckCircleOutlined />} onClick={handleComplete}>Submit for Review</Button>
           )}
         </>
       )}

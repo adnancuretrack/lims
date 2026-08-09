@@ -135,7 +135,7 @@ export default function SampleDetailPage() {
                         ),
                         children: test.hasWorksheet ? (
                             (test.status === 'COMPLETED' || test.status === 'AUTHORIZED' || actions.canReview || !actions.canEnterResults) ? (
-                                <WorksheetReviewPanel sampleTestId={test.id} />
+                                <WorksheetReviewPanel sampleTestId={test.id} testStatus={test.status} sampleStatus={sample.status} />
                             ) : (
                                 <EmbeddableWorksheetEngine 
                                     sampleTestId={test.id} 
@@ -228,12 +228,13 @@ export default function SampleDetailPage() {
                 </Space>
             </div>
 
+            {/* Action Panels */}
             {actions.canReceive && (
                 <Alert
                     message="This sample is awaiting intake"
                     type="info"
                     showIcon
-                    style={{ marginBottom: 24 }}
+                    style={{ marginBottom: 24, marginTop: 24 }}
                     action={
                         <IntakeActionPanel 
                             sampleId={sample.id} 
@@ -245,9 +246,9 @@ export default function SampleDetailPage() {
                 />
             )}
 
-            {actions.canReview && (
+            {(sample.status === 'COMPLETED' || (sample.status === 'IN_PROGRESS' && sample.specimens?.some((s: any) => s.status === 'FINALIZED'))) && actions.canReview && (
                 <Alert
-                    message="All tests complete — awaiting review"
+                    message="Sample ready for authorization"
                     type="info"
                     showIcon
                     style={{ marginBottom: 24 }}

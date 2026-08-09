@@ -91,4 +91,20 @@ public class WorksheetDataController {
                 .contentType(MediaType.APPLICATION_PDF)
                 .body(pdfBytes);
     }
+
+    @PostMapping("/{sampleTestId}/finalize")
+    @Operation(summary = "Finalize worksheet data (Reviewer only)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'LAB_MANAGER', 'REVIEWER')")
+    public ResponseEntity<Void> finalizeWorksheet(@PathVariable Long sampleTestId) {
+        worksheetDataService.finalizeWorksheet(sampleTestId);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/{sampleTestId}/reject-review")
+    @Operation(summary = "Reject worksheet data back to Analyst (Reviewer only)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'LAB_MANAGER', 'REVIEWER')")
+    public ResponseEntity<Void> rejectReview(@PathVariable Long sampleTestId) {
+        worksheetDataService.rejectReview(sampleTestId);
+        return ResponseEntity.ok().build();
+    }
 }

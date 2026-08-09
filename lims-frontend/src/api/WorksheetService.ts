@@ -25,6 +25,14 @@ export const WorksheetService = {
   submitFinal: async (sampleTestId: string | number, request: any) => {
     return apiClient.post(`/worksheet/${sampleTestId}/submit-final`, request);
   },
+
+  finalize: async (sampleTestId: string | number) => {
+    return apiClient.post(`/worksheet/${sampleTestId}/finalize`);
+  },
+
+  rejectReview: async (sampleTestId: string | number) => {
+    return apiClient.post(`/worksheet/${sampleTestId}/reject-review`);
+  },
   
   getHistory: async (sampleTestId: string | number) => {
     return apiClient.get(`/worksheet/${sampleTestId}/history`);

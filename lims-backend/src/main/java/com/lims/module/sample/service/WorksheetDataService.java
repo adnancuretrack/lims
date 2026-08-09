@@ -126,7 +126,7 @@ public class WorksheetDataService {
         testResultRepository.save(result);
 
         // 3. Update SampleTest status
-        st.setStatus("COMPLETED");
+        st.setStatus("UNDER_REVIEW");
         sampleTestRepository.save(st);
 
         // 4. Update Sample status
@@ -193,7 +193,7 @@ public class WorksheetDataService {
                             .specimenNumber(specimenNumber)
                             .build());
 
-            specimen.setStatus("FINALIZED");
+            specimen.setStatus("TESTED");
             specimen.setTestedBy(currentUser);
             specimen.setTestedAt(Instant.now());
             Specimen savedSpecimen = specimenRepository.save(specimen);
@@ -214,7 +214,7 @@ public class WorksheetDataService {
         }
 
         // 4. Update SampleTest status
-        st.setStatus("COMPLETED");
+        st.setStatus("UNDER_REVIEW");
         sampleTestRepository.save(st);
 
         // 5. Update Sample status
@@ -286,13 +286,15 @@ public class WorksheetDataService {
     private void updateSampleStatusIfFinished(Sample sample) {
         List<SampleTest> tests = sampleTestRepository.findBySampleIdOrderBySortOrderAscIdAsc(sample.getId());
         boolean allFinished = tests.stream().allMatch(t -> "COMPLETED".equals(t.getStatus()) || "AUTHORIZED".equals(t.getStatus()));
+        boolean anyUnderReview = tests.stream().anyMatch(t -> "UNDER_REVIEW".equals(t.getStatus()));
         if (allFinished) {
             sample.setStatus("COMPLETED");
-            sampleRepository.save(sample);
+        } else if (anyUnderReview) {
+            sample.setStatus("UNDER_REVIEW");
         } else {
             sample.setStatus("IN_PROGRESS");
-            sampleRepository.save(sample);
         }
+        sampleRepository.save(sample);
     }
 
     private Map<String, Object> prefillSystemMappedData(SampleTest st, MethodDefinition activeDef) {
@@ -557,5 +559,64 @@ public class WorksheetDataService {
         applyLateBindingSystemMappings(wd.getMethodDefinition().getSchemaDefinition(), data, currentUser, true);
         wd.setData(data);
         worksheetDataRepository.save(wd);
+    }
+
+    @Transactional
+    public void finalizeWorksheet(Long sampleTestId) {
+        WorksheetData wd = worksheetDataRepository.findBySampleTestId(sampleTestId)
+                .orElseThrow(() -> new RuntimeException("Worksheet data not found"));
+        SampleTest st = wd.getSampleTest();
+        
+        if (!"UNDER_REVIEW".equals(st.getStatus())) {
+            throw new RuntimeException("Sample test is not in UNDER_REVIEW status");
+        }
+
+        List<TestResult> results = testResultRepository.findBySampleTestIdOrderByEnteredAtDesc(sampleTestId);
+        for (TestResult result : results) {
+            Specimen specimen = result.getSpecimen();
+            if (specimen != null && "TESTED".equals(specimen.getStatus())) {
+                specimen.setStatus("FINALIZED");
+                specimenRepository.save(specimen);
+            }
+        }
+
+        st.setStatus("COMPLETED");
+        if (wd.getStatus() != null && wd.getStatus().startsWith("SUBMITTED")) {
+            wd.setStatus("COMPLETED");
+        }
+        worksheetDataRepository.save(wd);
+        sampleTestRepository.save(st);
+        
+        updateSampleStatusIfFinished(st.getSample());
+        dataSyncService.broadcast("SAMPLE", st.getSample().getId(), "WORKSHEET_FINALIZED");
+    }
+
+    @Transactional
+    public void rejectReview(Long sampleTestId) {
+        WorksheetData wd = worksheetDataRepository.findBySampleTestId(sampleTestId)
+                .orElseThrow(() -> new RuntimeException("Worksheet data not found"));
+        SampleTest st = wd.getSampleTest();
+        
+        if (!"UNDER_REVIEW".equals(st.getStatus())) {
+            throw new RuntimeException("Sample test is not in UNDER_REVIEW status");
+        }
+
+        List<TestResult> results = testResultRepository.findBySampleTestIdOrderByEnteredAtDesc(sampleTestId);
+        for (TestResult result : results) {
+            Specimen specimen = result.getSpecimen();
+            if (specimen != null && "TESTED".equals(specimen.getStatus())) {
+                specimen.setStatus("DRAFT");
+                specimenRepository.save(specimen);
+            }
+        }
+
+        st.setStatus("IN_PROGRESS");
+        wd.setStatus("DRAFT");
+        
+        worksheetDataRepository.save(wd);
+        sampleTestRepository.save(st);
+        
+        updateSampleStatusIfFinished(st.getSample());
+        dataSyncService.broadcast("SAMPLE", st.getSample().getId(), "WORKSHEET_REJECTED");
     }
 }

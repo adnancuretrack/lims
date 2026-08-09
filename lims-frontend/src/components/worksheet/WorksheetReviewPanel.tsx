@@ -1,17 +1,22 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Space, Spin, Empty, Alert } from 'antd';
+import { Card, Space, Spin, Empty, Alert, Button, message } from 'antd';
+import { CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import { SectionRenderer } from '../../pages/worksheets/engine/SectionRenderer';
 import { recomputeAllFormulas, runAllValidations, evaluateCondition } from '../../pages/worksheets/engine/FormulaEngine';
 import { WorksheetService } from '../../api/WorksheetService';
 import type { WorksheetSchema } from '../../pages/methods/designer/types';
-
-
+import { useQueryClient } from '@tanstack/react-query';
+import { useCanPerformAction } from '../../hooks/useCanPerformAction';
 
 interface WorksheetReviewPanelProps {
   sampleTestId: number;
+  testStatus?: string;
+  sampleStatus?: string;
 }
 
-export const WorksheetReviewPanel: React.FC<WorksheetReviewPanelProps> = ({ sampleTestId }) => {
+export const WorksheetReviewPanel: React.FC<WorksheetReviewPanelProps> = ({ sampleTestId, testStatus, sampleStatus }) => {
+  const queryClient = useQueryClient();
+  const actions = useCanPerformAction(sampleStatus || '');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [schema, setSchema] = useState<WorksheetSchema | null>(null);
@@ -74,8 +79,52 @@ export const WorksheetReviewPanel: React.FC<WorksheetReviewPanelProps> = ({ samp
     return <Empty description="No worksheet found" />;
   }
 
+  const handleFinalize = async () => {
+    try {
+      await WorksheetService.finalize(sampleTestId);
+      message.success('Worksheet finalized successfully');
+      queryClient.invalidateQueries();
+    } catch (err) {
+      message.error('Failed to finalize worksheet');
+    }
+  };
+
+  const handleReject = async () => {
+    try {
+      await WorksheetService.rejectReview(sampleTestId);
+      message.success('Worksheet rejected back to Analyst');
+      queryClient.invalidateQueries();
+    } catch (err) {
+      message.error('Failed to reject worksheet');
+    }
+  };
+
+  const actionButtons = (testStatus === 'UNDER_REVIEW' && actions.canReview) ? (
+    <Space>
+      <Button 
+        danger
+        icon={<CloseCircleOutlined />} 
+        onClick={handleReject}
+      >
+        Reject to Analyst
+      </Button>
+      <Button 
+        type="primary" 
+        icon={<CheckCircleOutlined />} 
+        onClick={handleFinalize}
+      >
+        Finalize Worksheet Data
+      </Button>
+    </Space>
+  ) : null;
+
   return (
     <Space direction="vertical" size="large" style={{ width: '100%' }}>
+      {actionButtons && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+          {actionButtons}
+        </div>
+      )}
       {(schema.sections || []).map(section => {
         const isVisible = evaluateCondition({
           formula: section.visibilityCondition || '',

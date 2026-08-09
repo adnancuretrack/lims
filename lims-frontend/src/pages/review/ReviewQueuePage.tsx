@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Table, Card, Typography, Row, Col, Tag, Button, Empty, message, Layout, Divider, Space, Modal, Input, Collapse, Alert } from 'antd';
-import { SafetyCertificateOutlined, CloseCircleOutlined, ExperimentOutlined } from '@ant-design/icons';
+import { Table, Card, Typography, Row, Col, Tag, Button, Empty, message, Layout, Divider, Space, Modal, Input, Collapse, Alert, Tabs } from 'antd';
+import { SafetyCertificateOutlined, CloseCircleOutlined, ExperimentOutlined, FileDoneOutlined } from '@ant-design/icons';
 import { AnalysisService } from '../../api/AnalysisService';
 import { SampleService } from '../../api/SampleService';
 import type { SampleDTO, SampleTestDTO, ResultReviewRequest } from '../../api/types';
@@ -20,15 +20,23 @@ export default function ReviewQueuePage() {
     const [selectedTestResultId, setSelectedTestResultId] = useState<number | null>(null);
     const queryClient = useQueryClient();
 
+    const [activeTab, setActiveTab] = useState<'finalization' | 'authorization'>('finalization');
+
     const { data: queue, isLoading: isLoadingQueue } = useQuery({
         queryKey: ['reviewQueue'],
         queryFn: () => SampleService.list()
     });
 
-    const awaitingReview = queue?.content.filter((s: SampleDTO) => 
+    const awaitingAuthorization = queue?.content.filter((s: SampleDTO) => 
         s.status === 'COMPLETED' || 
         (s.status === 'IN_PROGRESS' && s.specimens && s.specimens.some((sp: any) => sp.status === 'FINALIZED'))
     ) || [];
+
+    const awaitingFinalization = queue?.content.filter((s: SampleDTO) => 
+        s.status === 'UNDER_REVIEW'
+    ) || [];
+
+    const displayedQueue = activeTab === 'finalization' ? awaitingFinalization : awaitingAuthorization;
 
     // Fetch tests for selected sample
     const { data: tests, isLoading: isLoadingTests } = useQuery({
@@ -117,43 +125,68 @@ export default function ReviewQueuePage() {
 
     return (
         <Layout style={{ height: 'calc(100vh - 64px)', background: '#f5f5f5' }}>
-            <Sider width={400} theme="light" style={{ borderRight: '1px solid #d9d9d9', overflowY: 'auto' }}>
+            <Sider width={450} theme="light" style={{ borderRight: '1px solid #d9d9d9', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
                 <div style={{ padding: '16px', borderBottom: '1px solid #f0f0f0' }}>
                     <Title level={4} style={{ margin: 0 }}>Review Queue</Title>
-                    <Text type="secondary">Samples awaiting authorization</Text>
+                    <Text type="secondary">Manage sample reviews and authorizations</Text>
                 </div>
-                <Table
-                    dataSource={awaitingReview}
-                    columns={queueColumns}
-                    rowKey="id"
-                    loading={isLoadingQueue}
-                    pagination={false}
-                    onRow={(record) => ({
-                        onClick: () => setSelectedSample(record),
-                        style: { cursor: 'pointer', background: selectedSample?.id === record.id ? '#fff7e6' : 'inherit' }
-                    })}
-                />
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                    <Tabs
+                        activeKey={activeTab}
+                        onChange={(key) => {
+                            setActiveTab(key as 'finalization' | 'authorization');
+                            setSelectedSample(null);
+                        }}
+                        style={{ padding: '0 16px' }}
+                        items={[
+                            {
+                                key: 'finalization',
+                                label: <span><FileDoneOutlined />Awaiting Finalization ({awaitingFinalization.length})</span>
+                            },
+                            {
+                                key: 'authorization',
+                                label: <span><SafetyCertificateOutlined />Awaiting Auth ({awaitingAuthorization.length})</span>
+                            }
+                        ]}
+                    />
+                    <Table
+                        dataSource={displayedQueue}
+                        columns={queueColumns}
+                        rowKey="id"
+                        loading={isLoadingQueue}
+                        pagination={false}
+                        size="small"
+                        onRow={(record) => ({
+                            onClick: () => setSelectedSample(record),
+                            style: { cursor: 'pointer', background: selectedSample?.id === record.id ? '#fff7e6' : 'inherit' }
+                        })}
+                    />
+                </div>
             </Sider>
             <Content style={{ padding: '24px', overflowY: 'auto' }}>
                 {selectedSample ? (
                     <div style={{ maxWidth: 1000, margin: '0 auto' }}>
                         <Card bordered={false} extra={
                             <Space>
-                                <Button
-                                    danger
-                                    icon={<CloseCircleOutlined />}
-                                    onClick={() => handleReviewClick('REJECT')}
-                                >
-                                    Reject Changes
-                                </Button>
-                                <Button
-                                    type="primary"
-                                    icon={<SafetyCertificateOutlined />}
-                                    style={{ background: '#52c41a', borderColor: '#52c41a' }}
-                                    onClick={() => handleReviewClick('AUTHORIZE')}
-                                >
-                                    Authorize Sample
-                                </Button>
+                                {activeTab === 'authorization' && (
+                                    <>
+                                        <Button
+                                            danger
+                                            icon={<CloseCircleOutlined />}
+                                            onClick={() => handleReviewClick('REJECT')}
+                                        >
+                                            Reject Changes
+                                        </Button>
+                                        <Button
+                                            type="primary"
+                                            icon={<SafetyCertificateOutlined />}
+                                            style={{ background: '#52c41a', borderColor: '#52c41a' }}
+                                            onClick={() => handleReviewClick('AUTHORIZE')}
+                                        >
+                                            Authorize Sample
+                                        </Button>
+                                    </>
+                                )}
                             </Space>
                         }>
                             <Row gutter={24} align="middle">
@@ -212,7 +245,7 @@ export default function ReviewQueuePage() {
                                                 </Card>
                                             )}
                                             {test.hasWorksheet ? (
-                                                <WorksheetReviewPanel sampleTestId={test.id} />
+                                                <WorksheetReviewPanel sampleTestId={test.id} testStatus={test.status} sampleStatus={selectedSample?.status} />
                                             ) : (
                                                 <div style={{ padding: 16 }}>
                                                     <Alert 

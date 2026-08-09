@@ -26,7 +26,7 @@ public class SampleTest extends BaseEntity {
     @Column(nullable = false, length = 30)
     @Builder.Default
     private String status = "PENDING";
-    // PENDING | IN_PROGRESS | COMPLETED | INTERIM_AUTHORIZED | AUTHORIZED | REJECTED
+    // PENDING | IN_PROGRESS | UNDER_REVIEW | COMPLETED | INTERIM_AUTHORIZED | AUTHORIZED | REJECTED
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "assigned_to")
