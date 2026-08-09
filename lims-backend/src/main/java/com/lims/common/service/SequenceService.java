@@ -32,10 +32,10 @@ public class SequenceService {
         repository.save(seq);
 
         long val = seq.getCurrentVal();
-        char letter = (char) ('a' + val / 10000);
+        char letter = (char) ('A' + val / 10000);
         int number = (int) (val % 10000);
 
-        if (letter > 'z') {
+        if (letter > 'Z') {
             throw new IllegalStateException("Job number capacity exceeded for year " + year);
         }
 
