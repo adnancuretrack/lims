@@ -114,7 +114,7 @@ export const ExcelImporter: React.FC = () => {
                 // Table found!
                 const columns = cols.map(col => createField(col.label, r, col.c, firstSheet, true));
                 sections.push({
-                   id: `table_horiz_${r}`,
+                   id: `table_horiz_${r}_${Math.random().toString(36).substring(2, 8)}`,
                    title: `Data Table (Row ${r+1})`,
                    type: 'DATA_TABLE',
                    orientation: 'ROWS_AS_RECORDS',
@@ -145,7 +145,7 @@ export const ExcelImporter: React.FC = () => {
          if (emptyBelow >= Math.floor(cols.length / 2)) {
             const columns = cols.map(col => createField(col.label, r, col.c, firstSheet, true));
             sections.push({
-               id: `table_horiz_${r}`,
+               id: `table_horiz_${r}_${Math.random().toString(36).substring(2, 8)}`,
                title: `Data Table (Row ${r+1})`,
                type: 'DATA_TABLE',
                orientation: 'ROWS_AS_RECORDS',
@@ -190,7 +190,7 @@ export const ExcelImporter: React.FC = () => {
               // Table found!
               const columns = consecutiveVals.map(val => createField(val.label, val.r, c, firstSheet, false));
               sections.push({
-                 id: `table_vert_${startRow}`,
+                 id: `table_vert_${startRow}_${Math.random().toString(36).substring(2, 8)}`,
                  title: `Property Table (Row ${startRow+1})`,
                  type: 'DATA_TABLE',
                  orientation: 'COLUMNS_AS_TRIALS',
