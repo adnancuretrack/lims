@@ -17,6 +17,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -229,7 +230,26 @@ public class ExcelReportService {
         
         if (found) {
             sb.append(originalValue.substring(lastEnd));
-            cell.setCellValue(sb.toString());
+            String finalString = sb.toString();
+            
+            Matcher sigMatcher = Pattern.compile("([^\\s]*uploads[/\\\\]signatures[/\\\\][^\\s]*\\.(png|jpg|jpeg))", Pattern.CASE_INSENSITIVE).matcher(finalString);
+            if (sigMatcher.find()) {
+                String pathStr = sigMatcher.group(1);
+                String normalizedPath = pathStr.replace("\\", "/");
+                Path imgPath = Paths.get(normalizedPath).toAbsolutePath();
+                if (Files.exists(imgPath)) {
+                    embedImage(cell.getSheet(), cell.getSheet().getWorkbook(), cell, imgPath);
+                    String remainingText = finalString.replace(pathStr, "").trim();
+                    if (!remainingText.isEmpty()) {
+                        cell.setCellValue(remainingText);
+                    }
+                    return;
+                } else {
+                    log.warn("Signature image path mapped (mixed) but file not found on disk: {}", imgPath);
+                }
+            }
+            
+            cell.setCellValue(finalString);
         }
     }
 
@@ -240,6 +260,18 @@ public class ExcelReportService {
         }
 
         try {
+            if (value.toLowerCase().matches(".*uploads[/\\\\]signatures[/\\\\].*\\.(png|jpg|jpeg)")) {
+                // Normalize path for Linux/Windows differences
+                String normalizedPath = value.replace("\\", "/");
+                Path imgPath = Paths.get(normalizedPath).toAbsolutePath();
+                if (Files.exists(imgPath)) {
+                    embedImage(cell.getSheet(), cell.getSheet().getWorkbook(), cell, imgPath);
+                    return;
+                } else {
+                    log.warn("Signature image path mapped but file not found on disk: {}", imgPath);
+                }
+            }
+
             if (value.equalsIgnoreCase("true") || value.equalsIgnoreCase("false")) {
                 cell.setCellValue(Boolean.parseBoolean(value));
             } else {
@@ -542,6 +574,49 @@ public class ExcelReportService {
         } catch (Exception e) {
             log.error("Failed to embed QR code in Excel report", e);
             cell.setCellValue("");
+        }
+    }
+    private void embedImage(Sheet sheet, Workbook workbook, Cell cell, Path imagePath) {
+        try {
+            byte[] imgBytes = Files.readAllBytes(imagePath);
+            int pictureType = Workbook.PICTURE_TYPE_PNG;
+            String filename = imagePath.getFileName().toString().toLowerCase();
+            if (filename.endsWith(".jpg") || filename.endsWith(".jpeg")) {
+                pictureType = Workbook.PICTURE_TYPE_JPEG;
+            }
+            int pictureIdx = workbook.addPicture(imgBytes, pictureType);
+
+            int startCol = cell.getColumnIndex();
+            int startRow = cell.getRowIndex();
+            int endCol = startCol + 1;
+            int endRow = startRow + 1;
+
+            // Check if cell is in a merged region to cover the full merged area
+            for (int i = 0; i < sheet.getNumMergedRegions(); i++) {
+                CellRangeAddress range = sheet.getMergedRegion(i);
+                if (range.isInRange(startRow, startCol)) {
+                    startCol = range.getFirstColumn();
+                    startRow = range.getFirstRow();
+                    endCol = range.getLastColumn() + 1;
+                    endRow = range.getLastRow() + 1;
+                    break;
+                }
+            }
+
+            Drawing<?> drawing = sheet.createDrawingPatriarch();
+            CreationHelper helper = workbook.getCreationHelper();
+            ClientAnchor anchor = helper.createClientAnchor();
+            anchor.setCol1(startCol);
+            anchor.setRow1(startRow);
+            anchor.setCol2(endCol);
+            anchor.setRow2(endRow);
+            anchor.setAnchorType(ClientAnchor.AnchorType.MOVE_AND_RESIZE);
+
+            drawing.createPicture(anchor, pictureIdx);
+            cell.setBlank();
+        } catch (Exception e) {
+            log.error("Failed to embed image from path: {}", imagePath, e);
+            cell.setCellValue(imagePath.toString());
         }
     }
 }
