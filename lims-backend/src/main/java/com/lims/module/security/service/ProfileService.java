@@ -112,7 +112,7 @@ public class ProfileService {
         String fileName = user.getId() + "_" + UUID.randomUUID() + extension;
         Path filePath = root.resolve(fileName);
         
-        file.transferTo(filePath.toFile());
+        file.transferTo(filePath.toAbsolutePath().toFile());
 
         user.setSignatureImagePath(filePath.toString());
         userRepository.save(user);

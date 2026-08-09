@@ -38,11 +38,10 @@ export const ProfileService = {
         });
     },
 
-    getSignatureUrl: (): string => {
-        // Assume API base URL is set via proxy in dev, or prepend if known.
-        // Easiest is to return the relative path that the client will fetch.
-        // If apiClient has a baseUrl, this might need adjusting. 
-        // For an <img> src, it's typically `/api/v1/profile/signature` depending on routing.
-        return '/api/v1/profile/signature'; // adjust prefix based on actual LIMS API base
+    getSignatureImage: async (): Promise<Blob> => {
+        const response = await apiClient.get('/profile/signature', {
+            responseType: 'blob'
+        });
+        return response.data;
     }
 };

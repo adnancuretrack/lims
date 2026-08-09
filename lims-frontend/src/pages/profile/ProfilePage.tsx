@@ -23,6 +23,22 @@ export default function ProfilePage() {
         queryFn: ProfileService.getProfile,
     });
 
+    const { data: signatureBlob } = useQuery({
+        queryKey: ['signature', signatureKey],
+        queryFn: ProfileService.getSignatureImage,
+        enabled: !!profile?.hasSignature,
+    });
+
+    const [signatureUrl, setSignatureUrl] = useState<string | undefined>();
+
+    useEffect(() => {
+        if (signatureBlob) {
+            const url = URL.createObjectURL(signatureBlob);
+            setSignatureUrl(url);
+            return () => URL.revokeObjectURL(url);
+        }
+    }, [signatureBlob]);
+
     useEffect(() => {
         if (profile) {
             form.setFieldsValue({
@@ -258,12 +274,14 @@ export default function ProfilePage() {
                 <div style={{ marginBottom: 16 }}>
                     <Text strong>Current Signature:</Text>
                     <div style={{ marginTop: 8, padding: 16, background: '#f5f5f5', border: '1px dashed #d9d9d9', borderRadius: 8, display: 'inline-block', minWidth: 200, minHeight: 80, textAlign: 'center' }}>
-                        {profile.hasSignature ? (
+                        {profile.hasSignature && signatureUrl ? (
                             <img 
-                                src={`${ProfileService.getSignatureUrl()}?t=${signatureKey}`} 
+                                src={signatureUrl} 
                                 alt="Digital Signature" 
                                 style={{ maxWidth: '100%', maxHeight: 200, objectFit: 'contain' }}
                             />
+                        ) : profile.hasSignature ? (
+                            <Text type="secondary" style={{ lineHeight: '48px' }}>Loading signature...</Text>
                         ) : (
                             <Text type="secondary" style={{ lineHeight: '48px' }}>No signature uploaded</Text>
                         )}
