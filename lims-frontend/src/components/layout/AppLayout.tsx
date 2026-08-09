@@ -37,6 +37,7 @@ export default function AppLayout() {
     const user = useAuthStore((s) => s.user);
     const logout = useAuthStore((s) => s.logout);
     const isAdmin = useHasRole('ADMIN');
+    const isViewer = useHasRole('VIEWER');
 
     const sideMenuItems: MenuProps['items'] = [
         { key: '/', icon: <DashboardOutlined />, label: 'Dashboard' },
@@ -50,7 +51,7 @@ export default function AppLayout() {
             ]
         },
 
-        {
+        !isViewer ? {
             key: 'quality',
             icon: <LineChartOutlined />,
             label: 'Quality & Compliance',
@@ -59,7 +60,7 @@ export default function AppLayout() {
                 { key: '/investigations', icon: <AlertOutlined />, label: 'Investigations' },
                 { key: '/quality/documents', icon: <FileSearchOutlined />, label: 'Documents' },
             ]
-        },
+        } : null,
 
         isAdmin ? {
             key: 'master-data',

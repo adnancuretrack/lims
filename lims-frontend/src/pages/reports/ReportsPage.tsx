@@ -7,7 +7,10 @@ import { ReportApiService } from '../../api/ReportApiService';
 import type { TatReportDTO, WorkloadReportDTO, OverdueSampleDTO } from '../../api/ReportApiService';
 import dayjs from 'dayjs';
 
+import { useHasRole } from '../../hooks/useHasRole';
+
 const { Title, Text } = Typography;
+
 
 const STATUS_COLORS: Record<string, string> = {
     REGISTERED: '#1890ff',
@@ -368,6 +371,7 @@ function OverdueTab() {
 
 // ====== Main Reports Page ======
 export default function ReportsPage() {
+    const isViewer = useHasRole('VIEWER');
     const items = [
         {
             key: 'coa',
@@ -378,7 +382,7 @@ export default function ReportsPage() {
             ),
             children: <CoaTab />,
         },
-        {
+        !isViewer ? {
             key: 'tat',
             label: (
                 <span>
@@ -386,8 +390,8 @@ export default function ReportsPage() {
                 </span>
             ),
             children: <TatTab />,
-        },
-        {
+        } : null,
+        !isViewer ? {
             key: 'workload',
             label: (
                 <span>
@@ -395,8 +399,8 @@ export default function ReportsPage() {
                 </span>
             ),
             children: <WorkloadTab />,
-        },
-        {
+        } : null,
+        !isViewer ? {
             key: 'overdue',
             label: (
                 <span>
@@ -404,8 +408,8 @@ export default function ReportsPage() {
                 </span>
             ),
             children: <OverdueTab />,
-        },
-    ];
+        } : null,
+    ].filter(Boolean) as any;
 
     return (
         <div>

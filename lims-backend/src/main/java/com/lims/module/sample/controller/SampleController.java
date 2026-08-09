@@ -40,14 +40,14 @@ public class SampleController {
 
     @GetMapping("/stats")
     @Operation(summary = "Get dashboard statistics")
-    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'LAB_MANAGER', 'ANALYST')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'LAB_MANAGER', 'ANALYST', 'VIEWER')")
     public ResponseEntity<DashboardStatsDTO> getStats() {
         return ResponseEntity.ok(sampleService.getDashboardStats());
     }
 
     @GetMapping
     @Operation(summary = "List samples", description = "Paged list of samples with optional search filter")
-    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'LAB_MANAGER', 'ANALYST')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'LAB_MANAGER', 'ANALYST', 'VIEWER')")
     public Page<SampleDTO> listSamples(
             @RequestParam(name = "search", required = false) String search,
             @RequestParam(name = "status", required = false) String status,
@@ -63,14 +63,14 @@ public class SampleController {
 
     @GetMapping("/{id}")
     @Operation(summary = "Get sample details")
-    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'LAB_MANAGER', 'ANALYST')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'LAB_MANAGER', 'ANALYST', 'VIEWER')")
     public ResponseEntity<SampleDTO> getSample(@PathVariable Long id) {
         return ResponseEntity.ok(sampleService.getSampleDetails(id));
     }
 
     @GetMapping("/{id}/tests")
     @Operation(summary = "Get tests for a sample")
-    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'LAB_MANAGER', 'ANALYST')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'LAB_MANAGER', 'ANALYST', 'VIEWER')")
     public ResponseEntity<List<com.lims.module.sample.dto.SampleTestDTO>> getSampleTests(@PathVariable Long id) {
         return ResponseEntity.ok(sampleService.getSampleTests(id));
     }

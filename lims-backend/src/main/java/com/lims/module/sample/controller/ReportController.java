@@ -12,6 +12,7 @@ import net.sf.jasperreports.engine.JRException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -23,6 +24,7 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/reports")
 @RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'LAB_MANAGER', 'ANALYST', 'REVIEWER', 'AUTHORIZER', 'VIEWER')")
 @Tag(name = "Reports", description = "Endpoints for generating system reports and documents")
 public class ReportController {
 
@@ -83,18 +85,21 @@ public class ReportController {
     }
 
     @GetMapping("/tat")
+    @PreAuthorize("hasAnyRole('ADMIN', 'LAB_MANAGER')")
     @Operation(summary = "Turnaround time summary grouped by sample status")
     public ResponseEntity<List<TatReportDTO>> getTatReport() {
         return ResponseEntity.ok(reportService.getTatReport());
     }
 
     @GetMapping("/workload")
+    @PreAuthorize("hasAnyRole('ADMIN', 'LAB_MANAGER')")
     @Operation(summary = "Analyst workload breakdown — tests assigned, completed, and pending")
     public ResponseEntity<List<WorkloadReportDTO>> getWorkloadReport() {
         return ResponseEntity.ok(reportService.getWorkloadReport());
     }
 
     @GetMapping("/overdue")
+    @PreAuthorize("hasAnyRole('ADMIN', 'LAB_MANAGER')")
     @Operation(summary = "Samples past their due date that are still in progress")
     public ResponseEntity<List<OverdueSampleDTO>> getOverdueReport() {
         return ResponseEntity.ok(reportService.getOverdueReport());
