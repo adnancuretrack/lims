@@ -6,7 +6,7 @@ export interface PrintOptions {
     height?: string;
 }
 
-export function useBarcodePrinter(options: PrintOptions = { width: '4.25in', height: '1.98in' }) {
+export function useBarcodePrinter(options: PrintOptions = { width: '4.25in', height: '3in' }) {
     const componentRef = useRef<HTMLDivElement>(null);
 
     const handlePrint = useReactToPrint({
