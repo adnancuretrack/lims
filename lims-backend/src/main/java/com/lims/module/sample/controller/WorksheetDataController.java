@@ -29,14 +29,14 @@ public class WorksheetDataController {
 
     @GetMapping("/{sampleTestId}")
     @Operation(summary = "Get worksheet schema and data")
-    @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST', 'TECHNICIAN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST', 'TECHNICIAN', 'REVIEWER', 'AUTHORIZER', 'LAB_MANAGER', 'VIEWER')")
     public ResponseEntity<Map<String, Object>> getWorksheet(@PathVariable Long sampleTestId) {
         return ResponseEntity.ok(worksheetDataService.getWorksheet(sampleTestId));
     }
 
     @GetMapping("/{sampleTestId}/history")
     @Operation(summary = "Get worksheet revision history")
-    @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST', 'TECHNICIAN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST', 'TECHNICIAN', 'REVIEWER', 'AUTHORIZER', 'LAB_MANAGER')")
     public ResponseEntity<List<Map<String, Object>>> getHistory(@PathVariable Long sampleTestId) {
         return ResponseEntity.ok(worksheetAuditService.getRevisionHistory(sampleTestId));
     }
@@ -83,7 +83,7 @@ public class WorksheetDataController {
 
     @GetMapping("/{sampleTestId}/report")
     @Operation(summary = "Generate and download worksheet report PDF")
-    @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST', 'TECHNICIAN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST', 'TECHNICIAN', 'REVIEWER', 'AUTHORIZER', 'LAB_MANAGER', 'VIEWER')")
     public ResponseEntity<byte[]> downloadReport(@PathVariable Long sampleTestId) {
         byte[] pdfBytes = reportService.generateWorksheetReport(sampleTestId);
         return ResponseEntity.ok()
