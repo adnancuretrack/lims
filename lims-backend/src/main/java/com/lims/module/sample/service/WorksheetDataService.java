@@ -30,6 +30,10 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class WorksheetDataService {
 
+    public enum SystemMappingPassType {
+        SUBMIT, REVIEW, AUTHORIZE
+    }
+
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").withZone(ZoneId.systemDefault());
 
     private final WorksheetDataRepository worksheetDataRepository;
@@ -172,7 +176,7 @@ public class WorksheetDataService {
 
         // 1. Update WorksheetData data
         Map<String, Object> data = request.getData() != null ? new HashMap<>(request.getData()) : new HashMap<>();
-        applyLateBindingSystemMappings(wd.getMethodDefinition().getSchemaDefinition(), data, currentUser, false);
+        applyLateBindingSystemMappings(wd.getMethodDefinition().getSchemaDefinition(), data, currentUser, SystemMappingPassType.SUBMIT);
         wd.setData(data);
         wd.setCalculatedResults(request.getCalculatedResults());
         wd.setStatus(isFinal ? "SUBMITTED_FINAL" : "SUBMITTED");
@@ -413,7 +417,7 @@ public class WorksheetDataService {
     }
 
     @SuppressWarnings("unchecked")
-    private void applyLateBindingSystemMappings(Map<String, Object> schema, Map<String, Object> data, User currentUser, boolean isAuthorizationPass) {
+    private void applyLateBindingSystemMappings(Map<String, Object> schema, Map<String, Object> data, User currentUser, SystemMappingPassType passType) {
         if (schema == null || !(schema.get("sections") instanceof List) || data == null) {
             return;
         }
@@ -442,7 +446,7 @@ public class WorksheetDataService {
                         data.put(sectionId, sectionData);
                     }
 
-                    if (!isAuthorizationPass) {
+                    if (passType == SystemMappingPassType.SUBMIT) {
                         // Tester submission scope
                         switch (mapping) {
                             case "audit.testedBy.displayName":
@@ -461,7 +465,26 @@ public class WorksheetDataService {
                             default:
                                 break;
                         }
-                    } else {
+                    } else if (passType == SystemMappingPassType.REVIEW) {
+                        // Reviewer scope
+                        switch (mapping) {
+                            case "audit.reviewedBy.displayName":
+                                sectionData.put(fieldId, currentUser.getDisplayName());
+                                break;
+                            case "audit.reviewedBy.username":
+                                sectionData.put(fieldId, currentUser.getUsername());
+                                break;
+                            case "audit.reviewedAt.datetime":
+                                sectionData.put(fieldId, formattedNow);
+                                break;
+                            case "audit.reviewedBy.signature":
+                                String sig = currentUser.getSignatureImagePath();
+                                sectionData.put(fieldId, sig != null ? sig : "Signed by " + currentUser.getDisplayName());
+                                break;
+                            default:
+                                break;
+                        }
+                    } else if (passType == SystemMappingPassType.AUTHORIZE) {
                         // Authorizer scope
                         switch (mapping) {
                             case "audit.authorizedBy.displayName":
@@ -508,7 +531,7 @@ public class WorksheetDataService {
                             : new HashMap<>();
                     sectionData.put(rowId, rowData);
 
-                    if (!isAuthorizationPass) {
+                    if (passType == SystemMappingPassType.SUBMIT) {
                         // Tester submission scope
                         switch (mapping) {
                             case "audit.testedBy.displayName":
@@ -527,7 +550,26 @@ public class WorksheetDataService {
                             default:
                                 break;
                         }
-                    } else {
+                    } else if (passType == SystemMappingPassType.REVIEW) {
+                        // Reviewer scope
+                        switch (mapping) {
+                            case "audit.reviewedBy.displayName":
+                                rowData.put(colId, currentUser.getDisplayName());
+                                break;
+                            case "audit.reviewedBy.username":
+                                rowData.put(colId, currentUser.getUsername());
+                                break;
+                            case "audit.reviewedAt.datetime":
+                                rowData.put(colId, formattedNow);
+                                break;
+                            case "audit.reviewedBy.signature":
+                                String sig = currentUser.getSignatureImagePath();
+                                rowData.put(colId, sig != null ? sig : "Signed by " + currentUser.getDisplayName());
+                                break;
+                            default:
+                                break;
+                        }
+                    } else if (passType == SystemMappingPassType.AUTHORIZE) {
                         // Authorizer scope
                         switch (mapping) {
                             case "audit.authorizedBy.displayName":
@@ -556,7 +598,7 @@ public class WorksheetDataService {
     public void applyAuthorizationMappings(WorksheetData wd, User currentUser) {
         if (wd == null || wd.getMethodDefinition() == null) return;
         Map<String, Object> data = wd.getData() != null ? new HashMap<>(wd.getData()) : new HashMap<>();
-        applyLateBindingSystemMappings(wd.getMethodDefinition().getSchemaDefinition(), data, currentUser, true);
+        applyLateBindingSystemMappings(wd.getMethodDefinition().getSchemaDefinition(), data, currentUser, SystemMappingPassType.AUTHORIZE);
         wd.setData(data);
         worksheetDataRepository.save(wd);
     }
@@ -579,6 +621,14 @@ public class WorksheetDataService {
                 specimenRepository.save(specimen);
             }
         }
+
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        User currentUser = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        Map<String, Object> data = wd.getData() != null ? new HashMap<>(wd.getData()) : new HashMap<>();
+        applyLateBindingSystemMappings(wd.getMethodDefinition().getSchemaDefinition(), data, currentUser, SystemMappingPassType.REVIEW);
+        wd.setData(data);
 
         st.setStatus("COMPLETED");
         if (wd.getStatus() != null && wd.getStatus().startsWith("SUBMITTED")) {
