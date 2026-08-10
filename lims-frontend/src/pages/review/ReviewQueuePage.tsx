@@ -40,7 +40,7 @@ export default function ReviewQueuePage() {
 
     // Fetch tests for selected sample
     const { data: tests, isLoading: isLoadingTests } = useQuery({
-        queryKey: ['sampleTests', selectedSample?.id],
+        queryKey: ['sample-tests', String(selectedSample?.id)],
         queryFn: () => AnalysisService.getSampleTests(selectedSample!.id),
         enabled: !!selectedSample
     });
@@ -49,7 +49,7 @@ export default function ReviewQueuePage() {
         mutationFn: AnalysisService.reviewResult,
         onSuccess: () => {
             message.success(`Result ${reviewAction?.toLowerCase()}d successfully`);
-            queryClient.invalidateQueries({ queryKey: ['sampleTests', selectedSample?.id] });
+            queryClient.invalidateQueries({ queryKey: ['sample-tests', String(selectedSample?.id)] });
             queryClient.invalidateQueries({ queryKey: ['reviewQueue'] });
             setIsReviewModalVisible(false);
             setReviewComment('');
@@ -74,7 +74,7 @@ export default function ReviewQueuePage() {
             reviewMutation.mutate(request, {
                 onSuccess: () => {
                     setSelectedTestResultId(null);
-                    queryClient.invalidateQueries({ queryKey: ['sampleTests', selectedSample.id] });
+                    queryClient.invalidateQueries({ queryKey: ['sample-tests', String(selectedSample.id)] });
                     queryClient.invalidateQueries({ queryKey: ['reviewQueue'] });
                     setIsReviewModalVisible(false);
                     setReviewComment('');

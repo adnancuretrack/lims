@@ -31,7 +31,7 @@ export default function ResultEntryPage() {
 
     // Fetch tests for selected sample
     const { data: tests, isLoading: isLoadingTests } = useQuery({
-        queryKey: ['sampleTests', selectedSample?.id],
+        queryKey: ['sample-tests', String(selectedSample?.id)],
         queryFn: () => AnalysisService.getSampleTests(selectedSample!.id),
         enabled: !!selectedSample
     });
@@ -40,7 +40,7 @@ export default function ResultEntryPage() {
         mutationFn: AnalysisService.enterResult,
         onSuccess: () => {
             message.success('Result saved');
-            queryClient.invalidateQueries({ queryKey: ['sampleTests', selectedSample?.id] });
+            queryClient.invalidateQueries({ queryKey: ['sample-tests', String(selectedSample?.id)] });
             queryClient.invalidateQueries({ queryKey: ['analysisQueue'] });
         },
         onError: () => message.error('Failed to save result')

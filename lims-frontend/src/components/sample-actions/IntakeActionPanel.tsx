@@ -27,7 +27,7 @@ export function IntakeActionPanel({ sampleId, sampleNumber, productName, onSucce
         onSuccess: () => {
             message.success('Sample received successfully');
             queryClient.invalidateQueries({ queryKey: ['samples'] });
-            queryClient.invalidateQueries({ queryKey: ['sample', sampleId] });
+            queryClient.invalidateQueries({ queryKey: ['sample', String(sampleId)] });
             setReceiveModalVisible(false);
             form.resetFields();
             onSuccess();
@@ -41,7 +41,7 @@ export function IntakeActionPanel({ sampleId, sampleNumber, productName, onSucce
         onSuccess: () => {
             message.success('Sample rejected');
             queryClient.invalidateQueries({ queryKey: ['samples'] });
-            queryClient.invalidateQueries({ queryKey: ['sample', sampleId] });
+            queryClient.invalidateQueries({ queryKey: ['sample', String(sampleId)] });
             setRejectModalVisible(false);
             rejectForm.resetFields();
             onSuccess();

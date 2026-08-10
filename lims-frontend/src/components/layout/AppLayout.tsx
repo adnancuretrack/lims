@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { Layout, Menu, theme, Avatar, Dropdown, Space, Typography } from 'antd';
 import {
     DashboardOutlined,
@@ -32,6 +33,7 @@ const { Text } = Typography;
 export default function AppLayout() {
     const [collapsed, setCollapsed] = useState(false);
     const navigate = useNavigate();
+    const queryClient = useQueryClient();
     const location = useLocation();
     const { token } = theme.useToken();
     const user = useAuthStore((s) => s.user);
@@ -102,6 +104,7 @@ export default function AppLayout() {
 
     const handleUserMenu: MenuProps['onClick'] = ({ key }) => {
         if (key === 'logout') {
+            queryClient.clear();
             logout();
             navigate('/login');
         } else if (key === 'profile') {
