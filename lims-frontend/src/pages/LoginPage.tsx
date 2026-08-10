@@ -67,9 +67,6 @@ export default function LoginPage() {
                     </Form.Item>
                 </Form>
 
-                <Text type="secondary" style={{ display: 'block', textAlign: 'center', fontSize: 12 }}>
-                    Dev credentials: admin / admin123
-                </Text>
             </Card>
         </div>
     );
