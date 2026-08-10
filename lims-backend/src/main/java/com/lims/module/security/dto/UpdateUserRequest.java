@@ -8,5 +8,6 @@ public class UpdateUserRequest {
     private String displayName;
     private String email;
     private List<String> roles;
+    private List<Long> associatedClientIds;
     private Boolean active;
 }

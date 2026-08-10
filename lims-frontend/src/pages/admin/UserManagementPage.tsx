@@ -4,6 +4,7 @@ import { PlusOutlined, EditOutlined, UserOutlined } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AdminService } from '../../api/AdminService';
 import type { UserDTO, CreateUserRequest } from '../../api/AdminService';
+import { SampleService } from '../../api/SampleService';
 
 export default function UserManagementPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -19,6 +20,11 @@ export default function UserManagementPage() {
     const { data: rolesList } = useQuery({
         queryKey: ['roles'],
         queryFn: AdminService.listRoles,
+    });
+
+    const { data: clientsList } = useQuery({
+        queryKey: ['activeClients'],
+        queryFn: SampleService.getActiveClients,
     });
 
     const createMutation = useMutation({
@@ -164,6 +170,13 @@ export default function UserManagementPage() {
                         <Select mode="multiple" placeholder="Select roles">
                             {rolesList?.map(role => (
                                 <Select.Option key={role} value={role}>{role}</Select.Option>
+                            ))}
+                        </Select>
+                    </Form.Item>
+                    <Form.Item name="associatedClientIds" label="Associated Clients (Optional)" tooltip="Restrict this user to only see jobs/samples for these clients. Leave blank for unrestricted access.">
+                        <Select mode="multiple" placeholder="Select clients" allowClear>
+                            {clientsList?.map(client => (
+                                <Select.Option key={client.id} value={client.id}>{client.name}</Select.Option>
                             ))}
                         </Select>
                     </Form.Item>

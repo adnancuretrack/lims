@@ -13,5 +13,6 @@ public class UserDTO {
     private String email;
     private boolean active;
     private List<String> roles;
+    private List<Long> associatedClientIds;
     private Instant lastLoginAt;
 }

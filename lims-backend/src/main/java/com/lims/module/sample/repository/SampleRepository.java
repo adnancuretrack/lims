@@ -21,6 +21,7 @@ public interface SampleRepository extends JpaRepository<Sample, Long>, JpaSpecif
 
     // Status-based counts for dashboard
     long countByStatus(String status);
+    long countByStatusAndJobClientIdIn(String status, List<Long> clientIds);
 
     Page<Sample> findByOrderByCreatedAtDesc(Pageable pageable);
 

@@ -9,10 +9,11 @@ export const SampleService = {
         return response.data;
     },
 
-    list: async (page = 0, size = 10, search?: string, status?: string): Promise<{ content: SampleDTO[], totalElements: number }> => {
+    list: async (page = 0, size = 10, search?: string, status?: string, sort = 'createdAt,desc'): Promise<{ content: SampleDTO[], totalElements: number }> => {
         const params = new URLSearchParams();
         params.append('page', page.toString());
         params.append('size', size.toString());
+        params.append('sort', sort);
         if (search) params.append('search', search);
         if (status) params.append('status', status);
         const response = await apiClient.get(`${BASE_URL}/samples?${params.toString()}`);

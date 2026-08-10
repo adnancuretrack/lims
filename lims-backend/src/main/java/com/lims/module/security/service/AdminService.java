@@ -7,6 +7,7 @@ import com.lims.module.security.entity.Role;
 import com.lims.module.security.entity.User;
 import com.lims.module.security.repository.RoleRepository;
 import com.lims.module.security.repository.UserRepository;
+import com.lims.module.sample.repository.ClientRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,7 @@ public class AdminService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
+    private final ClientRepository clientRepository;
 
     @Transactional
     public UserDTO createUser(CreateUserRequest request) {
@@ -43,12 +45,18 @@ public class AdminService {
             roleRepository.findByName("USER").ifPresent(roles::add);
         }
 
+        Set<com.lims.module.sample.entity.Client> associatedClients = new HashSet<>();
+        if (request.getAssociatedClientIds() != null && !request.getAssociatedClientIds().isEmpty()) {
+            associatedClients.addAll(clientRepository.findAllById(request.getAssociatedClientIds()));
+        }
+
         User user = User.builder()
                 .username(request.getUsername())
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
                 .displayName(request.getDisplayName())
                 .email(request.getEmail())
                 .roles(roles)
+                .associatedClients(associatedClients)
                 .active(true)
                 .authMethod("LOCAL")
                 .build();
@@ -94,6 +102,10 @@ public class AdminService {
             user.setRoles(roles);
         }
 
+        if (request.getAssociatedClientIds() != null) {
+            user.setAssociatedClients(new HashSet<>(clientRepository.findAllById(request.getAssociatedClientIds())));
+        }
+
         return mapToDTO(userRepository.save(user));
     }
 
@@ -106,6 +118,7 @@ public class AdminService {
                 .active(user.isActive())
                 .lastLoginAt(user.getLastLoginAt())
                 .roles(user.getRoles().stream().map(Role::getName).collect(Collectors.toList()))
+                .associatedClientIds(user.getAssociatedClients() != null ? user.getAssociatedClients().stream().map(com.lims.module.sample.entity.Client::getId).collect(Collectors.toList()) : null)
                 .build();
     }
 }

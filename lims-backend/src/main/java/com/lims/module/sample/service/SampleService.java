@@ -35,6 +35,8 @@ import org.springframework.data.jpa.domain.Specification;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.access.AccessDeniedException;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -169,14 +171,36 @@ public class SampleService {
         return mapToDTO(saved);
     }
 
+    private List<Long> getRestrictedClientIds() {
+        if (SecurityContextHolder.getContext().getAuthentication() == null) return null;
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        if (username == null || "anonymousUser".equals(username)) return null;
+        
+        return userRepository.findByUsername(username)
+                .map(User::getAssociatedClients)
+                .filter(clients -> clients != null && !clients.isEmpty())
+                .map(clients -> clients.stream().map(Client::getId).collect(Collectors.toList()))
+                .orElse(null);
+    }
+
     @Transactional(readOnly = true)
     public DashboardStatsDTO getDashboardStats() {
-        long unreceived = sampleRepository.countByStatus("REGISTERED");
-        long inProgress = sampleRepository.countByStatus("RECEIVED") + sampleRepository.countByStatus("IN_PROGRESS");
-        // These will be wired properly in Batch 3
-        long awaitingAuth = sampleRepository.countByStatus("COMPLETED");
-        long authorizedToday = sampleRepository.countByStatus("AUTHORIZED");
-        long rejected = sampleRepository.countByStatus("REJECTED");
+        List<Long> restrictedClientIds = getRestrictedClientIds();
+        long unreceived, inProgress, awaitingAuth, authorizedToday, rejected;
+
+        if (restrictedClientIds != null) {
+            unreceived = sampleRepository.countByStatusAndJobClientIdIn("REGISTERED", restrictedClientIds);
+            inProgress = sampleRepository.countByStatusAndJobClientIdIn("RECEIVED", restrictedClientIds) + sampleRepository.countByStatusAndJobClientIdIn("IN_PROGRESS", restrictedClientIds);
+            awaitingAuth = sampleRepository.countByStatusAndJobClientIdIn("COMPLETED", restrictedClientIds);
+            authorizedToday = sampleRepository.countByStatusAndJobClientIdIn("AUTHORIZED", restrictedClientIds);
+            rejected = sampleRepository.countByStatusAndJobClientIdIn("REJECTED", restrictedClientIds);
+        } else {
+            unreceived = sampleRepository.countByStatus("REGISTERED");
+            inProgress = sampleRepository.countByStatus("RECEIVED") + sampleRepository.countByStatus("IN_PROGRESS");
+            awaitingAuth = sampleRepository.countByStatus("COMPLETED");
+            authorizedToday = sampleRepository.countByStatus("AUTHORIZED");
+            rejected = sampleRepository.countByStatus("REJECTED");
+        }
 
         return DashboardStatsDTO.builder()
                 .unreceivedCount(unreceived)
@@ -189,8 +213,14 @@ public class SampleService {
 
     @Transactional(readOnly = true)
     public Page<SampleDTO> listSamples(String search, List<String> statuses, Pageable pageable) {
+        List<Long> restrictedClientIds = getRestrictedClientIds();
+
         Specification<Sample> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
+            
+            if (restrictedClientIds != null) {
+                predicates.add(root.join("job").get("client").get("id").in(restrictedClientIds));
+            }
             
             if (statuses != null && !statuses.isEmpty()) {
                 predicates.add(root.get("status").in(statuses));
@@ -225,6 +255,12 @@ public class SampleService {
     public SampleDTO getSampleDetails(Long id) {
         Sample sample = sampleRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Sample not found"));
+        
+        List<Long> restrictedClientIds = getRestrictedClientIds();
+        if (restrictedClientIds != null && !restrictedClientIds.contains(sample.getJob().getClient().getId())) {
+            throw new AccessDeniedException("Access Denied");
+        }
+        
         return mapToDTO(sample);
     }
 
