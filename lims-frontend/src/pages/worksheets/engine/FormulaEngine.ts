@@ -176,6 +176,8 @@ export const evaluateFormula = (context: EvaluationContext, precision?: number):
 
     // 2. Resolve Variables: {fieldId}, {sectionId.fieldId}, or {sectionId.rowId.fieldId}
     const varRegex = /\{([^}]+)\}/g;
+    let hasMissingDependencies = false;
+
     expression = expression.replace(varRegex, (_, fieldRef) => {
       const ref = parseFieldRef(fieldRef, currentSectionId);
       let val: any = null;
@@ -198,11 +200,16 @@ export const evaluateFormula = (context: EvaluationContext, precision?: number):
         val = data[ref.sectionId]?.[ref.fieldId];
       }
 
-      if (val === undefined || val === null || val === '') return '0';
+      if (val === undefined || val === null || val === '') {
+        hasMissingDependencies = true;
+        return '0';
+      }
       if (typeof val === 'boolean') return val ? '1' : '0';
       if (!isNaN(Number(val))) return String(val);
       return `"${val}"`;
     });
+
+    if (hasMissingDependencies) return null;
 
     // 3. Resolve Custom Scalar Functions
     const absRegex = /ABS\(([^)]+)\)/g;
