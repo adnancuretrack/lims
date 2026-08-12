@@ -62,6 +62,9 @@ export default function SampleDetailPage() {
     if (isLoading) return <div style={{ padding: 48, textAlign: 'center' }}><Title level={3}>Loading Sample Details...</Title></div>;
     if (error || !sample) return <Result status="404" title="Sample Not Found" />;
 
+    const authorizedCount = sample.authorizedSpecimenCount ?? 0;
+    const totalSpecimenCount = sample.specimenCount ?? 0;
+
     const getStatusColor = (status: string) => {
         switch (status) {
             case 'REGISTERED': return 'default';
@@ -218,7 +221,7 @@ export default function SampleDetailPage() {
                     >
                         Print Barcode
                     </Button>
-                    {(sample.status === 'AUTHORIZED' || (sample.authorizedSpecimenCount !== undefined && sample.authorizedSpecimenCount > 0)) && (
+                    {(['IN_PROGRESS', 'COMPLETED', 'UNDER_REVIEW', 'AUTHORIZED'].includes(sample.status) || (authorizedCount > 0)) && (
                         <>
                             <Button
                                 icon={<EyeOutlined />}
@@ -231,7 +234,11 @@ export default function SampleDetailPage() {
                                 icon={<FilePdfOutlined />}
                                 onClick={handleDownloadCoa}
                             >
-                                {sample.status === 'AUTHORIZED' ? 'Download COA' : `Download Interim COA (${sample.authorizedSpecimenCount}/${sample.specimenCount})`}
+                                {sample.status === 'AUTHORIZED' 
+                                    ? 'Download COA' 
+                                    : (authorizedCount > 0 
+                                        ? `Download Interim COA (${authorizedCount}/${totalSpecimenCount})` 
+                                        : 'Download Draft COA')}
                             </Button>
                         </>
                     )}

@@ -138,32 +138,34 @@ public class ReportService {
             }
         }
 
-        // Save a snapshot of this CoA revision
-        try {
-            int nextRev = coaRevisionRepository.countBySampleId(sampleId);
-            String username = "System";
+        // Save a snapshot of this CoA revision only if AUTHORIZED
+        if ("AUTHORIZED".equals(sample.getStatus())) {
             try {
-                var auth = SecurityContextHolder.getContext().getAuthentication();
-                if (auth != null && auth.getName() != null) {
-                    username = auth.getName();
-                }
-            } catch (Exception ignored) {}
-            
-            com.lims.module.security.entity.User currentUser = userRepository.findByUsername(username).orElse(null);
+                int nextRev = coaRevisionRepository.countBySampleId(sampleId);
+                String username = "System";
+                try {
+                    var auth = SecurityContextHolder.getContext().getAuthentication();
+                    if (auth != null && auth.getName() != null) {
+                        username = auth.getName();
+                    }
+                } catch (Exception ignored) {}
+                
+                com.lims.module.security.entity.User currentUser = userRepository.findByUsername(username).orElse(null);
 
-            CoaRevision revision = CoaRevision.builder()
-                    .sample(sample)
-                    .revisionNumber(nextRev)
-                    .isInterim(false)
-                    .specimensIncluded(0)
-                    .specimensTotal(0)
-                    .pdfSnapshot(finalPdf)
-                    .generatedBy(currentUser)
-                    .generatedAt(Instant.now())
-                    .build();
-            coaRevisionRepository.save(revision);
-        } catch (Exception e) {
-            // Log and ignore to prevent blocking PDF download if audit saving fails
+                CoaRevision revision = CoaRevision.builder()
+                        .sample(sample)
+                        .revisionNumber(nextRev)
+                        .isInterim(false)
+                        .specimensIncluded(0)
+                        .specimensTotal(0)
+                        .pdfSnapshot(finalPdf)
+                        .generatedBy(currentUser)
+                        .generatedAt(Instant.now())
+                        .build();
+                coaRevisionRepository.save(revision);
+            } catch (Exception e) {
+                // Log and ignore to prevent blocking PDF download if audit saving fails
+            }
         }
 
         return finalPdf;
