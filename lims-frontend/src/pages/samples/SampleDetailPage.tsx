@@ -7,7 +7,7 @@ import {
 } from 'antd';
 import {
     FilePdfOutlined, HistoryOutlined, ArrowLeftOutlined,
-    FileTextOutlined, MedicineBoxOutlined, PrinterOutlined
+    FileTextOutlined, MedicineBoxOutlined, PrinterOutlined, EyeOutlined
 } from '@ant-design/icons';
 import { SampleService } from '../../api/SampleService';
 import { AttachmentManager } from '../../components/attachment/AttachmentManager';
@@ -15,6 +15,7 @@ import { AuditTrailModal } from '../../components/audit/AuditTrailModal';
 import { WorksheetReviewPanel } from '../../components/worksheet/WorksheetReviewPanel';
 import { IntakeActionPanel } from '../../components/sample-actions/IntakeActionPanel';
 import { ReviewActionPanel } from '../../components/sample-actions/ReviewActionPanel';
+import { CoaPreviewModal } from '../../components/coa/CoaPreviewModal';
 import { useCanPerformAction } from '../../hooks/useCanPerformAction';
 import { EmbeddableWorksheetEngine } from '../../components/worksheet/EmbeddableWorksheetEngine';
 import { message, Collapse, Alert, Popconfirm } from 'antd';
@@ -29,6 +30,7 @@ export default function SampleDetailPage() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const [auditVisible, setAuditVisible] = useState(false);
+    const [coaPreviewVisible, setCoaPreviewVisible] = useState(false);
     const queryClient = useQueryClient();
     const { componentRef, handlePrint } = useBarcodePrinter();
 
@@ -217,13 +219,21 @@ export default function SampleDetailPage() {
                         Print Barcode
                     </Button>
                     {(sample.status === 'AUTHORIZED' || (sample.authorizedSpecimenCount !== undefined && sample.authorizedSpecimenCount > 0)) && (
-                        <Button
-                            type="primary"
-                            icon={<FilePdfOutlined />}
-                            onClick={handleDownloadCoa}
-                        >
-                            {sample.status === 'AUTHORIZED' ? 'Download COA' : `Download Interim COA (${sample.authorizedSpecimenCount}/${sample.specimenCount})`}
-                        </Button>
+                        <>
+                            <Button
+                                icon={<EyeOutlined />}
+                                onClick={() => setCoaPreviewVisible(true)}
+                            >
+                                Preview COA
+                            </Button>
+                            <Button
+                                type="primary"
+                                icon={<FilePdfOutlined />}
+                                onClick={handleDownloadCoa}
+                            >
+                                {sample.status === 'AUTHORIZED' ? 'Download COA' : `Download Interim COA (${sample.authorizedSpecimenCount}/${sample.specimenCount})`}
+                            </Button>
+                        </>
                     )}
                 </Space>
             </div>
@@ -294,6 +304,13 @@ export default function SampleDetailPage() {
                 entityType="sample"
                 entityId={sample.id}
                 title={sample.sampleNumber}
+            />
+
+            <CoaPreviewModal
+                visible={coaPreviewVisible}
+                onClose={() => setCoaPreviewVisible(false)}
+                sampleId={sample.id}
+                sampleNumber={sample.sampleNumber}
             />
         </div>
     );
