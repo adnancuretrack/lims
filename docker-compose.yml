@@ -78,6 +78,7 @@ services:
       RABBITMQ_PASSWORD: lims_secure_password
       SMTP_HOST: mailhog
       SMTP_PORT: 1025
+      LIMS_APP_URL: ${LIMS_APP_URL:-https://lims.ddns.net}
     ports:
       - "8080:8080"
     volumes:

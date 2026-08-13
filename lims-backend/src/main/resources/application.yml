@@ -60,7 +60,7 @@ spring:
 
 # ---------- LIMS Configuration ----------
 lims:
-  app-url: ${LIMS_APP_URL:https://limd.ddns.net}
+  app-url: ${LIMS_APP_URL:http://localhost:5173}
   jwt:
     secret: lims-dev-secret-key-must-be-at-least-32-characters!!
     expiration-ms: 86400000  # 24 hours

@@ -41,10 +41,17 @@ const ReportsPage = lazy(() => import('./pages/reports/ReportsPage'));
 const InventoryPage = lazy(() => import('./pages/inventory/InventoryPage'));
 const InstrumentPage = lazy(() => import('./pages/inventory/InstrumentPage'));
 
+// Public Verification
+const PublicCoaPage = lazy(() => import('./pages/public/PublicCoaPage'));
+
 export const routes: RouteObject[] = [
     {
         path: '/login',
         element: <LoginPage />,
+    },
+    {
+        path: '/verify/coa/:id',
+        element: <PublicCoaPage />,
     },
     {
         path: '/',

@@ -534,7 +534,7 @@ public class ExcelReportService {
         String targetUrl;
         String baseUrl = (appUrl != null && !appUrl.isBlank()) ? appUrl.replaceAll("/$", "") : "http://localhost:5173";
         if (sampleId != null) {
-            targetUrl = baseUrl + "/samples/" + sampleId;
+            targetUrl = baseUrl + "/verify/coa/" + sampleId;
         } else {
             targetUrl = baseUrl;
         }
