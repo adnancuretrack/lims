@@ -65,7 +65,8 @@ export interface SectionSchema {
   columnGroups?: ColumnGroupSchema[];
   rowHeaders?: RowHeaderSchema[];
   visibilityCondition?: string;
-  hasSpecimens?: boolean;
+  hasMultiDaySpecimen?: boolean;
+  isSpecimenData?: boolean;
   cellMappings?: Record<string, string>; // For MATRIX_TABLE: cellKey ("rowId_colId") -> systemMapping
 
   // Charting Configuration

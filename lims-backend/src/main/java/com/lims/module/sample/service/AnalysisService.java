@@ -112,15 +112,15 @@ public class AnalysisService {
     public SampleTestDTO mapToDTO(SampleTest st) {
         TestResult latest = st.getResults().isEmpty() ? null : st.getResults().get(0);
         
-        boolean hasSpecimens = false;
+        boolean hasMultiDaySpecimen = false;
         int totalSpecimens = 0;
         if (st.getWorksheetData() != null) {
             Map<String, Object> schema = st.getWorksheetData().getMethodDefinition().getSchemaDefinition();
             if (schema != null && schema.get("sections") instanceof List) {
                 List<Map<String, Object>> sections = (List<Map<String, Object>>) schema.get("sections");
                 for (Map<String, Object> section : sections) {
-                    if (Boolean.TRUE.equals(section.get("hasSpecimens"))) {
-                        hasSpecimens = true;
+                    if (Boolean.TRUE.equals(section.get("hasMultiDaySpecimen"))) {
+                        hasMultiDaySpecimen = true;
                         Number minRows = (Number) section.get("minRows");
                         totalSpecimens = minRows != null ? minRows.intValue() : 1;
                         break;
@@ -131,7 +131,7 @@ public class AnalysisService {
         
         int finalizedSpecimens = 0;
         int authorizedSpecimens = 0;
-        if (hasSpecimens) {
+        if (hasMultiDaySpecimen) {
             finalizedSpecimens = (int) specimenRepository.countBySampleIdAndStatus(st.getSample().getId(), "FINALIZED");
             authorizedSpecimens = (int) specimenRepository.countBySampleIdAndStatus(st.getSample().getId(), "AUTHORIZED");
         }
@@ -153,7 +153,7 @@ public class AnalysisService {
                 .totalSpecimens(totalSpecimens)
                 .finalizedSpecimens(finalizedSpecimens)
                 .authorizedSpecimens(authorizedSpecimens)
-                .hasSpecimens(hasSpecimens)
+                .hasMultiDaySpecimen(hasMultiDaySpecimen)
                 .isInterimAuthorized(isInterimAuthorized)
                 .submissionCount(submissionCount)
                 .build();

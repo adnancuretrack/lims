@@ -262,6 +262,17 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({ onCollapse }) =>
             <ConditionBuilder value={section.visibilityCondition || ''} onChange={(v: string) => updateSection(section.id, { visibilityCondition: v })} currentSectionId={section.id} />
           </Form.Item>
 
+          <Form.Item 
+            label="Contains Specimen/Test Result Data" 
+            help={section.hasMultiDaySpecimen ? "Locked to true because Multi-Day Specimen Lifecycle is enabled" : "When enabled, Reviewers and Authorizers cannot edit fields in this section"}
+          >
+            <Switch 
+              checked={section.hasMultiDaySpecimen ? true : section.isSpecimenData !== false} 
+              disabled={section.hasMultiDaySpecimen === true} 
+              onChange={v => updateSection(section.id, { isSpecimenData: v })} 
+            />
+          </Form.Item>
+
           {(section.type === 'DATA_TABLE' || section.type === 'GROUPED_TABLE') && (
             <>
               <Divider>Table Settings</Divider>
@@ -273,8 +284,11 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({ onCollapse }) =>
                 />
               </Form.Item>
               {section.orientation === 'COLUMNS_AS_TRIALS' && (
-                <Form.Item label="Columns Represent Specimens" help="Enable independent testing & authorization lifecycle for each column/specimen">
-                  <Switch checked={section.hasSpecimens} onChange={v => updateSection(section.id, { hasSpecimens: v })} />
+                <Form.Item label="Multi-Day Specimen Lifecycle" help="Enable independent testing & authorization lifecycle for each column/specimen">
+                  <Switch 
+                    checked={section.hasMultiDaySpecimen} 
+                    onChange={v => updateSection(section.id, { hasMultiDaySpecimen: v, ...(v ? { isSpecimenData: true } : {}) })} 
+                  />
                 </Form.Item>
               )}
               <Form.Item label={section.orientation === 'COLUMNS_AS_TRIALS' ? "Min Columns" : "Min Rows"}>

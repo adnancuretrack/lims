@@ -131,7 +131,7 @@ export const EmbeddableWorksheetEngine: React.FC<EmbeddableWorksheetEngineProps>
       onOk: async () => {
         try {
           const specimenIndices: number[] = [];
-          const specSection = schema?.sections?.find(s => s.hasSpecimens);
+          const specSection = schema?.sections?.find(s => s.hasMultiDaySpecimen);
           if (specSection) {
             const tableData = data[specSection.id] || [];
             tableData.forEach((_: any, idx: number) => {
@@ -182,7 +182,7 @@ export const EmbeddableWorksheetEngine: React.FC<EmbeddableWorksheetEngineProps>
   }
 
   const isActuallyReadOnly = readOnly || !['DRAFT', 'IN_PROGRESS', 'INTERIM_AUTHORIZED'].includes(status);
-  const hasSpecimens = schema?.sections?.some(s => s.hasSpecimens);
+  const hasMultiDaySpecimen = schema?.sections?.some(s => s.hasMultiDaySpecimen);
 
   const actionButtons = (
     <Space>
@@ -194,7 +194,7 @@ export const EmbeddableWorksheetEngine: React.FC<EmbeddableWorksheetEngineProps>
       ) : (
         <>
           <Button size="small" icon={<SaveOutlined />} onClick={handleSave}>Save Draft</Button>
-          {hasSpecimens ? (
+          {hasMultiDaySpecimen ? (
             <>
               <Button 
                 size="small" 

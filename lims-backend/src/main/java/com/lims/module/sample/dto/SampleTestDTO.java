@@ -21,7 +21,7 @@ public class SampleTestDTO {
     private Integer totalSpecimens;
     private Integer finalizedSpecimens;
     private Integer authorizedSpecimens;
-    private boolean hasSpecimens;
+    private boolean hasMultiDaySpecimen;
     private boolean isInterimAuthorized;
     private Integer submissionCount;
 }

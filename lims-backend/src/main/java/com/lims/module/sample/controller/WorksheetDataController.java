@@ -2,6 +2,7 @@ package com.lims.module.sample.controller;
 
 import com.lims.module.sample.dto.WorksheetSubmitRequest;
 import com.lims.module.sample.dto.SpecimenSubmitRequest;
+import com.lims.module.sample.dto.ReviewerEditRequest;
 import com.lims.module.sample.service.ReportService;
 import com.lims.module.sample.service.WorksheetAuditService;
 import com.lims.module.sample.service.WorksheetDataService;
@@ -105,6 +106,16 @@ public class WorksheetDataController {
     @PreAuthorize("hasAnyRole('ADMIN', 'LAB_MANAGER', 'REVIEWER')")
     public ResponseEntity<Void> rejectReview(@PathVariable Long sampleTestId) {
         worksheetDataService.rejectReview(sampleTestId);
+        return ResponseEntity.ok().build();
+    }
+
+    @PutMapping("/{sampleTestId}/reviewer-edit")
+    @Operation(summary = "Edit non-specimen fields (Reviewer/Authorizer only)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'LAB_MANAGER', 'REVIEWER', 'AUTHORIZER')")
+    public ResponseEntity<Void> reviewerEdit(
+            @PathVariable Long sampleTestId,
+            @RequestBody ReviewerEditRequest request) {
+        worksheetDataService.reviewerEdit(sampleTestId, request);
         return ResponseEntity.ok().build();
     }
 }

@@ -226,7 +226,7 @@ export default function ReviewQueuePage() {
                                     ),
                                     children: (
                                         <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-                                            {test.hasSpecimens && (
+                                            {test.hasMultiDaySpecimen && (
                                                 <Card title="Specimens for Authorization" size="small">
                                                     <Table
                                                         dataSource={selectedSample?.specimens || []}

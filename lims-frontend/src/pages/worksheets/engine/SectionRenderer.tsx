@@ -97,7 +97,7 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
   const renderFieldInput = (field: FieldSchema, value: any, onChange: (v: any) => void, rowIndex?: number, rowId?: string) => {
     const isInstrumentLinked = !!field.instrumentSource;
     let isColumnFinalized = false;
-    if (section.hasSpecimens && rowIndex !== undefined) {
+    if (section.hasMultiDaySpecimen && rowIndex !== undefined) {
       const spec = specimenStatuses?.find((s: any) => s.specimenNumber === rowIndex + 1);
       if (spec && (spec.status === 'FINALIZED' || spec.status === 'AUTHORIZED')) {
         isColumnFinalized = true;
@@ -196,7 +196,7 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
           let specTitle = t;
           let specBadge = null;
           let isFinalizedOrAuth = false;
-          if (section.hasSpecimens) {
+          if (section.hasMultiDaySpecimen) {
             const spec = specimenStatuses?.find((s: any) => s.specimenNumber === i + 1);
             if (spec) {
               specTitle = spec.label ? `${spec.label} (#${i + 1})` : `Specimen ${i + 1}`;

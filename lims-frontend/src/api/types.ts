@@ -119,7 +119,7 @@ export interface SampleTestDTO {
     totalSpecimens?: number;
     finalizedSpecimens?: number;
     authorizedSpecimens?: number;
-    hasSpecimens?: boolean;
+    hasMultiDaySpecimen?: boolean;
 }
 
 export interface ResultEntryRequest {

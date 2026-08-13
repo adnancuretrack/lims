@@ -54,7 +54,7 @@ export const evaluateFormula = (context: EvaluationContext, precision?: number):
       const ref = parseFieldRef(fieldRef, currentSectionId);
       const sectionData = data[ref.sectionId];
       const secSchema = (schema.sections || []).find(s => s.id === ref.sectionId);
-      const hasSpecimens = secSchema?.hasSpecimens === true;
+      const hasMultiDaySpecimen = secSchema?.hasMultiDaySpecimen === true;
 
       const getSpecimenStatus = (idx: number): string => {
         const spec = (specimenStatuses || []).find((s: any) => s.specimenNumber === idx + 1);
@@ -103,11 +103,11 @@ export const evaluateFormula = (context: EvaluationContext, precision?: number):
           const val = Number(valStr);
           if (isNaN(val)) return;
 
-          if (funcName.endsWith('_CURRENT') && hasSpecimens) {
+          if (funcName.endsWith('_CURRENT') && hasMultiDaySpecimen) {
             if (getSpecimenStatus(idx) === 'AUTHORIZED') return;
-          } else if (funcName.endsWith('_AUTHORIZED') && hasSpecimens) {
+          } else if (funcName.endsWith('_AUTHORIZED') && hasMultiDaySpecimen) {
             if (getSpecimenStatus(idx) !== 'AUTHORIZED') return;
-          } else if ((funcName === 'AVG_BATCH' || funcName === 'SUM_BATCH') && hasSpecimens) {
+          } else if ((funcName === 'AVG_BATCH' || funcName === 'SUM_BATCH') && hasMultiDaySpecimen) {
             const targetBatch = args[1] ? Number(args[1].trim()) : 1;
             if (getSpecimenBatchNumber(idx) !== targetBatch) return;
           }

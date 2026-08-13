@@ -38,6 +38,10 @@ export const WorksheetService = {
     return apiClient.get(`/worksheet/${sampleTestId}/history`);
   },
 
+  reviewerEdit: async (sampleTestId: string | number, data: Record<string, any>, comment?: string) => {
+    return apiClient.put(`/worksheet/${sampleTestId}/reviewer-edit`, { data, comment });
+  },
+
   downloadWorksheetReport: async (sampleTestId: string | number): Promise<Blob> => {
     const response = await apiClient.get(`/worksheet/${sampleTestId}/report`, {
       responseType: 'blob'

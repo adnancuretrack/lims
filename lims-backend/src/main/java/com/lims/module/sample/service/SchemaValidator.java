@@ -49,12 +49,15 @@ public class SchemaValidator {
 
         String type = (String) section.get("type");
 
-        if (section.containsKey("hasSpecimens") && Boolean.TRUE.equals(section.get("hasSpecimens"))) {
+        if (section.containsKey("hasMultiDaySpecimen") && Boolean.TRUE.equals(section.get("hasMultiDaySpecimen"))) {
             if (!"DATA_TABLE".equals(type) && !"GROUPED_TABLE".equals(type)) {
-                throw new IllegalArgumentException("Section '" + section.get("id") + "' hasSpecimens is only allowed on DATA_TABLE or GROUPED_TABLE");
+                throw new IllegalArgumentException("Section '" + section.get("id") + "' hasMultiDaySpecimen is only allowed on DATA_TABLE or GROUPED_TABLE");
             }
             if (!"COLUMNS_AS_TRIALS".equals(section.get("orientation"))) {
-                throw new IllegalArgumentException("Section '" + section.get("id") + "' hasSpecimens requires COLUMNS_AS_TRIALS orientation");
+                throw new IllegalArgumentException("Section '" + section.get("id") + "' hasMultiDaySpecimen requires COLUMNS_AS_TRIALS orientation");
+            }
+            if (Boolean.FALSE.equals(section.get("isSpecimenData"))) {
+                throw new IllegalArgumentException("Section '" + section.get("id") + "': isSpecimenData cannot be false when hasMultiDaySpecimen is true");
             }
         }
 

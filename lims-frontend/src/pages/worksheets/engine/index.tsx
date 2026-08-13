@@ -118,7 +118,7 @@ export const WorksheetEnginePage: React.FC = () => {
       onOk: async () => {
         try {
           const specimenIndices: number[] = [];
-          const specSection = schema?.sections?.find(s => s.hasSpecimens);
+          const specSection = schema?.sections?.find(s => s.hasMultiDaySpecimen);
           if (specSection) {
             const tableData = data[specSection.id] || [];
             tableData.forEach((_: any, idx: number) => {
@@ -167,7 +167,7 @@ export const WorksheetEnginePage: React.FC = () => {
   }
 
   const isReadOnly = status !== 'DRAFT' && status !== 'IN_PROGRESS' && status !== 'INTERIM_AUTHORIZED';
-  const hasSpecimens = schema?.sections?.some(s => s.hasSpecimens);
+  const hasMultiDaySpecimen = schema?.sections?.some(s => s.hasMultiDaySpecimen);
 
   return (
     <Layout style={{ minHeight: '100vh', background: '#f5f5f5' }}>
@@ -191,7 +191,7 @@ export const WorksheetEnginePage: React.FC = () => {
           {!isReadOnly && (
             <>
               <Button icon={<SaveOutlined />} onClick={handleSave}>Save Draft</Button>
-              {hasSpecimens ? (
+              {hasMultiDaySpecimen ? (
                 <>
                   <Button 
                     type="primary" 

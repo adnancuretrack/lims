@@ -3,6 +3,7 @@ package com.lims.module.sample.service;
 import com.lims.module.sample.dto.WorksheetSubmitRequest;
 import com.lims.module.sample.dto.SpecimenSubmitRequest;
 import com.lims.module.sample.dto.SpecimenDTO;
+import com.lims.module.sample.dto.ReviewerEditRequest;
 import com.lims.module.sample.entity.*;
 import com.lims.module.sample.repository.SampleRepository;
 import com.lims.module.sample.repository.SampleTestRepository;
@@ -24,6 +25,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -257,7 +259,7 @@ public class WorksheetDataService {
         if (sections == null) return;
 
         for (Map<String, Object> section : sections) {
-            if (Boolean.TRUE.equals(section.get("hasSpecimens"))) {
+            if (Boolean.TRUE.equals(section.get("hasMultiDaySpecimen"))) {
                 String sectionId = (String) section.get("id");
                 Object oldSectionVal = oldData.get(sectionId);
                 Object newSectionVal = newData.get(sectionId);
@@ -668,5 +670,42 @@ public class WorksheetDataService {
         
         updateSampleStatusIfFinished(st.getSample());
         dataSyncService.broadcast("SAMPLE", st.getSample().getId(), "WORKSHEET_REJECTED");
+    }
+
+    @Transactional
+    public void reviewerEdit(Long sampleTestId, ReviewerEditRequest request) {
+        WorksheetData wd = worksheetDataRepository.findBySampleTestId(sampleTestId)
+                .orElseThrow(() -> new RuntimeException("Worksheet data not found"));
+        SampleTest st = wd.getSampleTest();
+
+        if (!List.of("UNDER_REVIEW", "COMPLETED", "INTERIM_AUTHORIZED").contains(st.getStatus())) {
+            throw new RuntimeException("Worksheet is not in a reviewable state");
+        }
+
+        Map<String, Object> schema = wd.getMethodDefinition().getSchemaDefinition();
+        Map<String, Object> mergedData = wd.getData() != null ? new HashMap<>(wd.getData()) : new HashMap<>();
+        Map<String, Object> incomingData = request.getData() != null ? request.getData() : Map.of();
+
+        // Only allow updating sections where isSpecimenData is explicitly FALSE
+        if (schema != null && schema.get("sections") instanceof List) {
+            List<Map<String, Object>> sections = (List<Map<String, Object>>) schema.get("sections");
+            for (Map<String, Object> section : sections) {
+                String sectionId = (String) section.get("id");
+                boolean isSpecimen = !Boolean.FALSE.equals(section.get("isSpecimenData"));
+
+                if (!isSpecimen) {
+                    // Non-specimen section: update with reviewer's modified values
+                    if (incomingData.containsKey(sectionId)) {
+                        mergedData.put(sectionId, incomingData.get(sectionId));
+                    }
+                }
+                // Specimen sections (isSpecimen == true): keep original mergedData[sectionId] untouched
+            }
+        }
+
+        wd.setData(mergedData);
+        worksheetDataRepository.save(wd);
+
+        dataSyncService.broadcast("SAMPLE", st.getSample().getId(), "REVIEWER_EDIT");
     }
 }

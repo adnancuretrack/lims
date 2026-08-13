@@ -64,22 +64,22 @@ public class ReviewService {
         resultReviewRepository.save(review);
 
         SampleTest st = result.getSampleTest();
-        boolean hasSpecimens = false;
+        boolean hasMultiDaySpecimen = false;
         WorksheetData wd = st.getWorksheetData();
         if (wd != null) {
             Map<String, Object> schema = wd.getMethodDefinition().getSchemaDefinition();
             if (schema != null && schema.get("sections") instanceof List) {
                 List<Map<String, Object>> sections = (List<Map<String, Object>>) schema.get("sections");
                 for (Map<String, Object> section : sections) {
-                    if (Boolean.TRUE.equals(section.get("hasSpecimens"))) {
-                        hasSpecimens = true;
+                    if (Boolean.TRUE.equals(section.get("hasMultiDaySpecimen"))) {
+                        hasMultiDaySpecimen = true;
                         break;
                     }
                 }
             }
         }
 
-        if (hasSpecimens) {
+        if (hasMultiDaySpecimen) {
             List<Specimen> finalizedSpecimens = specimenRepository.findBySampleIdOrderBySpecimenNumberAsc(st.getSample().getId())
                     .stream()
                     .filter(sp -> "FINALIZED".equals(sp.getStatus()))
