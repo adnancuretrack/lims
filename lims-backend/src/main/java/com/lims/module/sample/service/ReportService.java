@@ -17,9 +17,9 @@ import net.sf.jasperreports.engine.data.JRBeanCollectionDataSource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.apache.pdfbox.Loader;
-import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.multipdf.PDFMergerUtility;
+import org.apache.pdfbox.io.RandomAccessReadBuffer;
+import org.apache.pdfbox.io.IOUtils;
 import lombok.extern.slf4j.Slf4j;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -122,16 +122,14 @@ public class ReportService {
         if (pdfs.size() == 1) {
             finalPdf = pdfs.get(0);
         } else {
-            try (PDDocument destination = new PDDocument()) {
-                for (byte[] pdfBytes : pdfs) {
-                    try (PDDocument src = Loader.loadPDF(pdfBytes)) {
-                        for (PDPage page : src.getPages()) {
-                            destination.addPage(page);
-                        }
-                    }
-                }
+            try {
+                PDFMergerUtility merger = new PDFMergerUtility();
                 ByteArrayOutputStream mergedOut = new ByteArrayOutputStream();
-                destination.save(mergedOut);
+                merger.setDestinationStream(mergedOut);
+                for (byte[] pdfBytes : pdfs) {
+                    merger.addSource(new RandomAccessReadBuffer(pdfBytes));
+                }
+                merger.mergeDocuments(IOUtils.createMemoryOnlyStreamCache());
                 finalPdf = mergedOut.toByteArray();
             } catch (Exception e) {
                 throw new RuntimeException("Failed to merge PDF COA reports", e);
