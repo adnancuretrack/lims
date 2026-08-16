@@ -12,6 +12,7 @@ import org.apache.poi.ss.util.CellRangeAddress;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -24,6 +25,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.imageio.ImageIO;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.awt.image.BufferedImage;
 
 @Service
 @RequiredArgsConstructor
@@ -578,14 +583,6 @@ public class ExcelReportService {
     }
     private void embedImage(Sheet sheet, Workbook workbook, Cell cell, Path imagePath) {
         try {
-            byte[] imgBytes = Files.readAllBytes(imagePath);
-            int pictureType = Workbook.PICTURE_TYPE_PNG;
-            String filename = imagePath.getFileName().toString().toLowerCase();
-            if (filename.endsWith(".jpg") || filename.endsWith(".jpeg")) {
-                pictureType = Workbook.PICTURE_TYPE_JPEG;
-            }
-            int pictureIdx = workbook.addPicture(imgBytes, pictureType);
-
             int startCol = cell.getColumnIndex();
             int startRow = cell.getRowIndex();
             int endCol = startCol + 1;
@@ -602,6 +599,84 @@ public class ExcelReportService {
                     break;
                 }
             }
+
+            byte[] finalImgBytes;
+            int pictureType = Workbook.PICTURE_TYPE_PNG;
+
+            BufferedImage origImg = null;
+            try {
+                origImg = ImageIO.read(imagePath.toFile());
+            } catch (Exception ex) {
+                log.warn("ImageIO could not read image file: {}", imagePath, ex);
+            }
+
+            if (origImg != null && origImg.getWidth() > 0 && origImg.getHeight() > 0) {
+                int origW = origImg.getWidth();
+                int origH = origImg.getHeight();
+
+                // Calculate target cell / region dimensions in points
+                double totalWidthPoints = 0;
+                for (int c = startCol; c < endCol; c++) {
+                    int colWidth256 = sheet.getColumnWidth(c);
+                    totalWidthPoints += (colWidth256 / 256.0) * 5.7; // ~5.7 pt per character unit
+                }
+
+                double totalHeightPoints = 0;
+                for (int r = startRow; r < endRow; r++) {
+                    Row rObj = sheet.getRow(r);
+                    float h = (rObj != null && rObj.getHeightInPoints() > 0) ? rObj.getHeightInPoints() : sheet.getDefaultRowHeightInPoints();
+                    if (h <= 0) h = 15.0f;
+                    totalHeightPoints += h;
+                }
+
+                if (totalWidthPoints <= 0) totalWidthPoints = 100;
+                if (totalHeightPoints <= 0) totalHeightPoints = 30;
+
+                double targetAspect = totalWidthPoints / totalHeightPoints;
+                double origAspect = (double) origW / origH;
+
+                int canvasW;
+                int canvasH;
+
+                if (origAspect > targetAspect) {
+                    // Original is wider than target: fit to width, expand canvas height
+                    canvasW = origW;
+                    canvasH = (int) Math.max(origH, Math.round(canvasW / targetAspect));
+                } else {
+                    // Original is taller than target: fit to height, expand canvas width
+                    canvasH = origH;
+                    canvasW = (int) Math.max(origW, Math.round(canvasH * targetAspect));
+                }
+
+                // Add slight inner margin (e.g., 90% scaling) so signature does not touch cell borders
+                double marginFactor = 0.90;
+                int drawW = Math.max(1, (int) Math.round(origW * marginFactor));
+                int drawH = Math.max(1, (int) Math.round(origH * marginFactor));
+                int drawX = (canvasW - drawW) / 2;
+                int drawY = (canvasH - drawH) / 2;
+
+                BufferedImage canvas = new BufferedImage(canvasW, canvasH, BufferedImage.TYPE_INT_ARGB);
+                Graphics2D g2d = canvas.createGraphics();
+                g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2d.drawImage(origImg, drawX, drawY, drawW, drawH, null);
+                g2d.dispose();
+
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                ImageIO.write(canvas, "png", baos);
+                finalImgBytes = baos.toByteArray();
+                pictureType = Workbook.PICTURE_TYPE_PNG;
+            } else {
+                // Fallback to raw file bytes
+                finalImgBytes = Files.readAllBytes(imagePath);
+                String filename = imagePath.getFileName().toString().toLowerCase();
+                if (filename.endsWith(".jpg") || filename.endsWith(".jpeg")) {
+                    pictureType = Workbook.PICTURE_TYPE_JPEG;
+                }
+            }
+
+            int pictureIdx = workbook.addPicture(finalImgBytes, pictureType);
 
             Drawing<?> drawing = sheet.createDrawingPatriarch();
             CreationHelper helper = workbook.getCreationHelper();
