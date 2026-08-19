@@ -92,12 +92,8 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOriginPatterns(List.of(
-            "https://*.pinggy.io",
-            "http://*.pinggy.io",
-            "https://*.pinggy.link",
-            "http://*.pinggy.link",
-            "https://*.pinggy.online",
-            "http://*.pinggy.online",
+            "https://lims.myddns.me",
+            "http://lims.myddns.me",
             "https://lims.ddns.net",
             "http://lims.ddns.net",
             "http://localhost",
