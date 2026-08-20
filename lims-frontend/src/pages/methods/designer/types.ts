@@ -31,6 +31,8 @@ export interface FieldSchema {
   originalFormula?: string; // Reference to the original Excel formula (for auditing).
   systemMapping?: string; // e.g. "sample.sampleNumber", "job.jobNumber" for pre-filling.
   instrumentSource?: 'ADR_TOUCH' | 'NL_5032X' | 'GENERIC_SERIAL'; // which instrument can populate this field
+  isSummaryField?: boolean;
+  summaryScope?: 'CURRENT_BATCH' | 'CUMULATIVE';
 }
 
 export interface ColumnGroupSchema {

@@ -3,7 +3,7 @@ import { Form, Input, Table, Checkbox, Radio, InputNumber, Typography, Button, S
 import { DeleteOutlined, PlusOutlined, ApiOutlined, SearchOutlined } from '@ant-design/icons';
 import type { SectionSchema, FieldSchema } from '../../methods/designer/types';
 import { useEngineStore } from './store';
-import { evaluateCondition } from './FormulaEngine';
+import { evaluateCondition, evaluateFormula } from './FormulaEngine';
 import { ChartRenderer } from './ChartRenderer';
 import { getGroupedColumns } from '../../methods/designer/utils';
 import { AdrCaptureModal } from '../../../components/instrument/AdrCaptureModal';
@@ -237,6 +237,67 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
             dataIndex: `trial_${i}`,
             key: `trial_${i}`,
             render: (_: any, record: any) => {
+              if (record.fieldSchema?.isSummaryField) {
+                let spanCount = trialLen;
+                if (record.fieldSchema.summaryScope === 'CURRENT_BATCH' && section.hasMultiDaySpecimen) {
+                  const firstAuthIdx = Array.from({ length: trialLen }).findIndex((_, idx) => {
+                    const spec = specimenStatuses?.find((s: any) => s.specimenNumber === idx + 1);
+                    return spec?.status === 'AUTHORIZED';
+                  });
+                  spanCount = firstAuthIdx > 0 ? firstAuthIdx : (firstAuthIdx === 0 ? 1 : trialLen);
+                }
+
+                if (i === 0) {
+                  const calcVal = evaluateFormula({
+                    formula: record.fieldSchema.formula || '',
+                    schema: schema!,
+                    data,
+                    currentSectionId: section.id,
+                    currentRowIndex: null,
+                    specimenStatuses
+                  }, record.fieldSchema.precision);
+
+                  const formatted = (typeof calcVal === 'number' && record.fieldSchema.precision !== undefined)
+                    ? calcVal.toFixed(record.fieldSchema.precision)
+                    : (calcVal ?? '-');
+
+                  return {
+                    children: (
+                      <div style={{ backgroundColor: '#fafafa', padding: '6px 12px', fontWeight: 600, border: '1px dashed #d9d9d9', borderRadius: 4, color: '#1890ff' }}>
+                        {formatted}
+                      </div>
+                    ),
+                    props: { colSpan: spanCount }
+                  };
+                } else if (i < spanCount) {
+                  return { children: null, props: { colSpan: 0 } };
+                } else if (i === spanCount) {
+                  const calcVal = evaluateFormula({
+                    formula: record.fieldSchema.formula || '',
+                    schema: schema!,
+                    data,
+                    currentSectionId: section.id,
+                    currentRowIndex: null,
+                    specimenStatuses
+                  }, record.fieldSchema.precision);
+
+                  const formatted = (typeof calcVal === 'number' && record.fieldSchema.precision !== undefined)
+                    ? calcVal.toFixed(record.fieldSchema.precision)
+                    : (calcVal ?? '-');
+
+                  return {
+                    children: (
+                      <div style={{ backgroundColor: '#f5f5f5', padding: '6px 12px', fontWeight: 600, border: '1px solid #f0f0f0', borderRadius: 4, color: '#595959' }}>
+                        {formatted}
+                      </div>
+                    ),
+                    props: { colSpan: trialLen - spanCount }
+                  };
+                } else {
+                  return { children: null, props: { colSpan: 0 } };
+                }
+              }
+
               const val = tableData[i]?.[record.key];
               const error = errors[`${section.id}.${i}.${record.key}`];
               return (
@@ -276,7 +337,14 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
 
       return (
         <>
-          <Table columns={columns} dataSource={dataSource} pagination={false} size="small" scroll={{ x: 'max-content' }} bordered />
+          <Table
+            columns={columns}
+            dataSource={dataSource}
+            pagination={false}
+            size="small"
+            scroll={{ x: 'max-content' }}
+            bordered
+          />
           {renderCaptureModal()}
         </>
       );
@@ -287,6 +355,68 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
         dataIndex: c.id,
         key: c.id,
         render: (_: any, __: any, index: number) => {
+          if (c.isSummaryField) {
+            const totalRows = tableData.length || 1;
+            let spanCount = totalRows;
+            if (c.summaryScope === 'CURRENT_BATCH' && section.hasMultiDaySpecimen) {
+              const firstAuthIdx = tableData.findIndex((_: any, idx: number) => {
+                const spec = specimenStatuses?.find((s: any) => s.specimenNumber === idx + 1);
+                return spec?.status === 'AUTHORIZED';
+              });
+              spanCount = firstAuthIdx > 0 ? firstAuthIdx : (firstAuthIdx === 0 ? 1 : totalRows);
+            }
+
+            if (index === 0) {
+              const calcVal = evaluateFormula({
+                formula: c.formula || '',
+                schema: schema!,
+                data,
+                currentSectionId: section.id,
+                currentRowIndex: null,
+                specimenStatuses
+              }, c.precision);
+
+              const formatted = (typeof calcVal === 'number' && c.precision !== undefined)
+                ? calcVal.toFixed(c.precision)
+                : (calcVal ?? '-');
+
+              return {
+                children: (
+                  <div style={{ backgroundColor: '#fafafa', padding: '6px 12px', fontWeight: 600, border: '1px dashed #d9d9d9', borderRadius: 4, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1890ff' }}>
+                    {formatted}
+                  </div>
+                ),
+                props: { rowSpan: spanCount }
+              };
+            } else if (index < spanCount) {
+              return { children: null, props: { rowSpan: 0 } };
+            } else if (index === spanCount) {
+              const calcVal = evaluateFormula({
+                formula: c.formula || '',
+                schema: schema!,
+                data,
+                currentSectionId: section.id,
+                currentRowIndex: null,
+                specimenStatuses
+              }, c.precision);
+
+              const formatted = (typeof calcVal === 'number' && c.precision !== undefined)
+                ? calcVal.toFixed(c.precision)
+                : (calcVal ?? '-');
+
+              return {
+                children: (
+                  <div style={{ backgroundColor: '#f5f5f5', padding: '6px 12px', fontWeight: 600, border: '1px solid #f0f0f0', borderRadius: 4, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#595959' }}>
+                    {formatted}
+                  </div>
+                ),
+                props: { rowSpan: totalRows - spanCount }
+              };
+            } else {
+              return { children: null, props: { rowSpan: 0 } };
+            }
+          }
+
           const val = tableData[index]?.[c.id];
           const error = errors[`${section.id}.${index}.${c.id}`];
           return (
@@ -311,35 +441,45 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
       const maxRows = section.maxRows || Infinity;
       const canDelete = tableData.length > minRows;
 
-      if ((canDelete || tableData.length > 0) && !readOnly) {
+      if ((canDelete || tableData.length > 0 || section.hasMultiDaySpecimen) && !readOnly) {
         columns.push({
-          title: '',
+          title: section.hasMultiDaySpecimen ? 'Status' : '',
           dataIndex: 'actions',
           key: 'actions',
-          width: 50,
+          width: section.hasMultiDaySpecimen ? 110 : 50,
           fixed: 'right',
-          render: (_: any, __: any, index: number) => (
-            <Button
-              type="text"
-              danger
-              icon={<DeleteOutlined />}
-              disabled={tableData.length <= minRows}
-              onClick={() => removeRow(section.id, index)}
-            />
-          )
+          render: (_: any, __: any, index: number) => {
+            let specBadge = null;
+            let isFinalizedOrAuth = false;
+            if (section.hasMultiDaySpecimen) {
+              const spec = specimenStatuses?.find((s: any) => s.specimenNumber === index + 1);
+              if (spec) {
+                if (spec.status === 'FINALIZED') {
+                  specBadge = <Tag color="orange" style={{ margin: 0 }}>FINALIZED</Tag>;
+                  isFinalizedOrAuth = true;
+                } else if (spec.status === 'AUTHORIZED') {
+                  specBadge = <Tag color="green" style={{ margin: 0 }}>AUTHORIZED</Tag>;
+                  isFinalizedOrAuth = true;
+                }
+              }
+            }
+            return (
+              <Space size={4}>
+                {specBadge}
+                {!isFinalizedOrAuth && (
+                  <Button
+                    type="text"
+                    danger
+                    icon={<DeleteOutlined />}
+                    disabled={tableData.length <= minRows}
+                    onClick={() => removeRow(section.id, index)}
+                  />
+                )}
+              </Space>
+            );
+          }
         });
       }
-
-      const getLeafColumns = (cols: any[]): any[] => {
-        let leaf: any[] = [];
-        cols.forEach(c => {
-          if (c.children) leaf = leaf.concat(getLeafColumns(c.children));
-          else leaf.push(c);
-        });
-        return leaf;
-      };
-
-      const leafColumns = getLeafColumns(columns);
 
       return (
         <Space direction="vertical" style={{ width: '100%' }}>
@@ -351,36 +491,6 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
             size="small"
             scroll={{ x: 'max-content' }}
             bordered
-            summary={(pageData) => {
-              if (!section.showTotalRow || !section.totalColumns?.length) return null;
-
-              return (
-                <Table.Summary.Row style={{ backgroundColor: '#fafafa' }}>
-                  {leafColumns.map((col, idx) => {
-                    if (idx === 0) {
-                      return (
-                        <Table.Summary.Cell index={idx} key="total-label">
-                          <Text strong>{section.totalRowLabel || 'Total'}</Text>
-                        </Table.Summary.Cell>
-                      );
-                    }
-
-                    if (section.totalColumns?.includes(col.key)) {
-                      const sum = pageData.reduce((acc, row) => acc + (Number(row[col.key]) || 0), 0);
-                      const fieldSchema = (section.columns || section.dataColumns || []).find(f => f.id === col.key);
-                      const formattedSum = fieldSchema?.precision !== undefined ? sum.toFixed(fieldSchema.precision) : sum;
-                      return (
-                        <Table.Summary.Cell index={idx} key={col.key}>
-                          <Text strong>{formattedSum}</Text>
-                        </Table.Summary.Cell>
-                      );
-                    }
-
-                    return <Table.Summary.Cell index={idx} key={col.key} />;
-                  })}
-                </Table.Summary.Row>
-              );
-            }}
           />
           {tableData.length < maxRows && !readOnly && (
             <Button

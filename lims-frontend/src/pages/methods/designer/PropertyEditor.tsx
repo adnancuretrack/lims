@@ -103,6 +103,28 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({ onCollapse }) =>
                   <code style={{ fontSize: 12, color: '#d46b08', wordBreak: 'break-all' }}>{field.originalFormula}</code>
                 </div>
               )}
+              {(section?.type === 'DATA_TABLE' || section?.type === 'GROUPED_TABLE') && (
+                <>
+                  <Form.Item label="Summary Field" help="Span this formula across all specimen rows/columns as a summary cell">
+                    <Switch
+                      checked={field.isSummaryField}
+                      onChange={v => handleUpdate({ isSummaryField: v, summaryScope: v ? (field.summaryScope || 'CURRENT_BATCH') : undefined })}
+                    />
+                  </Form.Item>
+                  {field.isSummaryField && (
+                    <Form.Item label="Summary Scope" help="Current Batch spans active specimens; Cumulative spans all specimens">
+                      <Select
+                        value={field.summaryScope || 'CURRENT_BATCH'}
+                        onChange={v => handleUpdate({ summaryScope: v })}
+                        options={[
+                          { value: 'CURRENT_BATCH', label: 'Current Batch (Un-authorized Specimens)' },
+                          { value: 'CUMULATIVE', label: 'Cumulative (All Specimens)' },
+                        ]}
+                      />
+                    </Form.Item>
+                  )}
+                </>
+              )}
             </>
           )}
 
@@ -283,14 +305,12 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({ onCollapse }) =>
                   options={[{ value: 'ROWS_AS_RECORDS', label: 'Dynamic Rows' }, { value: 'COLUMNS_AS_TRIALS', label: 'Dynamic Columns' }]}
                 />
               </Form.Item>
-              {section.orientation === 'COLUMNS_AS_TRIALS' && (
-                <Form.Item label="Multi-Day Specimen Lifecycle" help="Enable independent testing & authorization lifecycle for each column/specimen">
-                  <Switch 
-                    checked={section.hasMultiDaySpecimen} 
-                    onChange={v => updateSection(section.id, { hasMultiDaySpecimen: v, ...(v ? { isSpecimenData: true } : {}) })} 
-                  />
-                </Form.Item>
-              )}
+              <Form.Item label="Multi-Day Specimen Lifecycle" help="Enable independent testing & authorization lifecycle for each row/column specimen">
+                <Switch 
+                  checked={section.hasMultiDaySpecimen} 
+                  onChange={v => updateSection(section.id, { hasMultiDaySpecimen: v, ...(v ? { isSpecimenData: true } : {}) })} 
+                />
+              </Form.Item>
               <Form.Item label={section.orientation === 'COLUMNS_AS_TRIALS' ? "Min Columns" : "Min Rows"}>
                 <InputNumber min={1} value={section.minRows} onChange={v => updateSection(section.id, { minRows: v || undefined })} style={{ width: '100%' }} />
               </Form.Item>
