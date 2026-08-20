@@ -22,6 +22,79 @@ interface SectionRendererProps {
   externalSpecimens?: any[];
 }
 
+interface BatchSegment {
+  batchNumber: number;
+  isCurrent: boolean;
+  startIndex: number;
+  length: number;
+}
+
+const getSpecimenBatchSegments = (specimenStatuses: any[] | undefined, totalCount: number): BatchSegment[] => {
+  if (totalCount <= 0) return [];
+  if (!specimenStatuses || specimenStatuses.length === 0) {
+    return [{ batchNumber: 1, isCurrent: true, startIndex: 0, length: totalCount }];
+  }
+
+  const authSpecs = specimenStatuses
+    .filter((s: any) => s.status === 'AUTHORIZED' && s.authorizedAt)
+    .sort((a, b) => new Date(a.authorizedAt).getTime() - new Date(b.authorizedAt).getTime());
+
+  const authBatches: any[][] = [];
+  authSpecs.forEach(spec => {
+    const time = new Date(spec.authorizedAt).getTime();
+    let placed = false;
+    for (const batch of authBatches) {
+      const firstTime = new Date(batch[0].authorizedAt).getTime();
+      if (Math.abs(time - firstTime) < 10000) {
+        batch.push(spec);
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) {
+      authBatches.push([spec]);
+    }
+  });
+
+  const indexBatchMap: { batchNumber: number; isCurrent: boolean }[] = [];
+  for (let i = 0; i < totalCount; i++) {
+    const spec = specimenStatuses.find((s: any) => s.specimenNumber === i + 1);
+    if (spec && spec.status === 'AUTHORIZED') {
+      const bIdx = authBatches.findIndex(b => b.some(s => s.specimenNumber === spec.specimenNumber));
+      const bNum = bIdx !== -1 ? bIdx + 1 : (authBatches.length || 1);
+      indexBatchMap.push({ batchNumber: bNum, isCurrent: false });
+    } else {
+      const currentBatchNum = authBatches.length + 1;
+      indexBatchMap.push({ batchNumber: currentBatchNum, isCurrent: true });
+    }
+  }
+
+  const segments: BatchSegment[] = [];
+  let currentSegment: BatchSegment | null = null;
+
+  indexBatchMap.forEach((item, idx) => {
+    if (!currentSegment || currentSegment.batchNumber !== item.batchNumber) {
+      if (currentSegment) {
+        segments.push(currentSegment);
+      }
+      currentSegment = {
+        batchNumber: item.batchNumber,
+        isCurrent: item.isCurrent,
+        startIndex: idx,
+        length: 1
+      };
+    } else {
+      currentSegment.length++;
+    }
+  });
+
+  if (currentSegment) {
+    segments.push(currentSegment);
+  }
+
+  return segments;
+};
+
 export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readOnly, externalData, externalSchema, externalErrors, externalSpecimens }) => {
   const storeState = useEngineStore();
 
@@ -238,62 +311,76 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
             key: `trial_${i}`,
             render: (_: any, record: any) => {
               if (record.fieldSchema?.isSummaryField) {
-                let spanCount = trialLen;
-                if (record.fieldSchema.summaryScope === 'CURRENT_BATCH' && section.hasMultiDaySpecimen) {
-                  const firstAuthIdx = Array.from({ length: trialLen }).findIndex((_, idx) => {
-                    const spec = specimenStatuses?.find((s: any) => s.specimenNumber === idx + 1);
-                    return spec?.status === 'AUTHORIZED';
-                  });
-                  spanCount = firstAuthIdx > 0 ? firstAuthIdx : (firstAuthIdx === 0 ? 1 : trialLen);
-                }
+                if (record.fieldSchema.summaryScope === 'CUMULATIVE') {
+                  if (i === 0) {
+                    const calcVal = evaluateFormula({
+                      formula: record.fieldSchema.formula || '',
+                      schema: schema!,
+                      data,
+                      currentSectionId: section.id,
+                      currentRowIndex: null,
+                      specimenStatuses
+                    }, record.fieldSchema.precision);
 
-                if (i === 0) {
-                  const calcVal = evaluateFormula({
-                    formula: record.fieldSchema.formula || '',
-                    schema: schema!,
-                    data,
-                    currentSectionId: section.id,
-                    currentRowIndex: null,
-                    specimenStatuses
-                  }, record.fieldSchema.precision);
+                    const formatted = (typeof calcVal === 'number' && record.fieldSchema.precision !== undefined)
+                      ? calcVal.toFixed(record.fieldSchema.precision)
+                      : (calcVal ?? '-');
 
-                  const formatted = (typeof calcVal === 'number' && record.fieldSchema.precision !== undefined)
-                    ? calcVal.toFixed(record.fieldSchema.precision)
-                    : (calcVal ?? '-');
-
-                  return {
-                    children: (
-                      <div style={{ backgroundColor: '#fafafa', padding: '6px 12px', fontWeight: 600, border: '1px dashed #d9d9d9', borderRadius: 4, color: '#1890ff' }}>
-                        {formatted}
-                      </div>
-                    ),
-                    props: { colSpan: spanCount }
-                  };
-                } else if (i < spanCount) {
+                    return {
+                      children: (
+                        <div style={{ backgroundColor: '#f0f5ff', padding: '6px 12px', fontWeight: 600, border: '1px solid #adc6ff', borderRadius: 4, color: '#1d39c4' }}>
+                          {formatted}
+                        </div>
+                      ),
+                      props: { colSpan: trialLen }
+                    };
+                  }
                   return { children: null, props: { colSpan: 0 } };
-                } else if (i === spanCount) {
-                  const calcVal = evaluateFormula({
-                    formula: record.fieldSchema.formula || '',
-                    schema: schema!,
-                    data,
-                    currentSectionId: section.id,
-                    currentRowIndex: null,
-                    specimenStatuses
-                  }, record.fieldSchema.precision);
-
-                  const formatted = (typeof calcVal === 'number' && record.fieldSchema.precision !== undefined)
-                    ? calcVal.toFixed(record.fieldSchema.precision)
-                    : (calcVal ?? '-');
-
-                  return {
-                    children: (
-                      <div style={{ backgroundColor: '#f5f5f5', padding: '6px 12px', fontWeight: 600, border: '1px solid #f0f0f0', borderRadius: 4, color: '#595959' }}>
-                        {formatted}
-                      </div>
-                    ),
-                    props: { colSpan: trialLen - spanCount }
-                  };
                 } else {
+                  // CURRENT_BATCH scope - segment-based
+                  const segments = getSpecimenBatchSegments(specimenStatuses, trialLen);
+                  const seg = segments.find(s => i >= s.startIndex && i < s.startIndex + s.length);
+                  if (!seg) return { children: null, props: { colSpan: 1 } };
+
+                  if (i === seg.startIndex) {
+                    let formulaToUse = record.fieldSchema.formula || '';
+                    if (!seg.isCurrent) {
+                      formulaToUse = formulaToUse.replace(/(AVG_CURRENT|SUM_CURRENT|COUNT_CURRENT|MIN_CURRENT|MAX_CURRENT|STDEV_CURRENT|CV_CURRENT)\(([^)]+)\)/g, (_: string, fn: string, inner: string) => {
+                        const fnBase = fn.split('_')[0];
+                        return `${fnBase}_BATCH(${inner}, ${seg.batchNumber})`;
+                      });
+                    }
+
+                    const calcVal = evaluateFormula({
+                      formula: formulaToUse,
+                      schema: schema!,
+                      data,
+                      currentSectionId: section.id,
+                      currentRowIndex: null,
+                      specimenStatuses
+                    }, record.fieldSchema.precision);
+
+                    const formatted = (typeof calcVal === 'number' && record.fieldSchema.precision !== undefined)
+                      ? calcVal.toFixed(record.fieldSchema.precision)
+                      : (calcVal ?? '-');
+
+                    const isHist = !seg.isCurrent;
+                    return {
+                      children: (
+                        <div style={{
+                          backgroundColor: isHist ? '#f6ffed' : '#fafafa',
+                          padding: '6px 12px',
+                          fontWeight: 600,
+                          border: isHist ? '1px solid #b7eb8f' : '1px dashed #1890ff',
+                          borderRadius: 4,
+                          color: isHist ? '#389e0d' : '#1890ff'
+                        }}>
+                          {isHist ? `Batch ${seg.batchNumber} Avg: ${formatted}` : formatted}
+                        </div>
+                      ),
+                      props: { colSpan: seg.length }
+                    };
+                  }
                   return { children: null, props: { colSpan: 0 } };
                 }
               }
@@ -357,62 +444,80 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
         render: (_: any, __: any, index: number) => {
           if (c.isSummaryField) {
             const totalRows = tableData.length || 1;
-            let spanCount = totalRows;
-            if (c.summaryScope === 'CURRENT_BATCH' && section.hasMultiDaySpecimen) {
-              const firstAuthIdx = tableData.findIndex((_: any, idx: number) => {
-                const spec = specimenStatuses?.find((s: any) => s.specimenNumber === idx + 1);
-                return spec?.status === 'AUTHORIZED';
-              });
-              spanCount = firstAuthIdx > 0 ? firstAuthIdx : (firstAuthIdx === 0 ? 1 : totalRows);
-            }
+            if (c.summaryScope === 'CUMULATIVE') {
+              if (index === 0) {
+                const calcVal = evaluateFormula({
+                  formula: c.formula || '',
+                  schema: schema!,
+                  data,
+                  currentSectionId: section.id,
+                  currentRowIndex: null,
+                  specimenStatuses
+                }, c.precision);
 
-            if (index === 0) {
-              const calcVal = evaluateFormula({
-                formula: c.formula || '',
-                schema: schema!,
-                data,
-                currentSectionId: section.id,
-                currentRowIndex: null,
-                specimenStatuses
-              }, c.precision);
+                const formatted = (typeof calcVal === 'number' && c.precision !== undefined)
+                  ? calcVal.toFixed(c.precision)
+                  : (calcVal ?? '-');
 
-              const formatted = (typeof calcVal === 'number' && c.precision !== undefined)
-                ? calcVal.toFixed(c.precision)
-                : (calcVal ?? '-');
-
-              return {
-                children: (
-                  <div style={{ backgroundColor: '#fafafa', padding: '6px 12px', fontWeight: 600, border: '1px dashed #d9d9d9', borderRadius: 4, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1890ff' }}>
-                    {formatted}
-                  </div>
-                ),
-                props: { rowSpan: spanCount }
-              };
-            } else if (index < spanCount) {
+                return {
+                  children: (
+                    <div style={{ backgroundColor: '#f0f5ff', padding: '6px 12px', fontWeight: 600, border: '1px solid #adc6ff', borderRadius: 4, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1d39c4' }}>
+                      {formatted}
+                    </div>
+                  ),
+                  props: { rowSpan: totalRows }
+                };
+              }
               return { children: null, props: { rowSpan: 0 } };
-            } else if (index === spanCount) {
-              const calcVal = evaluateFormula({
-                formula: c.formula || '',
-                schema: schema!,
-                data,
-                currentSectionId: section.id,
-                currentRowIndex: null,
-                specimenStatuses
-              }, c.precision);
-
-              const formatted = (typeof calcVal === 'number' && c.precision !== undefined)
-                ? calcVal.toFixed(c.precision)
-                : (calcVal ?? '-');
-
-              return {
-                children: (
-                  <div style={{ backgroundColor: '#f5f5f5', padding: '6px 12px', fontWeight: 600, border: '1px solid #f0f0f0', borderRadius: 4, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#595959' }}>
-                    {formatted}
-                  </div>
-                ),
-                props: { rowSpan: totalRows - spanCount }
-              };
             } else {
+              // CURRENT_BATCH scope - segment-based
+              const segments = getSpecimenBatchSegments(specimenStatuses, totalRows);
+              const seg = segments.find(s => index >= s.startIndex && index < s.startIndex + s.length);
+              if (!seg) return { children: null, props: { rowSpan: 1 } };
+
+              if (index === seg.startIndex) {
+                let formulaToUse = c.formula || '';
+                if (!seg.isCurrent) {
+                  formulaToUse = formulaToUse.replace(/(AVG_CURRENT|SUM_CURRENT|COUNT_CURRENT|MIN_CURRENT|MAX_CURRENT|STDEV_CURRENT|CV_CURRENT)\(([^)]+)\)/g, (_: string, fn: string, inner: string) => {
+                    const fnBase = fn.split('_')[0];
+                    return `${fnBase}_BATCH(${inner}, ${seg.batchNumber})`;
+                  });
+                }
+
+                const calcVal = evaluateFormula({
+                  formula: formulaToUse,
+                  schema: schema!,
+                  data,
+                  currentSectionId: section.id,
+                  currentRowIndex: null,
+                  specimenStatuses
+                }, c.precision);
+
+                const formatted = (typeof calcVal === 'number' && c.precision !== undefined)
+                  ? calcVal.toFixed(c.precision)
+                  : (calcVal ?? '-');
+
+                const isHist = !seg.isCurrent;
+                return {
+                  children: (
+                    <div style={{
+                      backgroundColor: isHist ? '#f6ffed' : '#fafafa',
+                      padding: '6px 12px',
+                      fontWeight: 600,
+                      border: isHist ? '1px solid #b7eb8f' : '1px dashed #1890ff',
+                      borderRadius: 4,
+                      height: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: isHist ? '#389e0d' : '#1890ff'
+                    }}>
+                      {isHist ? `Batch ${seg.batchNumber} Avg: ${formatted}` : formatted}
+                    </div>
+                  ),
+                  props: { rowSpan: seg.length }
+                };
+              }
               return { children: null, props: { rowSpan: 0 } };
             }
           }

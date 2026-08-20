@@ -271,6 +271,11 @@ public class WorksheetDataService {
                 List<Map<String, Object>> oldList = (List<Map<String, Object>>) oldSectionVal;
                 List<Map<String, Object>> newList = (List<Map<String, Object>>) newSectionVal;
 
+                List<Map<String, Object>> cols = (List<Map<String, Object>>) section.get("columns");
+                if (cols == null) {
+                    cols = (List<Map<String, Object>>) section.get("dataColumns");
+                }
+
                 List<Specimen> specimens = specimenRepository.findBySampleIdOrderBySpecimenNumberAsc(sampleId);
                 for (Specimen spec : specimens) {
                     if ("AUTHORIZED".equals(spec.getStatus())) {
@@ -280,8 +285,29 @@ public class WorksheetDataService {
                         }
                         Map<String, Object> oldSpecData = idx < oldList.size() ? oldList.get(idx) : Map.of();
                         Map<String, Object> newSpecData = newList.get(idx);
-                        if (!oldSpecData.equals(newSpecData)) {
-                            throw new RuntimeException("Cannot modify authorized specimen data for specimen: " + spec.getSpecimenNumber());
+
+                        if (cols != null) {
+                            for (Map<String, Object> col : cols) {
+                                String colId = (String) col.get("id");
+                                String inputType = (String) col.get("inputType");
+                                String systemMapping = (String) col.get("systemMapping");
+                                Boolean isSummary = Boolean.TRUE.equals(col.get("isSummaryField"));
+
+                                // Skip system mapped fields, calculated fields, and summary fields from lock verification
+                                if (systemMapping != null || "CALCULATED".equals(inputType) || isSummary) {
+                                    continue;
+                                }
+
+                                Object oldVal = oldSpecData.get(colId);
+                                Object newVal = newSpecData.get(colId);
+
+                                String oldStr = oldVal != null ? String.valueOf(oldVal) : "";
+                                String newStr = newVal != null ? String.valueOf(newVal) : "";
+
+                                if (!oldStr.equals(newStr)) {
+                                    throw new RuntimeException("Cannot modify authorized specimen data for specimen: " + spec.getSpecimenNumber());
+                                }
+                            }
                         }
                     }
                 }
