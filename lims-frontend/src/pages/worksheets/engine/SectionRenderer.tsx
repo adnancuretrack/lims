@@ -375,7 +375,7 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
                           borderRadius: 4,
                           color: isHist ? '#389e0d' : '#1890ff'
                         }}>
-                          {isHist ? `Batch ${seg.batchNumber} Avg: ${formatted}` : formatted}
+                          {formatted}
                         </div>
                       ),
                       props: { colSpan: seg.length }
@@ -512,7 +512,7 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
                       justifyContent: 'center',
                       color: isHist ? '#389e0d' : '#1890ff'
                     }}>
-                      {isHist ? `Batch ${seg.batchNumber} Avg: ${formatted}` : formatted}
+                      {formatted}
                     </div>
                   ),
                   props: { rowSpan: seg.length }
