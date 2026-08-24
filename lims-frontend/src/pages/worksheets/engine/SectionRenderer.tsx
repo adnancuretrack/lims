@@ -8,6 +8,7 @@ import { ChartRenderer } from './ChartRenderer';
 import { getGroupedColumns } from '../../methods/designer/utils';
 import { AdrCaptureModal } from '../../../components/instrument/AdrCaptureModal';
 import { NlCaptureModal } from '../../../components/instrument/NlCaptureModal';
+import { TroxlerCaptureModal } from '../../../components/instrument/TroxlerCaptureModal';
 import { EquipmentSelectionModal } from '../../../components/instrument/EquipmentSelectionModal';
 import { formatDateTime } from '../../../utils/dateUtils';
 
@@ -156,6 +157,17 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
     if (captureTarget.instrumentSource === 'NL_5032X') {
       return (
         <NlCaptureModal
+          open={captureModalOpen}
+          onClose={() => setCaptureModalOpen(false)}
+          onCapture={handleCapture}
+          targetFieldId={captureTarget.fieldId}
+          targetFieldLabel={captureTarget.label}
+        />
+      );
+    }
+    if (captureTarget.instrumentSource === 'TROXLER_3440') {
+      return (
+        <TroxlerCaptureModal
           open={captureModalOpen}
           onClose={() => setCaptureModalOpen(false)}
           onCapture={handleCapture}

@@ -179,6 +179,7 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({ onCollapse }) =>
                 options={[
                   { value: 'ADR_TOUCH', label: 'ELE ADR Touch' },
                   { value: 'NL_5032X', label: 'NL Scientific 5032X/001 EDG' },
+                  { value: 'TROXLER_3440', label: 'Troxler Model 3440' },
                   { value: 'GENERIC_SERIAL', label: 'Generic Serial RS-232' },
                 ]}
               />

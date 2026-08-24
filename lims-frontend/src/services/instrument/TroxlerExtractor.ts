@@ -1,0 +1,107 @@
+import type { TroxlerProjectBlock, TroxlerStationRecord } from './troxlerTypes';
+
+const RE_PROJECT_ID = /PROJECT NUMBER:\s*(?<project_id>.+)/;
+const RE_META = /SN:\s*(?<serial_num>\d+)\s+DATE:\s*(?<date>[\d/]+)/;
+const RE_STA_HEADER = /STA #\s*(?<sta_num>\d+)\s+(?<time>\d+:\d+\s*[AP]M)\s+(?<date>[\d/]+)/;
+const RE_STA_PARAMS = /DEPTH:\s*(?<depth>.+?)\s+TIME:\s*(?<time_val>.+?)\s+UNITS:\s*(?<units>\w+)\s+Std Cnts:\s*D\s*(?<std_d>\d+)\s+M\s*(?<std_m>\d+)/;
+const RE_RAW_COUNTS = /Dens Cnt\.\s*(?<dens_cnt>\d+)\s+Moist Cnt\.\s*(?<moist_cnt>\d+)/;
+const RE_SOIL = /WD\s*=\s*(?<wd>[-–+\d.]+)\s+DD\s*=\s*(?<dd>[-–+\d.]+)\s+PR\s*=\s*(?<pr>[-–+\d.]+)\s+%PR\s*=\s*(?<pct_pr>[-–+\d.]+)/;
+const RE_MOISTURE = /M\s*=\s*(?<m>[-–+\d.]+)\s+%M\s*=\s*(?<pct_m>[-–+\d+.]+)/;
+const RE_OPTIONAL = /Optional Data:\s*(?<opt_data>.*?)\*\*/;
+
+/**
+ * Splits a raw project block into per-station text chunks.
+ * Separated either by dashed rules (---) or by "STA #" header boundaries.
+ */
+function splitStations(rawText: string): string[] {
+  let chunks = rawText
+    .split(/^-{3,}\s*$/m)
+    .map(s => s.trim())
+    .filter(Boolean);
+
+  if (chunks.length <= 1) {
+    chunks = rawText
+      .split(/(?=STA #)/m)
+      .map(s => s.trim())
+      .filter(s => s.startsWith('STA #'));
+  }
+
+  return chunks;
+}
+
+/**
+ * Extracts a single station record from a station text chunk.
+ */
+function extractStation(chunk: string): TroxlerStationRecord | null {
+  const staMatch = RE_STA_HEADER.exec(chunk);
+  const paramsMatch = RE_STA_PARAMS.exec(chunk);
+  const countsMatch = RE_RAW_COUNTS.exec(chunk);
+
+  if (!staMatch?.groups || !paramsMatch?.groups || !countsMatch?.groups) {
+    return null;
+  }
+
+  const sta = staMatch.groups;
+  const params = paramsMatch.groups;
+  const counts = countsMatch.groups;
+
+  const soil = RE_SOIL.exec(chunk)?.groups;
+  const moisture = RE_MOISTURE.exec(chunk)?.groups;
+  const optional = RE_OPTIONAL.exec(chunk)?.groups;
+
+  return {
+    staNum: parseInt(sta.sta_num, 10),
+    time: sta.time.trim(),
+    date: sta.date.trim(),
+    depth: params.depth.trim(),
+    timeVal: params.time_val.trim(),
+    units: params.units.trim(),
+    stdD: parseInt(params.std_d, 10),
+    stdM: parseInt(params.std_m, 10),
+    densCnt: parseInt(counts.dens_cnt, 10),
+    moistCnt: parseInt(counts.moist_cnt, 10),
+    wd: soil?.wd?.trim(),
+    dd: soil?.dd?.trim(),
+    pr: soil?.pr?.trim(),
+    pctPr: soil?.pct_pr?.trim(),
+    m: moisture?.m?.trim(),
+    pctM: moisture?.pct_m?.trim(),
+    optData: optional?.opt_data?.trim(),
+  };
+}
+
+/**
+ * Extracts project block details and station records from raw project text.
+ * Returns null if the block fails structural validation.
+ */
+export function extractProjectBlock(
+  rawText: string
+): Pick<TroxlerProjectBlock, 'projectId' | 'serialNum' | 'date' | 'stations'> | null {
+  const projectMatch = RE_PROJECT_ID.exec(rawText)?.groups;
+  const metaMatch = RE_META.exec(rawText)?.groups;
+
+  if (!projectMatch || !metaMatch) {
+    return null;
+  }
+
+  const stationChunks = splitStations(rawText);
+  const stations: TroxlerStationRecord[] = [];
+
+  for (const chunk of stationChunks) {
+    const station = extractStation(chunk);
+    if (station) {
+      stations.push(station);
+    }
+  }
+
+  if (stations.length === 0) {
+    return null;
+  }
+
+  return {
+    projectId: projectMatch.project_id.trim(),
+    serialNum: metaMatch.serial_num.trim(),
+    date: metaMatch.date.trim(),
+    stations,
+  };
+}
