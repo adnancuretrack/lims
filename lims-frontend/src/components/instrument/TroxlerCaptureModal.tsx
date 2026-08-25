@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { Modal, Button, Typography, Space, Alert, Tag, Tooltip, Table, Checkbox, Select } from 'antd';
-import { ApiOutlined, DisconnectOutlined, SyncOutlined, CheckCircleOutlined, ThunderboltOutlined, InfoCircleOutlined, AlertOutlined } from '@ant-design/icons';
+import { ApiOutlined, DisconnectOutlined, SyncOutlined, CheckCircleOutlined, ThunderboltOutlined, InfoCircleOutlined, AlertOutlined, SettingOutlined } from '@ant-design/icons';
 import { useTroxlerCapture } from '../../hooks/useTroxlerCapture';
 import type { TroxlerStationRecord } from '../../services/instrument/troxlerTypes';
 import './TroxlerCaptureModal.css';
@@ -33,6 +33,9 @@ export const TroxlerCaptureModal: React.FC<TroxlerCaptureModalProps> = ({
   const [isSupported, setIsSupported] = useState(true);
   const [powerOffConfirmed, setPowerOffConfirmed] = useState(false);
   const [selectedStaIndex, setSelectedStaIndex] = useState<number>(0);
+  // TEMPORARY: Manual UART settings selectors for diagnostic
+  const [selectedBaud, setSelectedBaud] = useState<number>(2400);
+  const [selectedStopBits, setSelectedStopBits] = useState<number>(2);
 
   useEffect(() => {
     setIsSupported('serial' in navigator);
@@ -187,6 +190,47 @@ export const TroxlerCaptureModal: React.FC<TroxlerCaptureModalProps> = ({
 
       <div className="troxler-connection-bar">
         <Space direction="vertical" style={{ width: '100%' }}>
+          {/* TEMPORARY: UART settings selectors for diagnostic */}
+          {connectionState.status !== 'connected' && (
+            <div className="troxler-uart-settings">
+              <Space align="center">
+                <SettingOutlined />
+                <Text strong style={{ fontSize: 12 }}>Serial Settings:</Text>
+                <Text type="secondary" style={{ fontSize: 12 }}>Baud Rate</Text>
+                <Select
+                  value={selectedBaud}
+                  onChange={v => setSelectedBaud(v)}
+                  style={{ width: 100 }}
+                  size="small"
+                  options={[
+                    { value: 2400, label: '2400' },
+                    { value: 4800, label: '4800' },
+                    { value: 9600, label: '9600' },
+                    { value: 1200, label: '1200' },
+                    { value: 600, label: '600' },
+                    { value: 300, label: '300' },
+                  ]}
+                />
+                <Text type="secondary" style={{ fontSize: 12 }}>Stop Bits</Text>
+                <Select
+                  value={selectedStopBits}
+                  onChange={v => setSelectedStopBits(v)}
+                  style={{ width: 70 }}
+                  size="small"
+                  options={[
+                    { value: 2, label: '2' },
+                    { value: 1, label: '1' },
+                  ]}
+                />
+              </Space>
+              <div style={{ marginTop: 4 }}>
+                <Text type="secondary" style={{ fontSize: 11 }}>
+                  If you get a "Framing Error", disconnect and try a different combination.
+                </Text>
+              </div>
+            </div>
+          )}
+
           {connectionState.status !== 'connected' ? (
             <Space>
               <Checkbox
@@ -197,7 +241,7 @@ export const TroxlerCaptureModal: React.FC<TroxlerCaptureModalProps> = ({
               </Checkbox>
               <Button
                 type="primary"
-                onClick={connect}
+                onClick={() => connect({ baudRate: selectedBaud, stopBits: selectedStopBits })}
                 disabled={!isSupported || connectionState.status === 'connecting' || !powerOffConfirmed}
                 icon={<ApiOutlined />}
               >
@@ -205,16 +249,32 @@ export const TroxlerCaptureModal: React.FC<TroxlerCaptureModalProps> = ({
               </Button>
             </Space>
           ) : (
-            <Button
-              danger
-              onClick={disconnect}
-              icon={<DisconnectOutlined />}
-            >
-              Disconnect
-            </Button>
+            <Space>
+              <Button
+                danger
+                onClick={disconnect}
+                icon={<DisconnectOutlined />}
+              >
+                Disconnect
+              </Button>
+              {/* TEMPORARY: Show which settings are active */}
+              <Tag color="blue">{selectedBaud} baud, {selectedStopBits} stop bits</Tag>
+            </Space>
           )}
         </Space>
       </div>
+
+      {/* TEMPORARY: Show working settings banner when data is successfully received */}
+      {latestBlock && connectionState.status === 'connected' && (
+        <Alert
+          message={`Working settings: ${selectedBaud} baud, ${selectedStopBits} stop bits`}
+          description="Please report these values to the development team so we can set them as defaults and remove this selector."
+          type="info"
+          showIcon
+          icon={<SettingOutlined />}
+          style={{ marginBottom: 16 }}
+        />
+      )}
 
       <div className="troxler-target-info">
         <Text strong>Target Field:</Text> <Tag color="blue">{targetFieldLabel}</Tag>
