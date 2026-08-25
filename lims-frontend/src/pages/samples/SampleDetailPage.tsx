@@ -276,6 +276,8 @@ export default function SampleDetailPage() {
                             tests={tests || []} 
                             onSuccess={() => {
                                 queryClient.invalidateQueries({ queryKey: ['sample', id] });
+                                queryClient.invalidateQueries({ queryKey: ['sample-tests', id] });
+                                queryClient.invalidateQueries({ queryKey: ['worksheet'] });
                             }} 
                         />
                     }

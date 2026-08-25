@@ -51,6 +51,7 @@ export default function ReviewQueuePage() {
             message.success(`Result ${reviewAction?.toLowerCase()}d successfully`);
             queryClient.invalidateQueries({ queryKey: ['sample-tests', String(selectedSample?.id)] });
             queryClient.invalidateQueries({ queryKey: ['reviewQueue'] });
+            queryClient.invalidateQueries({ queryKey: ['worksheet'] });
             setIsReviewModalVisible(false);
             setReviewComment('');
         },

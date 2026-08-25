@@ -67,7 +67,7 @@ export const WorksheetReviewPanel: React.FC<WorksheetReviewPanelProps> = ({ samp
 
   useEffect(() => {
     fetchWorksheet();
-  }, [fetchWorksheet]);
+  }, [fetchWorksheet, testStatus, sampleStatus]);
 
   if (loading) {
     return (
