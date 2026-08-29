@@ -3,19 +3,10 @@ import { TroxlerParser } from './TroxlerParser';
 
 type SerialCallback<T> = (data: T) => void;
 
-// TEMPORARY: Configurable UART settings for diagnostic. Remove once correct values are confirmed.
-export interface TroxlerUartSettings {
-  baudRate: number;
-  stopBits: number;
-}
-
-// TEMPORARY: Default to spec values, overridable from modal dropdowns
-const DEFAULT_UART: TroxlerUartSettings = { baudRate: 2400, stopBits: 2 };
-
 /**
  * Singleton service for managing Web Serial API connection to the Troxler Model 3440.
  * Enforces Read-Only behavior (no write/send methods provided) and configures UART
- * per spec: 2400 baud, 8-N-2, DTR hardware handshaking.
+ * per gauge defaults: 9600 baud, 8-N-2, DTR hardware handshaking.
  */
 class TroxlerSerialService {
   private port: any | null = null;
@@ -24,8 +15,6 @@ class TroxlerSerialService {
   private tokenBuffer = '';
   private readPromise: Promise<void> | null = null;
   private parser = new TroxlerParser();
-  // TEMPORARY: Track current UART settings for diagnostic display
-  private currentSettings: TroxlerUartSettings = DEFAULT_UART;
 
   // Listeners
   private projectBlockListeners: Set<SerialCallback<TroxlerProjectBlock>> = new Set();
@@ -71,9 +60,9 @@ class TroxlerSerialService {
 
   /**
    * Connects to the Troxler serial port using Web Serial API.
-   * TEMPORARY: Accepts optional UART settings override for diagnostic.
+   * Configured for 9600 baud, 8-N-2, DTR.
    */
-  async connect(settings?: TroxlerUartSettings): Promise<void> {
+  async connect(): Promise<void> {
     if (!('serial' in navigator)) {
       throw new Error('Web Serial API not supported in this browser. Please use Chrome or Edge.');
     }
@@ -84,21 +73,18 @@ class TroxlerSerialService {
     }
 
     try {
-      // TEMPORARY: Use provided settings or fall back to defaults
-      const uart = settings ?? DEFAULT_UART;
-      this.currentSettings = uart;
-
       this.port = await (navigator as any).serial.requestPort();
 
+      // Configure port for Troxler 3440: 9600 bps, 8 data bits, no parity, 2 stop bits
       await this.port.open({
-        baudRate: uart.baudRate,
+        baudRate: 9600,
         dataBits: 8,
-        stopBits: uart.stopBits as 1 | 2,
+        stopBits: 2,
         parity: 'none',
         flowControl: 'none',
       });
 
-      console.log(`[TROXLER CONFIG] Connected with: ${uart.baudRate} baud, ${uart.stopBits} stop bits`);
+      console.log('[TROXLER CONFIG] Connected with: 9600 baud, 8-N-2');
 
       // Assert DTR for hardware flow control handshake
       if (this.port.setSignals) {
@@ -161,11 +147,6 @@ class TroxlerSerialService {
     return this.port ? this.port.getInfo() : null;
   }
 
-  // TEMPORARY: Expose current settings for UI display
-  getCurrentSettings(): TroxlerUartSettings {
-    return this.currentSettings;
-  }
-
   private async readLoop() {
     while (this.port && this.port.readable && this.keepReading) {
       this.reader = this.port.readable.getReader();
@@ -194,14 +175,9 @@ class TroxlerSerialService {
         }
       } catch (err: any) {
         if (err.name !== 'AbortError') {
-          // TEMPORARY: Provide friendlier FramingError message with current settings
-          const isFramingError = err.name === 'FramingError' || err.message?.includes('Framing');
-          const userMessage = isFramingError
-            ? `Framing Error: The current settings (${this.currentSettings.baudRate} baud, ${this.currentSettings.stopBits} stop bits) don't match the gauge. Please disconnect and try a different combination.`
-            : `Serial read error: ${err.message}`;
-          console.error('[TROXLER]', userMessage);
+          console.error('Troxler serial read error:', err);
           this.notifyConnectionChange('error');
-          this.notifyError(new Error(userMessage));
+          this.notifyError(err);
           this.keepReading = false;
         }
       } finally {

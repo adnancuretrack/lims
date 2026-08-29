@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { TroxlerParser } from '../TroxlerParser';
-import { extractProjectBlock } from '../TroxlerExtractor';
+import { extractProjectBlock, extractProjectBlockFromCsv } from '../TroxlerExtractor';
 
 const PROFILE_A_SOIL_FIXTURE = `***********************************
 PROJECT NUMBER:  1
@@ -14,6 +14,10 @@ WD = –    DD = –
 PR = 145.0   %PR = -
 M = +    %M = +++++
 Optional Data: 1234567890.1**`;
+
+const REAL_CSV_FIXTURE = `\fRecord,Date-Time,Project,User,Mode,Units,Location,Note,WD,DD,Moist,%Moist,%Gmb,%Voids,%Pr,%Voids-Soil,VoidRatio,Lat,Longitude,CL Side,CL Dist,Gmb Target,Gmm Target,Proctor Target,Sp Gravity,Bottom Layer Density,Top Layer Thickness,Density Offset,Moisture Offset,Trench D Offset,Trench M Offset,Model Number,Serial Number,Depth,Time,Dens Std,Moist Std,DC,MC
+8,08/27/26 10:43a,PK23-530,   ,Soil,kg/m3,16805,,2199,2095,103,4.94,NA,NA,101.01,NA,NA,+26 47 12.36,+50  1  0.78,NA,NA,NA,NA,2074,NA,NA,NA,0,0.0,0,0,3440,88136,200,15,2543,670,1040,97
+13,08/29/26  7:32a,PK23-530,   ,Soil,kg/m3,16841,,1937,1574,363,23.05,NA,NA,NA,NA,NA,+26 47 14.28,+50  1  0.89,NA,NA,NA,NA,NA,NA,NA,NA,0,0.0,0,0,3440,88136,150,15,2543,670,2370,277\r\n\f`;
 
 describe('TroxlerParser State Machine', () => {
   let parser: TroxlerParser;
@@ -100,7 +104,7 @@ Optional Data: test**`;
     expect(parser.getState()).toBe('IDLE');
   });
 
-  it('4. Malformed block — no closing ** stays in RECORDING state', async () => {
+  it('4. Malformed block — no closing ** stays in RECORDING_TEXT state', async () => {
     const incomplete = `***********************************
 PROJECT NUMBER:  1
 SN: 59441  DATE:   3/16/2000
@@ -114,7 +118,7 @@ DEPTH: 4 inches`;
       expect(res).toBeNull();
     }
 
-    expect(parser.getState()).toBe('RECORDING');
+    expect(parser.getState()).toBe('RECORDING_TEXT');
   });
 
   it('5. CR-only line endings parse identically', async () => {
@@ -180,6 +184,53 @@ Optional Data: none**`;
 
     expect(block).toBeNull();
   });
+
+  it('12. Real CSV Stream parsing (Hardware Test Log)', async () => {
+    const lines = REAL_CSV_FIXTURE.split('\n');
+    let finalBlock = null;
+
+    for (const line of lines) {
+      const res = await parser.processLine(line);
+      if (res) finalBlock = res;
+    }
+
+    expect(finalBlock).not.toBeNull();
+    expect(finalBlock?.projectId).toBe('PK23-530');
+    expect(finalBlock?.serialNum).toBe('88136');
+    expect(finalBlock?.stations).toHaveLength(2);
+
+    const sta1 = finalBlock!.stations[0];
+    expect(sta1.staNum).toBe(8);
+    expect(sta1.date).toBe('08/27/26');
+    expect(sta1.time).toBe('10:43a');
+    expect(sta1.units).toBe('kg/m3');
+    expect(sta1.wd).toBe('2199');
+    expect(sta1.dd).toBe('2095');
+    expect(sta1.pctPr).toBe('101.01');
+    expect(sta1.pr).toBe('2074');
+    expect(sta1.densCnt).toBe(1040);
+
+    const sta2 = finalBlock!.stations[1];
+    expect(sta2.staNum).toBe(13);
+    expect(sta2.wd).toBe('1937');
+    expect(sta2.dd).toBe('1574');
+    expect(sta2.m).toBe('363');
+    expect(sta2.pctM).toBe('23.05');
+    expect(sta2.densCnt).toBe(2370);
+    expect(sta2.moistCnt).toBe(277);
+  });
+
+  it('13. Standalone single CSV line processing fallback', async () => {
+    const singleCsvLine = '13,08/29/26  7:32a,PK23-530,   ,Soil,kg/m3,16841,,1937,1574,363,23.05,NA,NA,NA,NA,NA,+26 47 14.28,+50  1  0.89,NA,NA,NA,NA,NA,NA,NA,NA,0,0.0,0,0,3440,88136,150,15,2543,670,2370,277';
+    const block = await parser.processLine(singleCsvLine);
+
+    expect(block).not.toBeNull();
+    expect(block?.projectId).toBe('PK23-530');
+    expect(block?.serialNum).toBe('88136');
+    expect(block?.stations[0].staNum).toBe(13);
+    expect(block?.stations[0].wd).toBe('1937');
+    expect(block?.stations[0].dd).toBe('1574');
+  });
 });
 
 describe('TroxlerExtractor', () => {
@@ -215,4 +266,23 @@ describe('TroxlerExtractor', () => {
     const hash = await TroxlerParser.computeIntegrityHash(PROFILE_A_SOIL_FIXTURE);
     expect(hash).toMatch(/^[a-f0-9]{64}$/i);
   });
+
+  it('14. CSV Extractor — real hardware log lines extraction', () => {
+    const lines = REAL_CSV_FIXTURE.split('\n');
+    const extracted = extractProjectBlockFromCsv(lines);
+    expect(extracted).not.toBeNull();
+    expect(extracted?.projectId).toBe('PK23-530');
+    expect(extracted?.serialNum).toBe('88136');
+    expect(extracted?.stations).toHaveLength(2);
+
+    const sta = extracted!.stations[1];
+    expect(sta.staNum).toBe(13);
+    expect(sta.date).toBe('08/29/26');
+    expect(sta.time).toBe('7:32a');
+    expect(sta.wd).toBe('1937');
+    expect(sta.dd).toBe('1574');
+    expect(sta.m).toBe('363');
+    expect(sta.pctM).toBe('23.05');
+  });
 });
+

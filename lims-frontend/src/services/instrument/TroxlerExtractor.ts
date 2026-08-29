@@ -105,3 +105,117 @@ export function extractProjectBlock(
     stations,
   };
 }
+
+/**
+ * Extracts project block details and station records from CSV lines.
+ * Handles Troxler CSV stream format:
+ * Record,Date-Time,Project,User,Mode,Units,Location,Note,WD,DD,Moist,%Moist,%Gmb,%Voids,%Pr...
+ */
+export function extractProjectBlockFromCsv(
+  lines: string[]
+): Pick<TroxlerProjectBlock, 'projectId' | 'serialNum' | 'date' | 'stations'> | null {
+  const cleanLines = lines
+    .map(l => l.replace(/\f/g, '').trim())
+    .filter(Boolean);
+
+  if (cleanLines.length === 0) return null;
+
+  // Find header index
+  const headerIdx = cleanLines.findIndex(l => /^Record,Date-Time/i.test(l));
+  if (headerIdx === -1) return null;
+
+  const headerCols = cleanLines[headerIdx].split(',').map(c => c.trim().toLowerCase());
+
+  const getColIdx = (name: string) => headerCols.indexOf(name.toLowerCase());
+
+  const idxRecord = getColIdx('Record');
+  const idxDateTime = getColIdx('Date-Time');
+  const idxProject = getColIdx('Project');
+  const idxUnits = getColIdx('Units');
+  const idxWd = getColIdx('WD');
+  const idxDd = getColIdx('DD');
+  const idxMoist = getColIdx('Moist');
+  const idxPctMoist = getColIdx('%Moist');
+  const idxPctPr = getColIdx('%Pr');
+  const idxProctorTarget = getColIdx('Proctor Target');
+  const idxSerial = getColIdx('Serial Number');
+  const idxDepth = getColIdx('Depth');
+  const idxTime = getColIdx('Time');
+  const idxDensStd = getColIdx('Dens Std');
+  const idxMoistStd = getColIdx('Moist Std');
+  const idxDC = getColIdx('DC');
+  const idxMC = getColIdx('MC');
+
+  const stations: TroxlerStationRecord[] = [];
+  let projectId = 'UNKNOWN';
+  let serialNum = 'UNKNOWN';
+  let projectDate = new Date().toLocaleDateString();
+
+  for (let i = headerIdx + 1; i < cleanLines.length; i++) {
+    const line = cleanLines[i];
+    if (!line || /^Record,Date-Time/i.test(line)) continue;
+
+    const cols = line.split(',').map(c => c.trim());
+    if (cols.length < 5) continue;
+
+    const getValue = (idx: number): string | undefined => {
+      if (idx === -1 || idx >= cols.length) return undefined;
+      const val = cols[idx];
+      return val === 'NA' || val === 'N/A' || val === '' ? undefined : val;
+    };
+
+    const staNumStr = getValue(idxRecord);
+    const staNum = staNumStr ? parseInt(staNumStr, 10) : stations.length + 1;
+    if (isNaN(staNum)) continue;
+
+    const dateTimeStr = getValue(idxDateTime) || '';
+    const [dPart, ...tParts] = dateTimeStr.split(/\s+/);
+    const dateStr = dPart || projectDate;
+    const timeStr = tParts.join(' ') || '';
+
+    const proj = getValue(idxProject);
+    if (proj) projectId = proj;
+
+    const sn = getValue(idxSerial);
+    if (sn) serialNum = sn;
+
+    if (dateStr) projectDate = dateStr;
+
+    const parseNum = (idx: number, defaultVal = 0): number => {
+      const v = getValue(idx);
+      if (!v) return defaultVal;
+      const n = parseInt(v, 10);
+      return isNaN(n) ? defaultVal : n;
+    };
+
+    const station: TroxlerStationRecord = {
+      staNum,
+      time: timeStr,
+      date: dateStr,
+      depth: getValue(idxDepth) || '—',
+      timeVal: getValue(idxTime) || '—',
+      units: getValue(idxUnits) || 'kg/m3',
+      stdD: parseNum(idxDensStd),
+      stdM: parseNum(idxMoistStd),
+      densCnt: parseNum(idxDC),
+      moistCnt: parseNum(idxMC),
+      wd: getValue(idxWd),
+      dd: getValue(idxDd),
+      pr: getValue(idxProctorTarget),
+      pctPr: getValue(idxPctPr),
+      m: getValue(idxMoist),
+      pctM: getValue(idxPctMoist),
+    };
+
+    stations.push(station);
+  }
+
+  if (stations.length === 0) return null;
+
+  return {
+    projectId,
+    serialNum,
+    date: projectDate,
+    stations,
+  };
+}

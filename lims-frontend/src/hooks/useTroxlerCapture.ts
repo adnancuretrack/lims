@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import { troxlerSerialService } from '../services/instrument/TroxlerSerialService';
-import type { TroxlerUartSettings } from '../services/instrument/TroxlerSerialService';
 import type { TroxlerProjectBlock, TroxlerConnectionState } from '../services/instrument/troxlerTypes';
 
 const HISTORY_SIZE = 10;
@@ -51,11 +50,10 @@ export const useTroxlerCapture = () => {
     };
   }, []);
 
-  // TEMPORARY: Accept optional UART settings from modal dropdowns
-  const connect = useCallback(async (settings?: TroxlerUartSettings) => {
+  const connect = useCallback(async () => {
     try {
       setConnectionState(prev => ({ ...prev, status: 'connecting', errorMessage: undefined }));
-      await troxlerSerialService.connect(settings);
+      await troxlerSerialService.connect();
     } catch (err: any) {
       console.error('Failed to connect to Troxler gauge:', err);
     }
