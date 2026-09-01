@@ -112,6 +112,15 @@ class TroxlerSerialService {
 
     this.keepReading = false;
 
+    // Force finalize any in-progress CSV stream on disconnect
+    if (this.parser.getState() === 'RECORDING_CSV') {
+      const block = await this.parser.finalizeCsvBlock();
+      if (block) {
+        this.checkErasedProjectWarning(block);
+        this.notifyProjectBlock(block);
+      }
+    }
+
     if (this.reader) {
       try {
         await this.reader.cancel();
@@ -218,6 +227,17 @@ class TroxlerSerialService {
       }
 
       newlineIndex = this.tokenBuffer.indexOf('\n');
+    }
+
+    // Flush trailing form feed — the device sends \f after the last \r\n
+    // as an end-of-transmission marker without a trailing \n.
+    if (this.tokenBuffer.includes('\f')) {
+      const block = await this.parser.processLine(this.tokenBuffer);
+      this.tokenBuffer = this.tokenBuffer.replace(/\f/g, '');
+      if (block) {
+        this.checkErasedProjectWarning(block);
+        this.notifyProjectBlock(block);
+      }
     }
   }
 

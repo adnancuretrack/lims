@@ -234,12 +234,12 @@ export const TroxlerCaptureModal: React.FC<TroxlerCaptureModalProps> = ({
               <Select
                 value={selectedStaIndex}
                 onChange={v => setSelectedStaIndex(v)}
-                style={{ width: 140 }}
+                style={{ minWidth: 180 }}
                 size="small"
               >
                 {latestBlock.stations.map((st, idx) => (
                   <Select.Option key={idx} value={idx}>
-                    STA #{st.staNum} ({st.time})
+                    STA #{st.staNum} {st.location ? `— ${st.location}` : ''} ({st.time})
                   </Select.Option>
                 ))}
               </Select>

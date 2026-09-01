@@ -145,6 +145,7 @@ export function extractProjectBlockFromCsv(
   const idxMoistStd = getColIdx('Moist Std');
   const idxDC = getColIdx('DC');
   const idxMC = getColIdx('MC');
+  const idxLocation = getColIdx('Location');
 
   const stations: TroxlerStationRecord[] = [];
   let projectId = 'UNKNOWN';
@@ -205,6 +206,7 @@ export function extractProjectBlockFromCsv(
       pctPr: getValue(idxPctPr),
       m: getValue(idxMoist),
       pctM: getValue(idxPctMoist),
+      location: getValue(idxLocation),
     };
 
     stations.push(station);

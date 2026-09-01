@@ -21,6 +21,7 @@ export interface TroxlerStationRecord {
   m?: string;             // Moisture
   pctM?: string;          // %Moisture
   optData?: string;       // Optional/FHWA data
+  location?: string;      // Location column from CSV
 }
 
 /** A complete project block from a single-project memory dump */
