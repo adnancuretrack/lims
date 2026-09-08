@@ -204,7 +204,9 @@ Optional Data: none**`;
     expect(sta1.date).toBe('08/27/26');
     expect(sta1.time).toBe('10:43a');
     expect(sta1.units).toBe('kg/m3');
-    expect(sta1.location).toBe('16805');
+    expect(sta1.lat).toBe('+26 47 12.36');
+    expect(sta1.lon).toBe('+50  1  0.78');
+    expect(sta1.location).toBe('+26 47 12.36;+50  1  0.78');
     expect(sta1.wd).toBe('2199');
     expect(sta1.dd).toBe('2095');
     expect(sta1.pctPr).toBe('101.01');
@@ -213,7 +215,7 @@ Optional Data: none**`;
 
     const sta2 = finalBlock!.stations[1];
     expect(sta2.staNum).toBe(13);
-    expect(sta2.location).toBe('16841');
+    expect(sta2.location).toBe('+26 47 14.28;+50  1  0.89');
     expect(sta2.wd).toBe('1937');
     expect(sta2.dd).toBe('1574');
     expect(sta2.m).toBe('363');
@@ -230,7 +232,7 @@ Optional Data: none**`;
     expect(block?.projectId).toBe('PK23-530');
     expect(block?.serialNum).toBe('88136');
     expect(block?.stations[0].staNum).toBe(13);
-    expect(block?.stations[0].location).toBe('16841');
+    expect(block?.stations[0].location).toBe('+26 47 14.28;+50  1  0.89');
     expect(block?.stations[0].wd).toBe('1937');
     expect(block?.stations[0].dd).toBe('1574');
   });
@@ -280,7 +282,7 @@ describe('TroxlerExtractor', () => {
 
     const sta = extracted!.stations[1];
     expect(sta.staNum).toBe(13);
-    expect(sta.location).toBe('16841');
+    expect(sta.location).toBe('+26 47 14.28;+50  1  0.89');
     expect(sta.date).toBe('08/29/26');
     expect(sta.time).toBe('7:32a');
     expect(sta.wd).toBe('1937');

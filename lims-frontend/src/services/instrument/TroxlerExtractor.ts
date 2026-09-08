@@ -146,6 +146,8 @@ export function extractProjectBlockFromCsv(
   const idxDC = getColIdx('DC');
   const idxMC = getColIdx('MC');
   const idxLocation = getColIdx('Location');
+  const idxLat = getColIdx('Lat') !== -1 ? getColIdx('Lat') : getColIdx('Latitude');
+  const idxLon = getColIdx('Longitude') !== -1 ? getColIdx('Longitude') : getColIdx('Lon');
 
   const stations: TroxlerStationRecord[] = [];
   let projectId = 'UNKNOWN';
@@ -189,6 +191,19 @@ export function extractProjectBlockFromCsv(
       return isNaN(n) ? defaultVal : n;
     };
 
+    const lat = getValue(idxLat);
+    const lon = getValue(idxLon);
+    let locationVal: string | undefined = undefined;
+    if (lat && lon) {
+      locationVal = `${lat};${lon}`;
+    } else if (lat) {
+      locationVal = lat;
+    } else if (lon) {
+      locationVal = lon;
+    } else {
+      locationVal = getValue(idxLocation);
+    }
+
     const station: TroxlerStationRecord = {
       staNum,
       time: timeStr,
@@ -206,7 +221,9 @@ export function extractProjectBlockFromCsv(
       pctPr: getValue(idxPctPr),
       m: getValue(idxMoist),
       pctM: getValue(idxPctMoist),
-      location: getValue(idxLocation),
+      lat,
+      lon,
+      location: locationVal,
     };
 
     stations.push(station);

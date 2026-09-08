@@ -21,6 +21,7 @@ interface TableRowData {
   rawValue?: string;
   unit: string;
   numericValue?: number;
+  captureValue?: number | string;
 }
 
 export const TroxlerCaptureModal: React.FC<TroxlerCaptureModalProps> = ({
@@ -45,7 +46,7 @@ export const TroxlerCaptureModal: React.FC<TroxlerCaptureModalProps> = ({
     }
   }, [latestBlock]);
 
-  const handleCapture = (value: number) => {
+  const handleCapture = (value: number | string) => {
     onCapture(value);
     onClose();
   };
@@ -85,6 +86,7 @@ export const TroxlerCaptureModal: React.FC<TroxlerCaptureModalProps> = ({
     const unit = currentStation.units || 'PCF';
 
     return [
+      { key: 'location', label: 'Location (Lat;Long)', rawValue: currentStation.location, unit: 'coords', captureValue: currentStation.location },
       { key: 'wd', label: 'Wet Density (WD)', rawValue: currentStation.wd, unit, numericValue: parseNum(currentStation.wd) },
       { key: 'dd', label: 'Dry Density (DD)', rawValue: currentStation.dd, unit, numericValue: parseNum(currentStation.dd) },
       { key: 'pr', label: 'Proctor Ratio (PR)', rawValue: currentStation.pr, unit: 'PCF', numericValue: parseNum(currentStation.pr) },
@@ -123,17 +125,20 @@ export const TroxlerCaptureModal: React.FC<TroxlerCaptureModalProps> = ({
       title: 'Action',
       key: 'action',
       width: '20%',
-      render: (_: any, record: TableRowData) => (
-        <Button
-          type="primary"
-          size="small"
-          disabled={record.numericValue === undefined}
-          onClick={() => record.numericValue !== undefined && handleCapture(record.numericValue)}
-          icon={<ThunderboltOutlined />}
-        >
-          Capture
-        </Button>
-      ),
+      render: (_: any, record: TableRowData) => {
+        const valToCapture = record.captureValue ?? record.numericValue;
+        return (
+          <Button
+            type="primary"
+            size="small"
+            disabled={valToCapture === undefined}
+            onClick={() => valToCapture !== undefined && handleCapture(valToCapture)}
+            icon={<ThunderboltOutlined />}
+          >
+            Capture
+          </Button>
+        );
+      },
     },
   ];
 
