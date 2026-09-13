@@ -614,44 +614,35 @@ public class ExcelReportService {
                 int origW = origImg.getWidth();
                 int origH = origImg.getHeight();
 
-                // Calculate target cell / region dimensions in points
-                double totalWidthPoints = 0;
+                // Calculate target cell / region dimensions in pixels (approx 96 DPI)
+                double cellW = 0;
                 for (int c = startCol; c < endCol; c++) {
                     int colWidth256 = sheet.getColumnWidth(c);
-                    totalWidthPoints += (colWidth256 / 256.0) * 5.7; // ~5.7 pt per character unit
+                    cellW += (colWidth256 / 256.0) * 7.5; // ~7.5 px per character width
                 }
 
-                double totalHeightPoints = 0;
+                double cellH = 0;
                 for (int r = startRow; r < endRow; r++) {
                     Row rObj = sheet.getRow(r);
                     float h = (rObj != null && rObj.getHeightInPoints() > 0) ? rObj.getHeightInPoints() : sheet.getDefaultRowHeightInPoints();
                     if (h <= 0) h = 15.0f;
-                    totalHeightPoints += h;
+                    cellH += h * (96.0 / 72.0); // convert points to pixels (~1.333 px/pt)
                 }
 
-                if (totalWidthPoints <= 0) totalWidthPoints = 100;
-                if (totalHeightPoints <= 0) totalHeightPoints = 30;
+                if (cellW <= 0) cellW = 150;
+                if (cellH <= 0) cellH = 50;
 
-                double targetAspect = totalWidthPoints / totalHeightPoints;
-                double origAspect = (double) origW / origH;
+                // Use 2x DPI scale for sharp rendering/printing in Excel
+                double dpiScale = 2.0;
+                int canvasW = Math.max(1, (int) Math.round(cellW * dpiScale));
+                int canvasH = Math.max(1, (int) Math.round(cellH * dpiScale));
 
-                int canvasW;
-                int canvasH;
-
-                if (origAspect > targetAspect) {
-                    // Original is wider than target: fit to width, expand canvas height
-                    canvasW = origW;
-                    canvasH = (int) Math.max(origH, Math.round(canvasW / targetAspect));
-                } else {
-                    // Original is taller than target: fit to height, expand canvas width
-                    canvasH = origH;
-                    canvasW = (int) Math.max(origW, Math.round(canvasH * targetAspect));
-                }
-
-                // Add slight inner margin (e.g., 90% scaling) so signature does not touch cell borders
+                // Scale image to contain-fit within the cell canvas with 90% margin
                 double marginFactor = 0.90;
-                int drawW = Math.max(1, (int) Math.round(origW * marginFactor));
-                int drawH = Math.max(1, (int) Math.round(origH * marginFactor));
+                double scale = Math.min((double) canvasW / origW, (double) canvasH / origH) * marginFactor;
+
+                int drawW = Math.max(1, (int) Math.round(origW * scale));
+                int drawH = Math.max(1, (int) Math.round(origH * scale));
                 int drawX = (canvasW - drawW) / 2;
                 int drawY = (canvasH - drawH) / 2;
 
