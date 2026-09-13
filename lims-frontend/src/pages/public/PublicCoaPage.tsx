@@ -24,7 +24,7 @@ export default function PublicCoaPage() {
 
         const fetchPublicCoa = async () => {
             try {
-                const rawBase = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/api\/?$/, '').replaceAll(/\/$/, '');
+                const rawBase = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/api\/?$/, '').replace(/\/$/, '');
                 const response = await fetch(`${rawBase}/api/public/coa/${id}`);
 
                 if (!response.ok) {
