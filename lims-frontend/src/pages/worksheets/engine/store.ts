@@ -13,6 +13,7 @@ interface EngineState {
   updateRowValue: (sectionId: string, rowIndex: number, fieldId: string, value: any) => void;
   addRow: (sectionId: string) => void;
   removeRow: (sectionId: string, rowIndex: number) => void;
+  bulkImportRows: (sectionId: string, rows: Record<string, any>[], mode: 'append' | 'replace') => void;
   updateMatrixValue: (sectionId: string, rowHeaderId: string, columnId: string, value: any) => void;
 }
 
@@ -106,6 +107,21 @@ export const useEngineStore = create<EngineState>((set) => ({
       [sectionId]: list
     };
     
+    const nextData = recomputeAllFormulas(state.schema, newData, state.specimenStatuses);
+    const nextErrors = runAllValidations(state.schema, nextData, state.specimenStatuses);
+    return { data: nextData, errors: nextErrors };
+  }),
+
+  bulkImportRows: (sectionId, rows, mode) => set((state) => {
+    if (!state.schema) return state;
+    const existingList = [...(state.data[sectionId] || [])];
+    const list = mode === 'replace' ? [...rows] : [...existingList, ...rows];
+
+    const newData = {
+      ...state.data,
+      [sectionId]: list
+    };
+
     const nextData = recomputeAllFormulas(state.schema, newData, state.specimenStatuses);
     const nextErrors = runAllValidations(state.schema, nextData, state.specimenStatuses);
     return { data: nextData, errors: nextErrors };

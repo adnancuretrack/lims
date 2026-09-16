@@ -61,6 +61,15 @@ public class SchemaValidator {
             }
         }
 
+        if (section.containsKey("allowCsvImport") && Boolean.TRUE.equals(section.get("allowCsvImport"))) {
+            if (!"DATA_TABLE".equals(type) && !"GROUPED_TABLE".equals(type)) {
+                throw new IllegalArgumentException("Section '" + section.get("id") + "' allowCsvImport is only allowed on DATA_TABLE or GROUPED_TABLE");
+            }
+            if (Boolean.FALSE.equals(section.get("isSpecimenData"))) {
+                throw new IllegalArgumentException("Section '" + section.get("id") + "': allowCsvImport requires isSpecimenData to be true");
+            }
+        }
+
         switch (type) {
             case "SINGLE_VALUE":
             case "GROUPED_TABLE":

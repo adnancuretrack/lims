@@ -69,6 +69,7 @@ export interface SectionSchema {
   visibilityCondition?: string;
   hasMultiDaySpecimen?: boolean;
   isSpecimenData?: boolean;
+  allowCsvImport?: boolean;
   cellMappings?: Record<string, string>; // For MATRIX_TABLE: cellKey ("rowId_colId") -> systemMapping
 
   // Charting Configuration

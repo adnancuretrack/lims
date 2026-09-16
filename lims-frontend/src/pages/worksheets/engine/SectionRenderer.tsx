@@ -1,6 +1,6 @@
 import React from 'react';
 import { Form, Input, Table, Checkbox, Radio, InputNumber, Typography, Button, Space, message, Tag } from 'antd';
-import { DeleteOutlined, PlusOutlined, ApiOutlined, SearchOutlined } from '@ant-design/icons';
+import { DeleteOutlined, PlusOutlined, ApiOutlined, SearchOutlined, UploadOutlined } from '@ant-design/icons';
 import type { SectionSchema, FieldSchema } from '../../methods/designer/types';
 import { useEngineStore } from './store';
 import { evaluateCondition, evaluateFormula } from './FormulaEngine';
@@ -10,6 +10,7 @@ import { AdrCaptureModal } from '../../../components/instrument/AdrCaptureModal'
 import { NlCaptureModal } from '../../../components/instrument/NlCaptureModal';
 import { TroxlerCaptureModal } from '../../../components/instrument/TroxlerCaptureModal';
 import { EquipmentSelectionModal } from '../../../components/instrument/EquipmentSelectionModal';
+import { CsvImportModal } from '../../../components/worksheet/CsvImportModal';
 import { formatDateTime } from '../../../utils/dateUtils';
 
 const { Text } = Typography;
@@ -105,13 +106,15 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
   const schema = readOnly ? (externalSchema || storeState.schema) : storeState.schema;
   const specimenStatuses = readOnly ? (externalSpecimens || []) : (storeState.specimenStatuses || []);
 
-  const { updateFieldValue, updateRowValue, updateMatrixValue, addRow, removeRow } = storeState;
+  const { updateFieldValue, updateRowValue, updateMatrixValue, addRow, removeRow, bulkImportRows } = storeState;
 
   const [captureModalOpen, setCaptureModalOpen] = React.useState(false);
   const [captureTarget, setCaptureTarget] = React.useState<{ fieldId: string, label: string, rowIndex?: number, rowId?: string, instrumentSource?: string } | null>(null);
 
   const [equipmentModalOpen, setEquipmentModalOpen] = React.useState(false);
   const [equipmentTarget, setEquipmentTarget] = React.useState<{ rowId: string } | null>(null);
+
+  const [csvModalOpen, setCsvModalOpen] = React.useState(false);
 
   const handleSelectEquipment = (inst: any) => {
     if (!equipmentTarget) return;
@@ -177,6 +180,20 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
       );
     }
     return null;
+  };
+
+  const renderCsvModal = (rowCount: number) => {
+    if (!section.allowCsvImport) return null;
+    return (
+      <CsvImportModal
+        open={csvModalOpen}
+        onClose={() => setCsvModalOpen(false)}
+        section={section}
+        existingRowCount={rowCount}
+        specimenStatuses={specimenStatuses}
+        onImport={(rows, mode) => bulkImportRows(section.id, rows, mode)}
+      />
+    );
   };
 
   const renderFieldInput = (field: FieldSchema, value: any, onChange: (v: any) => void, rowIndex?: number, rowId?: string) => {
@@ -435,7 +452,18 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
       }));
 
       return (
-        <>
+        <Space direction="vertical" style={{ width: '100%' }}>
+          {section.allowCsvImport && !readOnly && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
+              <Button
+                icon={<UploadOutlined />}
+                onClick={() => setCsvModalOpen(true)}
+                size="small"
+              >
+                Import CSV
+              </Button>
+            </div>
+          )}
           <Table
             columns={columns}
             dataSource={dataSource}
@@ -445,7 +473,8 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
             bordered
           />
           {renderCaptureModal()}
-        </>
+          {renderCsvModal(trialLen)}
+        </Space>
       );
     } else {
       // ROWS_AS_RECORDS
@@ -609,17 +638,30 @@ export const SectionRenderer: React.FC<SectionRendererProps> = ({ section, readO
             scroll={{ x: 'max-content' }}
             bordered
           />
-          {tableData.length < maxRows && !readOnly && (
-            <Button
-              type="dashed"
-              icon={<PlusOutlined />}
-              onClick={() => addRow(section.id)}
-              style={{ width: '100%' }}
-            >
-              Add Row
-            </Button>
+          {!readOnly && (
+            <div style={{ display: 'flex', gap: 8, width: '100%' }}>
+              {tableData.length < maxRows && (
+                <Button
+                  type="dashed"
+                  icon={<PlusOutlined />}
+                  onClick={() => addRow(section.id)}
+                  style={{ flex: 1 }}
+                >
+                  Add Row
+                </Button>
+              )}
+              {section.allowCsvImport && (
+                <Button
+                  icon={<UploadOutlined />}
+                  onClick={() => setCsvModalOpen(true)}
+                >
+                  Import CSV
+                </Button>
+              )}
+            </div>
           )}
           {renderCaptureModal()}
+          {renderCsvModal(tableData.length)}
         </Space>
       );
     }

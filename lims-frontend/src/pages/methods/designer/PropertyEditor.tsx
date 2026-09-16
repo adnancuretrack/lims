@@ -292,9 +292,21 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({ onCollapse }) =>
             <Switch 
               checked={section.hasMultiDaySpecimen ? true : section.isSpecimenData !== false} 
               disabled={section.hasMultiDaySpecimen === true} 
-              onChange={v => updateSection(section.id, { isSpecimenData: v })} 
+              onChange={v => updateSection(section.id, { isSpecimenData: v, ...(!v ? { allowCsvImport: false } : {}) })} 
             />
           </Form.Item>
+
+          {(section.type === 'DATA_TABLE' || section.type === 'GROUPED_TABLE') && (section.hasMultiDaySpecimen ? true : section.isSpecimenData !== false) && (
+            <Form.Item 
+              label="Allow CSV Import" 
+              help="When enabled, analysts can upload CSV files to bulk-populate table rows or columns"
+            >
+              <Switch 
+                checked={!!section.allowCsvImport} 
+                onChange={v => updateSection(section.id, { allowCsvImport: v })} 
+              />
+            </Form.Item>
+          )}
 
           {(section.type === 'DATA_TABLE' || section.type === 'GROUPED_TABLE') && (
             <>
