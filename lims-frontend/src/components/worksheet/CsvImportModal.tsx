@@ -7,6 +7,7 @@ import {
   Table,
   Select,
   Radio,
+  Input,
   InputNumber,
   Alert,
   Tag,
@@ -31,6 +32,7 @@ import {
   InfoCircleOutlined,
   ExclamationCircleOutlined,
   WarningOutlined,
+  LinkOutlined,
 } from '@ant-design/icons';
 import * as XLSX from 'xlsx';
 import type { SectionSchema, FieldSchema } from '../../pages/methods/designer/types';
@@ -53,6 +55,10 @@ interface CsvColumnInfo {
   sampleValues: string[];
 }
 
+export type FieldMapping =
+  | { type: 'single'; columnIndex: number }
+  | { type: 'composite'; columns: number[]; separator: string };
+
 export const CsvImportModal: React.FC<CsvImportModalProps> = ({
   open,
   onClose,
@@ -74,8 +80,8 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
   const [csvColumns, setCsvColumns] = useState<CsvColumnInfo[]>([]);
   const [csvRawRows, setCsvRawRows] = useState<any[][]>([]);
 
-  // Mapping state: fieldId -> csvColumnIndex (or -1 for none)
-  const [mappings, setMappings] = useState<Record<string, number>>({});
+  // Mapping state: fieldId -> FieldMapping
+  const [mappings, setMappings] = useState<Record<string, FieldMapping>>({});
 
   // Range and mode state
   const [importMode, setImportMode] = useState<'append' | 'replace'>(
@@ -194,13 +200,37 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
   };
 
   // ----------------------------------------------------
-  // Auto-Match Heuristic
+  // Mapping Helpers & Auto-Match Heuristic
   // ----------------------------------------------------
+  const isFieldMapped = (m: FieldMapping | undefined): boolean => {
+    if (!m) return false;
+    if (m.type === 'single') return m.columnIndex !== -1;
+    return m.columns.length > 0;
+  };
+
+  const resolveMapping = (m: FieldMapping | undefined, csvRow: any[]): string | null => {
+    if (!m) return null;
+    if (m.type === 'single') {
+      const idx = m.columnIndex;
+      if (idx === -1 || idx >= csvRow.length) return null;
+      const val = csvRow[idx];
+      return val !== undefined && val !== null && String(val).trim() !== ''
+        ? String(val).trim()
+        : null;
+    }
+    // Composite
+    const parts = m.columns
+      .filter((idx) => idx >= 0 && idx < csvRow.length)
+      .map((idx) => String(csvRow[idx] ?? '').trim())
+      .filter((p) => p !== '');
+    return parts.length > 0 ? parts.join(m.separator) : null;
+  };
+
   const normalize = (str: string) =>
     str.toLowerCase().replace(/[^a-z0-9]/g, '');
 
   const runAutoMatch = (headers: string[], fields: FieldSchema[]) => {
-    const newMappings: Record<string, number> = {};
+    const newMappings: Record<string, FieldMapping> = {};
 
     fields.forEach((field) => {
       const fieldLabelNorm = normalize(field.label || '');
@@ -222,9 +252,9 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
       }
 
       if (matchIdx !== -1) {
-        newMappings[field.id] = matchIdx;
+        newMappings[field.id] = { type: 'single', columnIndex: matchIdx };
       } else {
-        newMappings[field.id] = -1;
+        newMappings[field.id] = { type: 'single', columnIndex: -1 };
       }
     });
 
@@ -232,9 +262,9 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
   };
 
   const handleClearMappings = () => {
-    const cleared: Record<string, number> = {};
+    const cleared: Record<string, FieldMapping> = {};
     targetFields.forEach((f) => {
-      cleared[f.id] = -1;
+      cleared[f.id] = { type: 'single', columnIndex: -1 };
     });
     setMappings(cleared);
   };
@@ -246,7 +276,7 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
 
   // Mapped count
   const mappedCount = useMemo(() => {
-    return Object.values(mappings).filter((v) => v !== -1 && v !== undefined).length;
+    return Object.values(mappings).filter((m) => isFieldMapped(m)).length;
   }, [mappings]);
 
   // ----------------------------------------------------
@@ -286,9 +316,9 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
         _csvRowIndex: startIndex + idx + 1,
       };
       targetFields.forEach((field) => {
-        const colIdx = mappings[field.id];
-        if (colIdx !== undefined && colIdx !== -1 && colIdx < row.length) {
-          record[field.id] = row[colIdx];
+        const m = mappings[field.id];
+        if (isFieldMapped(m)) {
+          record[field.id] = resolveMapping(m, row);
         } else {
           record[field.id] = null;
         }
@@ -320,18 +350,23 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
       const rowRecord: Record<string, any> = {};
 
       targetFields.forEach((field) => {
-        const colIdx = mappings[field.id];
-        if (colIdx !== undefined && colIdx !== -1 && colIdx < csvRow.length) {
-          const rawCell = csvRow[colIdx];
-          if (rawCell !== undefined && rawCell !== null && String(rawCell).trim() !== '') {
-            if (field.inputType === 'NUMERIC') {
-              const num = Number(rawCell);
-              rowRecord[field.id] = isNaN(num) ? rawCell : num;
-            } else if (field.inputType === 'CHECKBOX' || field.inputType === 'YES_NO') {
-              const s = String(rawCell).trim().toLowerCase();
-              rowRecord[field.id] = s === 'true' || s === '1' || s === 'yes';
+        const m = mappings[field.id];
+        if (isFieldMapped(m)) {
+          const val = resolveMapping(m, csvRow);
+          if (val !== null && val !== '') {
+            if (m.type === 'single') {
+              if (field.inputType === 'NUMERIC') {
+                const num = Number(val);
+                rowRecord[field.id] = isNaN(num) ? val : num;
+              } else if (field.inputType === 'CHECKBOX' || field.inputType === 'YES_NO') {
+                const s = val.toLowerCase();
+                rowRecord[field.id] = s === 'true' || s === '1' || s === 'yes';
+              } else {
+                rowRecord[field.id] = val;
+              }
             } else {
-              rowRecord[field.id] = String(rawCell).trim();
+              // Composite mapping produces formatted string
+              rowRecord[field.id] = val;
             }
           }
         }
@@ -540,12 +575,12 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
                 width: 50,
                 align: 'center',
                 render: (_, field) => {
-                  const mappedIdx = mappings[field.id];
-                  const isMapped = mappedIdx !== undefined && mappedIdx !== -1;
+                  const m = mappings[field.id];
+                  const active = isFieldMapped(m);
                   return (
                     <ArrowRightOutlined
                       style={{
-                        color: isMapped ? '#52c41a' : '#d9d9d9',
+                        color: active ? '#52c41a' : '#d9d9d9',
                         fontSize: 16,
                       }}
                     />
@@ -556,43 +591,162 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
                 title: 'CSV Source Column',
                 key: 'csvCol',
                 render: (_, field) => {
-                  const mappedIdx = mappings[field.id];
-                  const isMapped = mappedIdx !== undefined && mappedIdx !== -1;
+                  const m = mappings[field.id] || { type: 'single', columnIndex: -1 };
+                  const isComposite = m.type === 'composite';
+                  const active = isFieldMapped(m);
+                  const colOptions = csvColumns.map((col) => {
+                    const preview = col.sampleValues.length > 0
+                      ? ` (e.g. "${col.sampleValues[0]}")`
+                      : '';
+                    return {
+                      value: col.index,
+                      label: `${col.header}${preview}`,
+                    };
+                  });
 
                   return (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <Select
-                        showSearch
-                        optionFilterProp="label"
-                        style={{ flex: 1 }}
-                        placeholder="-- Leave blank / Do not import --"
-                        value={isMapped ? mappedIdx : undefined}
-                        onChange={(val) => {
-                          setMappings((prev) => ({
-                            ...prev,
-                            [field.id]: val !== undefined ? val : -1,
-                          }));
-                        }}
-                        allowClear
-                        onClear={() => {
-                          setMappings((prev) => ({ ...prev, [field.id]: -1 }));
-                        }}
-                        options={[
-                          ...csvColumns.map((col) => {
-                            const preview = col.sampleValues.length > 0
-                              ? ` (e.g. "${col.sampleValues[0]}")`
-                              : '';
-                            return {
-                              value: col.index,
-                              label: `${col.header}${preview}`,
-                            };
-                          }),
-                        ]}
-                      />
-                      {isMapped && (
-                        <Tooltip title="Field mapped">
-                          <CheckOutlined style={{ color: '#52c41a' }} />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        {isComposite ? (
+                          <Select
+                            mode="multiple"
+                            showSearch
+                            optionFilterProp="label"
+                            style={{ flex: 1 }}
+                            placeholder="Select 2+ CSV columns to combine..."
+                            value={m.columns}
+                            onChange={(cols: number[]) => {
+                              setMappings((prev) => ({
+                                ...prev,
+                                [field.id]: {
+                                  type: 'composite',
+                                  columns: cols,
+                                  separator: m.separator,
+                                },
+                              }));
+                            }}
+                            allowClear
+                            options={colOptions}
+                          />
+                        ) : (
+                          <Select
+                            showSearch
+                            optionFilterProp="label"
+                            style={{ flex: 1 }}
+                            placeholder="-- Leave blank / Do not import --"
+                            value={m.columnIndex !== -1 ? m.columnIndex : undefined}
+                            onChange={(val) => {
+                              setMappings((prev) => ({
+                                ...prev,
+                                [field.id]: {
+                                  type: 'single',
+                                  columnIndex: val !== undefined ? val : -1,
+                                },
+                              }));
+                            }}
+                            allowClear
+                            onClear={() => {
+                              setMappings((prev) => ({
+                                ...prev,
+                                [field.id]: { type: 'single', columnIndex: -1 },
+                              }));
+                            }}
+                            options={colOptions}
+                          />
+                        )}
+
+                        <Tooltip
+                          title={
+                            isComposite
+                              ? 'Switch back to single column mapping'
+                              : 'Combine multiple CSV columns into this field (e.g. Lat + Long)'
+                          }
+                        >
+                          <Button
+                            size="small"
+                            type={isComposite ? 'primary' : 'default'}
+                            icon={<LinkOutlined />}
+                            onClick={() => {
+                              if (isComposite) {
+                                const firstCol = m.columns.length > 0 ? m.columns[0] : -1;
+                                setMappings((prev) => ({
+                                  ...prev,
+                                  [field.id]: { type: 'single', columnIndex: firstCol },
+                                }));
+                              } else {
+                                const cols = m.columnIndex !== -1 ? [m.columnIndex] : [];
+                                setMappings((prev) => ({
+                                  ...prev,
+                                  [field.id]: {
+                                    type: 'composite',
+                                    columns: cols,
+                                    separator: ', ',
+                                  },
+                                }));
+                              }
+                            }}
+                          >
+                            {isComposite ? 'Composite' : 'Combine'}
+                          </Button>
                         </Tooltip>
+
+                        {active && (
+                          <Tooltip title="Field mapped">
+                            <CheckOutlined style={{ color: '#52c41a' }} />
+                          </Tooltip>
+                        )}
+                      </div>
+
+                      {isComposite && (
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            padding: '4px 8px',
+                            background: '#f9f9f9',
+                            borderRadius: 4,
+                            fontSize: 12,
+                          }}
+                        >
+                          <span style={{ color: '#595959', whiteSpace: 'nowrap' }}>Separator:</span>
+                          <Input
+                            size="small"
+                            style={{ width: 80 }}
+                            value={m.separator}
+                            onChange={(e) => {
+                              const sep = e.target.value;
+                              setMappings((prev) => ({
+                                ...prev,
+                                [field.id]: {
+                                  ...m,
+                                  separator: sep,
+                                },
+                              }));
+                            }}
+                            placeholder=", "
+                          />
+
+                          {csvRawRows.length > 0 && m.columns.length > 0 && (
+                            <div
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 4,
+                                marginLeft: 'auto',
+                                maxWidth: 300,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              <span style={{ color: '#8c8c8c', whiteSpace: 'nowrap' }}>Preview:</span>
+                              <Tag color="cyan" style={{ maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {resolveMapping(m, csvRawRows[0]) || '(empty)'}
+                              </Tag>
+                            </div>
+                          )}
+                        </div>
                       )}
                     </div>
                   );
@@ -751,7 +905,7 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
                   render: (val) => <Tag color="default">Row #{val}</Tag>,
                 },
                 ...targetFields
-                  .filter((f) => mappings[f.id] !== undefined && mappings[f.id] !== -1)
+                  .filter((f) => isFieldMapped(mappings[f.id]))
                   .map((f) => ({
                     title: (
                       <div>
