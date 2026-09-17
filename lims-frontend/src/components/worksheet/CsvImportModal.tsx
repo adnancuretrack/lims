@@ -84,9 +84,7 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
   const [mappings, setMappings] = useState<Record<string, FieldMapping>>({});
 
   // Range and mode state
-  const [importMode, setImportMode] = useState<'append' | 'replace'>(
-    existingRowCount > 0 ? 'append' : 'replace'
-  );
+  const [importMode, setImportMode] = useState<'append' | 'replace'>('append');
   const [startRow, setStartRow] = useState<number>(1);
   const [endRow, setEndRow] = useState<number>(1);
 
@@ -109,7 +107,7 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
     setCsvColumns([]);
     setCsvRawRows([]);
     setMappings({});
-    setImportMode(existingRowCount > 0 ? 'append' : 'replace');
+    setImportMode('append');
     setStartRow(1);
     setEndRow(1);
     onClose();
@@ -820,18 +818,23 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({
                         </div>
                       </div>
                     </Radio>
-                    <Divider style={{ margin: '6px 0' }} />
-                    <Radio
-                      value="replace"
-                      disabled={section.hasMultiDaySpecimen && authorizedSpecimens.length > 0}
-                    >
-                      <div>
-                        <Text strong>Replace existing data</Text>
-                        <div style={{ fontSize: 12, color: '#8c8c8c' }}>
-                          Discard current {existingRowCount} {unitNounPlural} and import {selectedRowCount} new {unitNounPlural}
-                        </div>
-                      </div>
-                    </Radio>
+                    {/* Replace option hidden for the time being */}
+                    {false && (
+                      <>
+                        <Divider style={{ margin: '6px 0' }} />
+                        <Radio
+                          value="replace"
+                          disabled={section.hasMultiDaySpecimen && authorizedSpecimens.length > 0}
+                        >
+                          <div>
+                            <Text strong>Replace existing data</Text>
+                            <div style={{ fontSize: 12, color: '#8c8c8c' }}>
+                              Discard current {existingRowCount} {unitNounPlural} and import {selectedRowCount} new {unitNounPlural}
+                            </div>
+                          </div>
+                        </Radio>
+                      </>
+                    )}
                   </Space>
                 </Radio.Group>
               </Card>
